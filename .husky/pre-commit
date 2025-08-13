@@ -1,0 +1,19 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔍 Running pre-commit hooks..."
+
+# Run lint-staged for file-specific linting and formatting
+npx lint-staged
+
+# Run type checking
+echo "📝 Type checking..."
+npm run type-check
+
+# Run tests if they exist
+if [ -f "jest.config.js" ] || [ -f "jest.config.ts" ]; then
+  echo "🧪 Running tests..."
+  npm test
+fi
+
+echo "✅ Pre-commit checks completed successfully!"

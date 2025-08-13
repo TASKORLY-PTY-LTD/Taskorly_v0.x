@@ -1,0 +1,60 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+.next/
+out/
+build/
+dist/
+
+# Generated files
+.env*
+*.log
+
+# Cache directories
+.cache/
+.parcel-cache/
+.nyc_output/
+coverage/
+
+# Temporary files
+.tmp/
+temp/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Version control
+.git/
+.svn/
+.hg/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Package manager lockfiles (don't format)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Compiled files
+*.min.js
+*.min.css
+
+# Database files
+*.db
+*.sqlite
+
+# Supabase
+supabase/.branches
+supabase/.temp
