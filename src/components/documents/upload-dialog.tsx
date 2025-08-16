@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useState } from "react";
+import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -8,11 +8,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { useDevApi } from "@/hooks/use-dev-api";
-import { Upload, FileText, X } from "lucide-react";
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { useDevApi } from '@/hooks/use-dev-api';
+import { Upload, FileText, X } from 'lucide-react';
 
 interface UploadDialogProps {
   children: React.ReactNode;
@@ -52,7 +52,7 @@ export function UploadDialog({ children }: UploadDialogProps) {
       setSelectedFiles([]);
       setIsOpen(false);
     } catch (error) {
-      console.error("Upload failed:", error);
+      console.error('Upload failed:', error);
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -60,42 +60,41 @@ export function UploadDialog({ children }: UploadDialogProps) {
   };
 
   const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return "0 B";
+    if (bytes === 0) return '0 B';
     const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB"];
+    const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogContent className='sm:max-w-md'>
         <DialogHeader>
           <DialogTitle>Upload Documents</DialogTitle>
           <DialogDescription>
-            Select files to add to your knowledge base. Supported formats: PDF, TXT, MD, DOCX
+            Select files to add to your knowledge base. Supported formats: PDF,
+            TXT, MD, DOCX
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className='space-y-4'>
           {/* File Input */}
-          <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
+          <div className='border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center'>
             <input
-              type="file"
+              type='file'
               multiple
-              accept=".pdf,.txt,.md,.docx"
+              accept='.pdf,.txt,.md,.docx'
               onChange={handleFileSelect}
-              className="hidden"
-              id="file-upload"
+              className='hidden'
+              id='file-upload'
               disabled={isUploading}
             />
-            <label htmlFor="file-upload" className="cursor-pointer">
-              <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-              <p className="text-sm font-medium">Click to select files</p>
-              <p className="text-xs text-muted-foreground">
+            <label htmlFor='file-upload' className='cursor-pointer'>
+              <Upload className='mx-auto h-8 w-8 text-muted-foreground mb-2' />
+              <p className='text-sm font-medium'>Click to select files</p>
+              <p className='text-xs text-muted-foreground'>
                 or drag and drop files here
               </p>
             </label>
@@ -103,29 +102,31 @@ export function UploadDialog({ children }: UploadDialogProps) {
 
           {/* Selected Files */}
           {selectedFiles.length > 0 && (
-            <div className="space-y-2 max-h-40 overflow-y-auto">
+            <div className='space-y-2 max-h-40 overflow-y-auto'>
               {selectedFiles.map((file, index) => (
                 <div
                   key={index}
-                  className="flex items-center justify-between p-2 bg-muted/50 rounded"
+                  className='flex items-center justify-between p-2 bg-muted/50 rounded'
                 >
-                  <div className="flex items-center space-x-2">
-                    <FileText className="h-4 w-4" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">{file.name}</p>
-                      <p className="text-xs text-muted-foreground">
+                  <div className='flex items-center space-x-2'>
+                    <FileText className='h-4 w-4' />
+                    <div className='min-w-0 flex-1'>
+                      <p className='text-sm font-medium truncate'>
+                        {file.name}
+                      </p>
+                      <p className='text-xs text-muted-foreground'>
                         {formatFileSize(file.size)}
                       </p>
                     </div>
                   </div>
                   <Button
-                    variant="ghost"
-                    size="icon"
+                    variant='ghost'
+                    size='icon'
                     onClick={() => removeFile(index)}
                     disabled={isUploading}
-                    className="h-6 w-6"
+                    className='h-6 w-6'
                   >
-                    <X className="h-3 w-3" />
+                    <X className='h-3 w-3' />
                   </Button>
                 </div>
               ))}
@@ -134,19 +135,19 @@ export function UploadDialog({ children }: UploadDialogProps) {
 
           {/* Upload Progress */}
           {isUploading && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
+            <div className='space-y-2'>
+              <div className='flex items-center justify-between text-sm'>
                 <span>Uploading files...</span>
                 <span>{Math.round(uploadProgress)}%</span>
               </div>
-              <Progress value={uploadProgress} className="w-full" />
+              <Progress value={uploadProgress} className='w-full' />
             </div>
           )}
 
           {/* Actions */}
-          <div className="flex justify-end space-x-2">
+          <div className='flex justify-end space-x-2'>
             <Button
-              variant="outline"
+              variant='outline'
               onClick={() => setIsOpen(false)}
               disabled={isUploading}
             >

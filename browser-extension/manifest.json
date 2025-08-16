@@ -3,20 +3,10 @@
   "name": "Taskorly - POS Assistant",
   "version": "1.0.0",
   "description": "AI-powered assistant for Point of Sale systems. Get instant help while using Square, Toast, and other POS platforms.",
-  
-  "permissions": [
-    "activeTab",
-    "storage",
-    "scripting"
-  ],
-  
-  "host_permissions": [
-    "https://squareup.com/*",
-    "https://*.squareup.com/*",
-    "https://pos.toasttab.com/*",
-    "https://*.shopify.com/admin/*",
-    "https://chat.taskorly.com/*"
-  ],
+
+  "permissions": ["activeTab", "storage", "scripting"],
+
+  "host_permissions": ["https://squareup.com/*", "https://*.squareup.com/*", "https://pos.toasttab.com/*", "https://*.shopify.com/admin/*", "https://chat.taskorly.com/*"],
 
   "background": {
     "service_worker": "background/service-worker.js"
@@ -24,12 +14,7 @@
 
   "content_scripts": [
     {
-      "matches": [
-        "https://squareup.com/*",
-        "https://*.squareup.com/*",
-        "https://pos.toasttab.com/*",
-        "https://*.shopify.com/admin/*"
-      ],
+      "matches": ["https://squareup.com/*", "https://*.squareup.com/*", "https://pos.toasttab.com/*", "https://*.shopify.com/admin/*"],
       "js": ["content-scripts/pos-detector.js", "content-scripts/overlay-injector.js"],
       "css": ["styles/overlay.css"],
       "run_at": "document_end"
@@ -56,18 +41,8 @@
 
   "web_accessible_resources": [
     {
-      "resources": [
-        "overlay/chat-widget.html",
-        "overlay/chat-widget.js",
-        "styles/*",
-        "assets/*"
-      ],
-      "matches": [
-        "https://squareup.com/*",
-        "https://*.squareup.com/*",
-        "https://pos.toasttab.com/*",
-        "https://*.shopify.com/admin/*"
-      ]
+      "resources": ["overlay/chat-widget.html", "overlay/chat-widget.js", "styles/*", "assets/*"],
+      "matches": ["https://squareup.com/*", "https://*.squareup.com/*", "https://pos.toasttab.com/*", "https://*.shopify.com/admin/*"]
     }
   ],
 

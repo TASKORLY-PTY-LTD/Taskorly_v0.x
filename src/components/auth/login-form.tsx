@@ -1,112 +1,165 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { useAuth } from "@/providers/auth-provider";
-import { User, Shield, Users, LogIn } from "lucide-react";
-
-const roleOptions = [
-  {
-    value: "admin" as const,
-    label: "Administrator",
-    description: "Full system access and management capabilities",
-    icon: Shield,
-    color: "bg-red-500 hover:bg-red-600",
-  },
-  {
-    value: "manager" as const,
-    label: "Manager",
-    description: "Moderate access with read permissions on system settings",
-    icon: Users,
-    color: "bg-blue-500 hover:bg-blue-600",
-  },
-  {
-    value: "user" as const,
-    label: "User",
-    description: "Standard user access for chat and document viewing",
-    icon: User,
-    color: "bg-green-500 hover:bg-green-600",
-  },
-];
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useAuth } from '@/providers/auth-provider';
+import { SignupForm } from './signup-form';
+import { LogIn, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 export function LoginForm() {
-  const [selectedRole, setSelectedRole] = useState<"admin" | "manager" | "user" | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  
+  const { login, isLoading } = useAuth();
 
-  const handleLogin = async () => {
-    if (!selectedRole) return;
-    
-    setIsLoading(true);
-    try {
-      await login("demo", "password", selectedRole);
-    } catch (error) {
-      console.error("Login failed:", error);
-    }
-    setIsLoading(false);
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (error) setError(''); // Clear error when user starts typing
   };
 
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.email || !formData.password) {
+      setError('Please enter both email and password');
+      return;
+    }
+
+    try {
+      await login(formData.email, formData.password);
+    } catch (error: any) {
+      setError(error.message || 'Login failed');
+    }
+  };
+
+  const handleSignupSuccess = () => {
+    // After successful signup, switch to login mode
+    setMode('login');
+    setError('');
+    setFormData({ email: '', password: '' });
+  };
+
+  if (mode === 'signup') {
+    return (
+      <div className='min-h-screen flex items-center justify-center bg-gray-50 p-4'>
+        <SignupForm 
+          onSignupSuccess={handleSignupSuccess}
+          onSwitchToLogin={() => setMode('login')}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Welcome to Taskorly</CardTitle>
+    <div className='min-h-screen flex items-center justify-center bg-gray-50 p-4'>
+      <Card className='w-full max-w-md'>
+        <CardHeader className='text-center'>
+          <CardTitle className='text-2xl font-bold'>
+            Welcome Back
+          </CardTitle>
           <CardDescription>
-            Select your role to access the RAG Chat System
+            Sign in to your Taskorly account
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-3">
-            {roleOptions.map((role) => {
-              const Icon = role.icon;
-              const isSelected = selectedRole === role.value;
-              
-              return (
-                <div
-                  key={role.value}
-                  className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                    isSelected 
-                      ? "border-primary bg-primary/5 ring-2 ring-primary/20" 
-                      : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                  }`}
-                  onClick={() => setSelectedRole(role.value)}
+        
+        <CardContent>
+          <form onSubmit={handleLogin} className='space-y-4'>
+            {/* Email */}
+            <div className='space-y-2'>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                value={formData.email}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+                disabled={isLoading}
+                required
+              />
+            </div>
+
+            {/* Password */}
+            <div className='space-y-2'>
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Enter your password"
+                  value={formData.password}
+                  onChange={(e) => handleInputChange('password', e.target.value)}
+                  className="pr-10"
+                  disabled={isLoading}
+                  required
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={isLoading}
                 >
-                  <div className="flex items-center space-x-3">
-                    <div className={`p-2 rounded-full text-white ${role.color}`}>
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2">
-                        <h3 className="font-semibold">{role.label}</h3>
-                        {isSelected && (
-                          <Badge variant="default" className="text-xs">
-                            Selected
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {role.description}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
 
-          <Button 
-            className="w-full" 
-            onClick={handleLogin}
-            disabled={!selectedRole || isLoading}
-          >
-            <LogIn className="mr-2 h-4 w-4" />
-            {isLoading ? "Logging in..." : `Login as ${selectedRole ? roleOptions.find(r => r.value === selectedRole)?.label : "Role"}`}
-          </Button>
+            {/* Error Message */}
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
 
-          <div className="text-center text-xs text-gray-500 mt-4">
-            Demo Mode - No actual authentication required
+            {/* Login Button */}
+            <Button 
+              type="submit" 
+              className='w-full' 
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                <>
+                  <LogIn className='mr-2 h-4 w-4' />
+                  Sign In
+                </>
+              )}
+            </Button>
+          </form>
+
+          {/* Switch to Signup */}
+          <div className='mt-6 text-center'>
+            <p className='text-sm text-gray-600'>
+              Don't have an account?{' '}
+              <Button
+                variant="link"
+                className="p-0 h-auto font-normal"
+                onClick={() => setMode('signup')}
+                disabled={isLoading}
+              >
+                Sign up
+              </Button>
+            </p>
           </div>
         </CardContent>
       </Card>

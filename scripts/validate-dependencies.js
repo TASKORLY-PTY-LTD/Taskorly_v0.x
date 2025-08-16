@@ -12,25 +12,25 @@ const { execSync } = require('child_process');
 // Configuration
 const REQUIRED_DEPENDENCIES = {
   // Core Next.js
-  'next': '^15.0.0',
-  'react': '^19.0.0',
+  next: '^15.0.0',
+  react: '^19.0.0',
   'react-dom': '^19.0.0',
-  
+
   // shadcn/ui essentials
   '@radix-ui/react-icons': '^1.0.0',
-  'clsx': '^2.0.0',
+  clsx: '^2.0.0',
   'tailwind-merge': '^3.0.0',
   'class-variance-authority': '^0.7.0',
   'lucide-react': '^0.400.0',
-  
+
   // Supabase (if using production auth)
   '@supabase/supabase-js': '^2.0.0',
   '@supabase/auth-helpers-nextjs': '^0.10.0',
-  
+
   // Styling
-  'tailwindcss': '^3.4.0',
-  'postcss': '^8.4.0',
-  'autoprefixer': '^10.4.0',
+  tailwindcss: '^3.4.0',
+  postcss: '^8.4.0',
+  autoprefixer: '^10.4.0',
 };
 
 const CRITICAL_FILES = [
@@ -44,8 +44,11 @@ const CRITICAL_FILES = [
 
 const DEPRECATED_CONFIGS = {
   'next.config.js': [
-    { pattern: /experimental:\s*{\s*appDir:\s*true/, message: 'appDir is no longer experimental in Next.js 15+' }
-  ]
+    {
+      pattern: /experimental:\s*{\s*appDir:\s*true/,
+      message: 'appDir is no longer experimental in Next.js 15+',
+    },
+  ],
 };
 
 class DependencyValidator {
@@ -57,14 +60,14 @@ class DependencyValidator {
 
   async validate() {
     console.log('🔍 Starting dependency validation...\n');
-    
+
     try {
       await this.loadPackageJson();
       await this.validateDependencies();
       await this.validateFiles();
       await this.validateConfigurations();
       await this.testImports();
-      
+
       this.printResults();
       return this.errors.length === 0;
     } catch (error) {
@@ -86,7 +89,7 @@ class DependencyValidator {
   async validateDependencies() {
     const allDeps = {
       ...this.packageJson.dependencies,
-      ...this.packageJson.devDependencies
+      ...this.packageJson.devDependencies,
     };
 
     // Check for missing required dependencies
@@ -101,12 +104,14 @@ class DependencyValidator {
       '@radix-ui/react-icons',
       'clsx',
       'tailwind-merge',
-      'class-variance-authority'
+      'class-variance-authority',
     ];
 
     const missingShadcnDeps = shadcnDeps.filter(dep => !allDeps[dep]);
     if (missingShadcnDeps.length > 0) {
-      this.errors.push(`Missing shadcn/ui dependencies: ${missingShadcnDeps.join(', ')}`);
+      this.errors.push(
+        `Missing shadcn/ui dependencies: ${missingShadcnDeps.join(', ')}`
+      );
     }
   }
 
@@ -124,7 +129,7 @@ class DependencyValidator {
     const nextConfigPath = path.join(process.cwd(), 'next.config.js');
     if (fs.existsSync(nextConfigPath)) {
       const content = fs.readFileSync(nextConfigPath, 'utf8');
-      
+
       for (const check of DEPRECATED_CONFIGS['next.config.js']) {
         if (check.pattern.test(content)) {
           this.warnings.push(`next.config.js: ${check.message}`);
@@ -137,7 +142,9 @@ class DependencyValidator {
     if (fs.existsSync(tailwindPath)) {
       const content = fs.readFileSync(tailwindPath, 'utf8');
       if (!content.includes('darkMode')) {
-        this.warnings.push('tailwind.config.js: Consider adding darkMode configuration');
+        this.warnings.push(
+          'tailwind.config.js: Consider adding darkMode configuration'
+        );
       }
     }
   }
@@ -147,7 +154,7 @@ class DependencyValidator {
       'import { Button } from "@/components/ui/button"',
       'import { Card } from "@/components/ui/card"',
       'import { cn } from "@/lib/utils"',
-      'import { CheckIcon } from "@radix-ui/react-icons"'
+      'import { CheckIcon } from "@radix-ui/react-icons"',
     ];
 
     // Create temporary test file
@@ -162,7 +169,9 @@ console.log('✅ All imports successful');
       execSync('node --check ' + testFile, { stdio: 'pipe' });
       console.log('✅ Import validation passed');
     } catch (error) {
-      this.errors.push('Import validation failed - check for missing dependencies');
+      this.errors.push(
+        'Import validation failed - check for missing dependencies'
+      );
     } finally {
       // Cleanup
       if (fs.existsSync(testFile)) {
@@ -174,9 +183,11 @@ console.log('✅ All imports successful');
   printResults() {
     console.log('\n📊 Validation Results:');
     console.log('─'.repeat(50));
-    
+
     if (this.errors.length === 0 && this.warnings.length === 0) {
-      console.log('✅ All validations passed! Your project is ready for development.');
+      console.log(
+        '✅ All validations passed! Your project is ready for development.'
+      );
       return;
     }
 
@@ -185,9 +196,11 @@ console.log('✅ All imports successful');
       this.errors.forEach((error, i) => {
         console.log(`  ${i + 1}. ${error}`);
       });
-      
+
       console.log('\n🔧 Quick Fix Commands:');
-      console.log('npm install @radix-ui/react-icons @supabase/auth-helpers-nextjs');
+      console.log(
+        'npm install @radix-ui/react-icons @supabase/auth-helpers-nextjs'
+      );
       console.log('# Remove appDir from next.config.js experimental options');
     }
 
@@ -199,7 +212,9 @@ console.log('✅ All imports successful');
     }
 
     console.log('\n' + '─'.repeat(50));
-    console.log(`Summary: ${this.errors.length} error(s), ${this.warnings.length} warning(s)`);
+    console.log(
+      `Summary: ${this.errors.length} error(s), ${this.warnings.length} warning(s)`
+    );
   }
 }
 
@@ -207,10 +222,10 @@ console.log('✅ All imports successful');
 class AutoFixer {
   static async fixMissingDependencies() {
     console.log('🔧 Auto-fixing missing dependencies...');
-    
+
     const missingDeps = [
       '@radix-ui/react-icons',
-      '@supabase/auth-helpers-nextjs'
+      '@supabase/auth-helpers-nextjs',
     ];
 
     try {
@@ -226,10 +241,13 @@ class AutoFixer {
     if (!fs.existsSync(configPath)) return;
 
     let content = fs.readFileSync(configPath, 'utf8');
-    
+
     // Remove deprecated appDir experimental option
-    content = content.replace(/experimental:\s*{\s*appDir:\s*true,?\s*},?\s*\n?/g, '');
-    
+    content = content.replace(
+      /experimental:\s*{\s*appDir:\s*true,?\s*},?\s*\n?/g,
+      ''
+    );
+
     fs.writeFileSync(configPath, content);
     console.log('✅ Fixed next.config.js');
   }
@@ -258,12 +276,14 @@ fi
   static addPackageScript() {
     const packagePath = path.join(process.cwd(), 'package.json');
     const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
-    
+
     packageJson.scripts = packageJson.scripts || {};
-    packageJson.scripts['validate-deps'] = 'node scripts/validate-dependencies.js';
-    packageJson.scripts['fix-deps'] = 'node scripts/validate-dependencies.js --fix';
+    packageJson.scripts['validate-deps'] =
+      'node scripts/validate-dependencies.js';
+    packageJson.scripts['fix-deps'] =
+      'node scripts/validate-dependencies.js --fix';
     packageJson.scripts['predev'] = 'npm run validate-deps';
-    
+
     fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
     console.log('✅ Added validation scripts to package.json');
   }
@@ -289,7 +309,7 @@ async function main() {
 
   const validator = new DependencyValidator();
   const isValid = await validator.validate();
-  
+
   process.exit(isValid ? 0 : 1);
 }
 

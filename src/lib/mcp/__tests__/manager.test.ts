@@ -8,19 +8,23 @@ vi.mock('@modelcontextprotocol/sdk/client/index.js', () => ({
     close: vi.fn().mockResolvedValue(undefined),
     listTools: vi.fn().mockResolvedValue({
       tools: [
-        { name: 'test-tool', description: 'Test tool', inputSchema: { type: 'object' } }
-      ]
+        {
+          name: 'test-tool',
+          description: 'Test tool',
+          inputSchema: { type: 'object' },
+        },
+      ],
     }),
-    callTool: vi.fn().mockResolvedValue({ result: 'success' })
-  }))
+    callTool: vi.fn().mockResolvedValue({ result: 'success' }),
+  })),
 }));
 
 vi.mock('@modelcontextprotocol/sdk/client/stdio.js', () => ({
-  StdioClientTransport: vi.fn().mockImplementation(() => ({}))
+  StdioClientTransport: vi.fn().mockImplementation(() => ({})),
 }));
 
 vi.mock('@modelcontextprotocol/sdk/client/sse.js', () => ({
-  SSEClientTransport: vi.fn().mockImplementation(() => ({}))
+  SSEClientTransport: vi.fn().mockImplementation(() => ({})),
 }));
 
 vi.mock('@/lib/supabase', () => ({
@@ -29,14 +33,22 @@ vi.mock('@/lib/supabase', () => ({
       select: vi.fn(() => ({
         eq: vi.fn(() => ({
           eq: vi.fn(() => ({ data: [], error: null })),
-          single: vi.fn(() => ({ data: null, error: null }))
-        }))
+          single: vi.fn(() => ({ data: null, error: null })),
+        })),
       })),
-      insert: vi.fn(() => ({ select: vi.fn(() => ({ single: vi.fn(() => ({ data: { id: 'server-1' }, error: null })) })) })),
-      update: vi.fn(() => ({ eq: vi.fn(() => ({ eq: vi.fn(() => ({ error: null })) })) })),
-      delete: vi.fn(() => ({ eq: vi.fn(() => ({ eq: vi.fn(() => ({ error: null })) })) }))
-    }))
-  }
+      insert: vi.fn(() => ({
+        select: vi.fn(() => ({
+          single: vi.fn(() => ({ data: { id: 'server-1' }, error: null })),
+        })),
+      })),
+      update: vi.fn(() => ({
+        eq: vi.fn(() => ({ eq: vi.fn(() => ({ error: null })) })),
+      })),
+      delete: vi.fn(() => ({
+        eq: vi.fn(() => ({ eq: vi.fn(() => ({ error: null })) })),
+      })),
+    })),
+  },
 }));
 
 describe('MCPManager', () => {
@@ -60,21 +72,25 @@ describe('MCPManager', () => {
   describe('initializeServers', () => {
     it('should initialize servers for tenant', async () => {
       const tenantId = 'test-tenant';
-      
+
       await manager.initializeServers(tenantId);
-      
+
       // Should not throw and complete successfully
       expect(true).toBe(true);
     });
 
     it('should handle initialization errors gracefully', async () => {
       const tenantId = 'test-tenant';
-      
+
       // Mock Supabase to return error
-      vi.mocked(vi.importActual('@/lib/supabase')).supabaseAdmin.from().select().eq().eq.mockReturnValueOnce({
-        data: null,
-        error: new Error('Database error')
-      });
+      vi.mocked(vi.importActual('@/lib/supabase'))
+        .supabaseAdmin.from()
+        .select()
+        .eq()
+        .eq.mockReturnValueOnce({
+          data: null,
+          error: new Error('Database error'),
+        });
 
       await expect(manager.initializeServers(tenantId)).resolves.not.toThrow();
     });
@@ -83,18 +99,18 @@ describe('MCPManager', () => {
   describe('getAvailableTools', () => {
     it('should return empty array when no servers connected', async () => {
       const tenantId = 'test-tenant';
-      
+
       const tools = await manager.getAvailableTools(tenantId);
-      
+
       expect(tools).toEqual([]);
     });
 
     it('should initialize servers if not connected', async () => {
       const tenantId = 'test-tenant';
       const spy = vi.spyOn(manager, 'initializeServers');
-      
+
       await manager.getAvailableTools(tenantId);
-      
+
       expect(spy).toHaveBeenCalledWith(tenantId);
     });
   });
@@ -105,8 +121,9 @@ describe('MCPManager', () => {
       const toolName = 'non-existent-tool';
       const args = {};
 
-      await expect(manager.executeTool(tenantId, toolName, args))
-        .rejects.toThrow(`Tool ${toolName} not found for tenant ${tenantId}`);
+      await expect(
+        manager.executeTool(tenantId, toolName, args)
+      ).rejects.toThrow(`Tool ${toolName} not found for tenant ${tenantId}`);
     });
   });
 
@@ -117,11 +134,11 @@ describe('MCPManager', () => {
         name: 'test-server',
         description: 'Test MCP server',
         server_command: 'node',
-        server_args: ['server.js']
+        server_args: ['server.js'],
       };
 
       const serverId = await manager.addServer(tenantId, serverConfig);
-      
+
       expect(serverId).toBe('server-1');
     });
 
@@ -130,17 +147,22 @@ describe('MCPManager', () => {
       const serverConfig = {
         name: 'test-server',
         server_command: 'node',
-        server_args: ['server.js']
+        server_args: ['server.js'],
       };
 
       // Mock database error
-      vi.mocked(vi.importActual('@/lib/supabase')).supabaseAdmin.from().insert().select().single.mockReturnValueOnce({
-        data: null,
-        error: new Error('Insert failed')
-      });
+      vi.mocked(vi.importActual('@/lib/supabase'))
+        .supabaseAdmin.from()
+        .insert()
+        .select()
+        .single.mockReturnValueOnce({
+          data: null,
+          error: new Error('Insert failed'),
+        });
 
-      await expect(manager.addServer(tenantId, serverConfig))
-        .rejects.toThrow('Failed to add server');
+      await expect(manager.addServer(tenantId, serverConfig)).rejects.toThrow(
+        'Failed to add server'
+      );
     });
   });
 
@@ -149,8 +171,9 @@ describe('MCPManager', () => {
       const tenantId = 'test-tenant';
       const serverId = 'server-1';
 
-      await expect(manager.removeServer(tenantId, serverId))
-        .resolves.not.toThrow();
+      await expect(
+        manager.removeServer(tenantId, serverId)
+      ).resolves.not.toThrow();
     });
   });
 
@@ -160,20 +183,21 @@ describe('MCPManager', () => {
       const serverId = 'server-1';
       const updates = {
         name: 'updated-server',
-        is_active: false
+        is_active: false,
       };
 
-      await expect(manager.updateServer(tenantId, serverId, updates))
-        .resolves.not.toThrow();
+      await expect(
+        manager.updateServer(tenantId, serverId, updates)
+      ).resolves.not.toThrow();
     });
   });
 
   describe('getServerHealth', () => {
     it('should return health status for servers', async () => {
       const tenantId = 'test-tenant';
-      
+
       const health = await manager.getServerHealth(tenantId);
-      
+
       expect(health).toEqual({});
     });
   });
@@ -181,16 +205,14 @@ describe('MCPManager', () => {
   describe('cleanup', () => {
     it('should cleanup connections for tenant', async () => {
       const tenantId = 'test-tenant';
-      
-      await expect(manager.cleanup(tenantId))
-        .resolves.not.toThrow();
+
+      await expect(manager.cleanup(tenantId)).resolves.not.toThrow();
     });
   });
 
   describe('cleanupAll', () => {
     it('should cleanup all connections', async () => {
-      await expect(manager.cleanupAll())
-        .resolves.not.toThrow();
+      await expect(manager.cleanupAll()).resolves.not.toThrow();
     });
   });
 });

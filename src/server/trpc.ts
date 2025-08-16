@@ -18,8 +18,11 @@ export const createTRPCContext = async (opts: { req: NextRequest }) => {
   if (token) {
     try {
       // Verify the JWT token
-      const { data: { user: authUser }, error } = await supabase.auth.getUser(token);
-      
+      const {
+        data: { user: authUser },
+        error,
+      } = await supabase.auth.getUser(token);
+
       if (authUser && !error) {
         // Get user from our database
         const { data: dbUser } = await supabaseAdmin
@@ -78,8 +81,34 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
   });
 });
 
+// Tenant procedure that requires both user and tenant
+export const tenantProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (!ctx.tenant) {
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'Tenant access required',
+    });
+  }
+  return next({
+    ctx: {
+      ...ctx,
+      tenant: ctx.tenant,
+    },
+  });
+});
+
 // Admin procedure that requires admin role
 export const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (!ctx.user || !['owner', 'admin'].includes(ctx.user.role)) {
+    throw new TRPCError({ code: 'FORBIDDEN' });
+  }
+  return next({
+    ctx,
+  });
+});
+
+// Admin tenant procedure that requires both admin role and tenant
+export const adminTenantProcedure = tenantProcedure.use(({ ctx, next }) => {
   if (!ctx.user || !['owner', 'admin'].includes(ctx.user.role)) {
     throw new TRPCError({ code: 'FORBIDDEN' });
   }

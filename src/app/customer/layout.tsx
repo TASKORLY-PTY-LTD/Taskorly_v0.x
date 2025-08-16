@@ -3,9 +3,5 @@ export default function CustomerLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <div className="customer-app">
-      {children}
-    </div>
-  );
+  return <div className='customer-app'>{children}</div>;
 }

@@ -15,8 +15,8 @@ export const supabaseAdmin: SupabaseClient<Database> = createClient(
   {
     auth: {
       autoRefreshToken: false,
-      persistSession: false
-    }
+      persistSession: false,
+    },
   }
 );
 

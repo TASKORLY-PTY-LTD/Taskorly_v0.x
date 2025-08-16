@@ -1,10 +1,13 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this
+repository.
 
 ## Project Overview
 
-**Taskorly** is a multi-tenant RAG (Retrieval Augmented Generation) chat system built with Next.js 15, featuring:
+**Taskorly** is a multi-tenant RAG (Retrieval Augmented Generation) chat system built with Next.js
+15, featuring:
+
 - **Multi-tenant Architecture**: Complete workspace isolation with Supabase RLS
 - **RAG Pipeline**: LangChain.js integration with vector embeddings and semantic search
 - **MCP Integration**: Model Context Protocol for vendor API integrations
@@ -14,6 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ### Essential Commands
+
 ```bash
 # Development
 npm run dev                 # Start development server (runs dependency validation first)
@@ -45,7 +49,9 @@ npm run fix-deps          # Fix dependency issues automatically
 ```
 
 ### Single Test Execution
+
 Tests are not yet implemented. When available, use standard Jest patterns:
+
 ```bash
 npm test -- --testNamePattern="specific test"
 npm test -- path/to/test-file.test.ts
@@ -54,6 +60,7 @@ npm test -- path/to/test-file.test.ts
 ## Architecture Overview
 
 ### Core Technology Stack
+
 - **Frontend**: Next.js 15 (App Router), React 19, TailwindCSS
 - **Backend**: tRPC for API layer, Supabase for database/auth
 - **AI/ML**: LangChain.js for RAG pipeline, OpenAI/Anthropic/Google AI
@@ -64,33 +71,41 @@ npm test -- path/to/test-file.test.ts
 ### Key Architecture Components
 
 #### 1. RAG Pipeline (`src/lib/rag/pipeline.ts`)
+
 Central processing engine for document retrieval and AI responses:
+
 - **Document Processing**: Chunking, embedding generation, vector storage
 - **Semantic Search**: Similarity-based document retrieval
 - **Streaming Responses**: Real-time AI response generation
 - **Multi-Provider Support**: OpenAI, Anthropic, Google AI models
 
-#### 2. MCP Manager (`src/lib/mcp/manager.ts`) 
+#### 2. MCP Manager (`src/lib/mcp/manager.ts`)
+
 Model Context Protocol integration for external tool access:
+
 - **Server Management**: Dynamic MCP server connections
 - **Tool Discovery**: Automatic tool enumeration and caching
 - **Client Management**: Per-tenant MCP client isolation
 - **Health Monitoring**: Connection status and error recovery
 
 #### 3. tRPC API Layer (`src/server/`)
+
 Type-safe API with four main routers:
+
 - **Chat Router** (`routers/chat.ts`): Message processing, conversation management
 - **Documents Router** (`routers/documents.ts`): Document upload, RAG processing
 - **MCP Router** (`routers/mcp.ts`): Tool execution, server management
 - **Config Router** (`routers/config.ts`): Tenant configuration, API key management
 
 #### 4. Multi-Tenant Security
+
 - **Row Level Security**: Database-level tenant isolation
 - **API Key Encryption**: AES-256-GCM for sensitive data
 - **Authentication Context**: JWT-based user sessions with tenant association
 - **Role-Based Access**: Owner/Admin/User permissions
 
 ### Database Schema Structure
+
 ```sql
 -- Core multi-tenancy
 tenants → users → tenant_configurations
@@ -111,6 +126,7 @@ usage_logs
 ## Key File Locations
 
 ### Configuration Files
+
 - `tsconfig.json` - Strict TypeScript configuration with path mapping
 - `.eslintrc.json` - ESLint rules with TypeScript support
 - `package.json` - Scripts, dependencies, and git hooks
@@ -118,6 +134,7 @@ usage_logs
 - `.env.example` - Environment variable template
 
 ### Core Libraries
+
 - `src/lib/rag/pipeline.ts` - RAG processing and LangChain integration
 - `src/lib/mcp/manager.ts` - MCP server management and tool execution
 - `src/lib/supabase.ts` - Database client configuration
@@ -125,11 +142,13 @@ usage_logs
 - `src/lib/env.ts` - Environment variable validation with T3 env
 
 ### API Routes
+
 - `src/app/api/trpc/[trpc]/route.ts` - tRPC endpoint handler
 - `src/app/api/health/route.ts` - Health check endpoint
 - `src/server/trpc.ts` - tRPC context and middleware setup
 
 ### Frontend Pages
+
 - `src/app/page.tsx` - Landing page
 - `src/app/chat/page.tsx` - Main chat interface
 - `src/app/documents/page.tsx` - Document management
@@ -139,21 +158,23 @@ usage_logs
 ## Development Patterns
 
 ### Component Architecture
+
 ```typescript
 // UI components use Radix UI + Tailwind
-import { Button } from "@/components/ui/button"
-import { Dialog } from "@/components/ui/dialog"
+import { Button } from '@/components/ui/button';
+import { Dialog } from '@/components/ui/dialog';
 
 // Feature components organized by domain
-import { ChatInput } from "@/components/chat/chat-input"
-import { DocumentTable } from "@/components/documents/document-table"
+import { ChatInput } from '@/components/chat/chat-input';
+import { DocumentTable } from '@/components/documents/document-table';
 ```
 
 ### tRPC Usage Patterns
+
 ```typescript
 // Client-side API calls
-const { data, isLoading } = trpc.chat.getConversation.useQuery({ id: "..." })
-const sendMessage = trpc.chat.sendMessage.useMutation()
+const { data, isLoading } = trpc.chat.getConversation.useQuery({ id: '...' });
+const sendMessage = trpc.chat.sendMessage.useMutation();
 
 // Server-side procedures with authentication
 export const chatRouter = createTRPCRouter({
@@ -163,16 +184,17 @@ export const chatRouter = createTRPCRouter({
       // Access authenticated user: ctx.user
       // Access tenant: ctx.tenant
     }),
-})
+});
 ```
 
 ### RAG Integration Pattern
+
 ```typescript
 // Initialize RAG pipeline with tenant config
-const ragPipeline = new RAGPipeline(tenantConfig)
+const ragPipeline = new RAGPipeline(tenantConfig);
 
 // Process documents for RAG
-await ragPipeline.processDocument(document)
+await ragPipeline.processDocument(document);
 
 // Generate responses with context
 for await (const chunk of ragPipeline.processMessage(message, conversationId)) {
@@ -181,17 +203,19 @@ for await (const chunk of ragPipeline.processMessage(message, conversationId)) {
 ```
 
 ### MCP Tool Integration
+
 ```typescript
 // Get available tools for tenant
-const tools = await mcpManager.getAvailableTools(tenantId)
+const tools = await mcpManager.getAvailableTools(tenantId);
 
 // Execute MCP tool
-const result = await mcpManager.executeTool(tenantId, toolName, args)
+const result = await mcpManager.executeTool(tenantId, toolName, args);
 ```
 
 ## Environment Setup
 
 ### Required Environment Variables
+
 ```bash
 # Database (Required)
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
@@ -210,6 +234,7 @@ GOOGLE_API_KEY=...
 ```
 
 ### Database Setup
+
 ```bash
 # Initialize Supabase locally
 supabase start
@@ -224,6 +249,7 @@ npm run db:generate
 ## Quality Standards
 
 The project enforces strict quality standards:
+
 - **TypeScript**: Strict mode with enhanced type checking
 - **ESLint**: Zero warnings policy with security plugin
 - **Prettier**: Consistent code formatting
@@ -235,6 +261,7 @@ Use `npm run quality:check` to run comprehensive quality analysis.
 ## Multi-Tenant Considerations
 
 When working with this codebase:
+
 - All database operations must respect tenant isolation
 - API endpoints require tenant context from authenticated user
 - Configuration and API keys are tenant-specific

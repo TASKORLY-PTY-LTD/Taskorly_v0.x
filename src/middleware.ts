@@ -5,7 +5,7 @@ import type { Database } from '@/types/database.types';
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
-  
+
   // In dev mode, disable auth middleware to avoid Supabase requirement
   if (process.env.NODE_ENV === 'development') {
     // Add security headers but skip auth
@@ -28,12 +28,22 @@ export async function middleware(req: NextRequest) {
   } = await supabase.auth.getSession();
 
   // Protected routes that require authentication
-  const protectedRoutes = ['/api/trpc', '/dashboard', '/chat', '/documents', '/settings'];
-  const isProtectedRoute = protectedRoutes.some(route => req.nextUrl.pathname.startsWith(route));
+  const protectedRoutes = [
+    '/api/trpc',
+    '/dashboard',
+    '/chat',
+    '/documents',
+    '/settings',
+  ];
+  const isProtectedRoute = protectedRoutes.some(route =>
+    req.nextUrl.pathname.startsWith(route)
+  );
 
   // Public API routes that don't require auth
   const publicApiRoutes = ['/api/auth', '/api/health'];
-  const isPublicApiRoute = publicApiRoutes.some(route => req.nextUrl.pathname.startsWith(route));
+  const isPublicApiRoute = publicApiRoutes.some(route =>
+    req.nextUrl.pathname.startsWith(route)
+  );
 
   // Allow public API routes
   if (isPublicApiRoute) {

@@ -1,6 +1,7 @@
 # RAG Chat System Backend
 
-A multi-tenant RAG (Retrieval Augmented Generation) based chat system with MCP (Model Context Protocol) integrations built on Next.js 14+.
+A multi-tenant RAG (Retrieval Augmented Generation) based chat system with MCP (Model Context
+Protocol) integrations built on Next.js 14+.
 
 ## Features
 
@@ -26,6 +27,7 @@ A multi-tenant RAG (Retrieval Augmented Generation) based chat system with MCP (
 ### API Endpoints
 
 #### Chat Router (`/api/trpc/chat`)
+
 - `sendMessage`: Process messages with RAG context and MCP tools
 - `getConversation`: Retrieve conversation history
 - `createConversation`: Start new conversations
@@ -35,6 +37,7 @@ A multi-tenant RAG (Retrieval Augmented Generation) based chat system with MCP (
 - `searchDocuments`: Semantic search across documents
 
 #### Documents Router (`/api/trpc/documents`)
+
 - `upload`: Single document upload with RAG processing
 - `bulkUpload`: Batch document processing
 - `list`: List documents with search and filtering
@@ -44,6 +47,7 @@ A multi-tenant RAG (Retrieval Augmented Generation) based chat system with MCP (
 - `getStats`: Document statistics
 
 #### MCP Router (`/api/trpc/mcp`)
+
 - `listTools`: Available MCP tools
 - `executeTool`: Execute MCP tool calls
 - `listServers`: MCP server configurations
@@ -55,6 +59,7 @@ A multi-tenant RAG (Retrieval Augmented Generation) based chat system with MCP (
 - API key management endpoints
 
 #### Configuration Router (`/api/trpc/config`)
+
 - `getConfig`: Tenant configuration
 - `updateConfig`: Update LLM/embedding settings (admin)
 - `getDecryptedApiKey`: Internal API key access
@@ -90,17 +95,20 @@ GOOGLE_API_KEY=your-google-key
 ### Installation
 
 1. Install dependencies:
+
 ```bash
 npm install
 ```
 
 2. Set up database:
+
 ```bash
 # Run Supabase migrations
 supabase db reset
 ```
 
 3. Start development server:
+
 ```bash
 npm run dev
 ```
@@ -123,6 +131,7 @@ npm run dev
 ### Row Level Security
 
 All tables implement RLS policies for tenant isolation:
+
 - Users can only access data from their tenant
 - Service role bypasses RLS for admin operations
 
@@ -197,6 +206,7 @@ await trpc.config.updateConfig.mutate({
 ## Monitoring
 
 ### Health Check
+
 ```
 GET /api/health
 ```
@@ -204,6 +214,7 @@ GET /api/health
 Returns database and MCP manager status.
 
 ### Usage Analytics
+
 - Token consumption tracking
 - API call monitoring
 - Error rate analysis
@@ -245,7 +256,8 @@ src/
 
 ## API Documentation
 
-Full API documentation is available via tRPC's built-in introspection. Start the dev server and visit the tRPC panel for interactive API exploration.
+Full API documentation is available via tRPC's built-in introspection. Start the dev server and
+visit the tRPC panel for interactive API exploration.
 
 ## Contributing
 

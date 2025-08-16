@@ -9,15 +9,8 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     globals: true,
     css: true,
-    include: [
-      'src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
-    ],
-    exclude: [
-      'tests/**/*',
-      'node_modules/**/*',
-      '.next/**/*',
-      'coverage/**/*',
-    ],
+    include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
+    exclude: ['tests/**/*', 'node_modules/**/*', '.next/**/*', 'coverage/**/*'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

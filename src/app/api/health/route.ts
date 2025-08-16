@@ -19,12 +19,13 @@ export async function GET() {
         .from('tenants')
         .select('id')
         .limit(1);
-      
+
       healthChecks.checks.database = !error;
       healthChecks.details.database = error ? error.message : 'Connected';
     } catch (error) {
       healthChecks.checks.database = false;
-      healthChecks.details.database = error instanceof Error ? error.message : 'Unknown error';
+      healthChecks.details.database =
+        error instanceof Error ? error.message : 'Unknown error';
     }
 
     // Check MCP manager (basic health)
@@ -34,7 +35,8 @@ export async function GET() {
       healthChecks.details.mcp = 'Manager initialized';
     } catch (error) {
       healthChecks.checks.mcp = false;
-      healthChecks.details.mcp = error instanceof Error ? error.message : 'Unknown error';
+      healthChecks.details.mcp =
+        error instanceof Error ? error.message : 'Unknown error';
     }
 
     // Overall health
@@ -47,7 +49,6 @@ export async function GET() {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
       },
     });
-
   } catch (error) {
     return NextResponse.json(
       {

@@ -35,8 +35,9 @@
 ## Deployment Configuration
 
 ### 1. Admin Dashboard (Current System)
-**Domain**: `admin.taskorly.com`
-**Routes**: `/`, `/settings`, `/servers`, `/documents`, `/analytics`
+
+**Domain**: `admin.taskorly.com` **Routes**: `/`, `/settings`, `/servers`, `/documents`,
+`/analytics`
 
 ```bash
 # Deploy admin interface
@@ -45,8 +46,8 @@ vercel deploy --prod --alias admin.taskorly.com
 ```
 
 ### 2. Customer Chat Interface
-**Domain**: `chat.taskorly.com`
-**Routes**: `/`, `/overlay`, `/embedded`
+
+**Domain**: `chat.taskorly.com` **Routes**: `/`, `/overlay`, `/embedded`
 
 ```bash
 # Deploy customer interface
@@ -55,8 +56,8 @@ vercel deploy --prod --alias chat.taskorly.com
 ```
 
 ### 3. Browser Extension
-**Distribution**: Chrome Web Store, Firefox Add-ons
-**Bundle**: Optimized for extension manifest v3
+
+**Distribution**: Chrome Web Store, Firefox Add-ons **Bundle**: Optimized for extension manifest v3
 
 ```bash
 # Build extension
@@ -68,12 +69,14 @@ npm run package:chrome
 ## Implementation Steps
 
 ### Phase 1: Current - Separate Routes
+
 - ✅ Created `/customer` route with futuristic chat UI
 - ✅ Created `/customer/overlay` for browser extension preview
 - ✅ Bypassed admin authentication for customer routes
 - ✅ Implemented shared design tokens with customer variants
 
 ### Phase 2: Separate Next.js Apps
+
 Create two distinct Next.js applications:
 
 ```
@@ -90,7 +93,7 @@ taskorly-admin/
 │   └── providers/
 │       └── auth-provider.tsx # Admin auth
 
-taskorly-customer/  
+taskorly-customer/
 ├── src/
 │   ├── app/
 │   │   ├── page.tsx          # Full-screen chat
@@ -98,12 +101,13 @@ taskorly-customer/
 │   │   └── embedded/
 │   ├── components/
 │   │   ├── customer/         # Customer components
-│   │   └── ui/               # Shared components  
+│   │   └── ui/               # Shared components
 │   └── lib/
 │       └── pos-context.ts    # POS detection
 ```
 
 ### Phase 3: Browser Extension
+
 ```
 browser-extension/
 ├── manifest.json
@@ -121,6 +125,7 @@ browser-extension/
 ## Shared Infrastructure
 
 ### Database Schema (Supabase)
+
 ```sql
 -- Shared tables
 CREATE TABLE conversations (
@@ -142,23 +147,25 @@ CREATE TABLE messages (
 ```
 
 ### API Routes (Shared)
+
 ```typescript
 // Shared tRPC router
 export const sharedRouter = createTRPCRouter({
-  chat: chatRouter,        // Used by both admin and customer
-  pos: posRouter,          // Customer-specific POS integration
+  chat: chatRouter, // Used by both admin and customer
+  pos: posRouter, // Customer-specific POS integration
   analytics: analyticsRouter, // Admin-specific analytics
 });
 ```
 
 ### Environment Configuration
+
 ```bash
 # Admin App (.env.admin)
 NEXT_PUBLIC_APP_TYPE=admin
 NEXT_PUBLIC_API_URL=https://api.taskorly.com
 NEXT_PUBLIC_ADMIN_AUTH_REQUIRED=true
 
-# Customer App (.env.customer)  
+# Customer App (.env.customer)
 NEXT_PUBLIC_APP_TYPE=customer
 NEXT_PUBLIC_API_URL=https://api.taskorly.com
 NEXT_PUBLIC_CUSTOMER_MODE=true
@@ -173,11 +180,11 @@ NEXT_PUBLIC_POS_DETECTION=true
     "dev": "next dev",
     "dev:admin": "cp .env.admin .env.local && next dev",
     "dev:customer": "cp .env.customer .env.local && next dev -p 3001",
-    
+
     "build:admin": "cp .env.admin .env.local && next build",
     "build:customer": "cp .env.customer .env.local && next build",
     "build:extension": "webpack --config webpack.extension.js",
-    
+
     "deploy:admin": "npm run build:admin && vercel deploy --prod --alias admin.taskorly.com",
     "deploy:customer": "npm run build:customer && vercel deploy --prod --alias chat.taskorly.com"
   }
@@ -187,13 +194,15 @@ NEXT_PUBLIC_POS_DETECTION=true
 ## Current Status
 
 ✅ **Implemented:**
+
 - Full-screen customer chat interface (`/customer`)
-- Overlay chat interface (`/customer/overlay`)  
+- Overlay chat interface (`/customer/overlay`)
 - Futuristic design with animated backgrounds
 - POS system context awareness (mock)
 - Separate authentication bypass for customer routes
 
 🔄 **Next Steps:**
+
 - [ ] Extract customer interface to separate Next.js app
 - [ ] Implement real POS system detection
 - [ ] Create browser extension manifest

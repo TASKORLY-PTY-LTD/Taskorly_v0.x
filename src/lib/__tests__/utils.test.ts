@@ -30,7 +30,10 @@ describe('Utils', () => {
     });
 
     it('should handle arrays and nested conditions', () => {
-      const result = cn(['btn', 'btn-primary'], { 'btn-active': true, 'btn-disabled': false });
+      const result = cn(['btn', 'btn-primary'], {
+        'btn-active': true,
+        'btn-disabled': false,
+      });
       expect(result).toBe('btn btn-primary btn-active');
     });
   });

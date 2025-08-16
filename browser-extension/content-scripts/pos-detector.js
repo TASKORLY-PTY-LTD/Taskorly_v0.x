@@ -9,23 +9,23 @@ class POSDetector {
   detectPOSSystem() {
     const hostname = window.location.hostname;
     const url = window.location.href;
-    
+
     // Square POS Detection
     if (hostname.includes('squareup.com') || hostname.includes('square.com')) {
       this.posSystem = {
         type: 'square',
         name: 'Square',
         version: this.detectSquareVersion(),
-        color: '#3E4348'
+        color: '#3E4348',
       };
     }
-    // Toast POS Detection  
+    // Toast POS Detection
     else if (hostname.includes('toasttab.com')) {
       this.posSystem = {
         type: 'toast',
         name: 'Toast POS',
         version: this.detectToastVersion(),
-        color: '#FF6B35'
+        color: '#FF6B35',
       };
     }
     // Shopify POS Detection
@@ -34,7 +34,7 @@ class POSDetector {
         type: 'shopify',
         name: 'Shopify POS',
         version: this.detectShopifyVersion(),
-        color: '#96BF48'
+        color: '#96BF48',
       };
     }
     // Generic/Unknown POS
@@ -43,7 +43,7 @@ class POSDetector {
         type: 'generic',
         name: 'POS System',
         version: 'Unknown',
-        color: '#6B7280'
+        color: '#6B7280',
       };
     }
 
@@ -57,10 +57,14 @@ class POSDetector {
     // Look for Square version indicators
     const versionEl = document.querySelector('[data-testid="app-version"]');
     if (versionEl) return versionEl.textContent;
-    
+
     const scriptTags = document.getElementsByTagName('script');
     for (let script of scriptTags) {
-      if (script.src && script.src.includes('square') && script.src.includes('v')) {
+      if (
+        script.src &&
+        script.src.includes('square') &&
+        script.src.includes('v')
+      ) {
         const match = script.src.match(/v(\d+\.\d+)/);
         if (match) return match[1];
       }
@@ -87,15 +91,23 @@ class POSDetector {
   detectGenericPOS() {
     // Generic POS system detection based on common patterns
     const posKeywords = [
-      'pos', 'point-of-sale', 'checkout', 'payment', 'register',
-      'cashier', 'transaction', 'receipt', 'inventory', 'sale'
+      'pos',
+      'point-of-sale',
+      'checkout',
+      'payment',
+      'register',
+      'cashier',
+      'transaction',
+      'receipt',
+      'inventory',
+      'sale',
     ];
-    
+
     const title = document.title.toLowerCase();
     const bodyText = document.body.textContent.toLowerCase();
-    
-    return posKeywords.some(keyword => 
-      title.includes(keyword) || bodyText.includes(keyword)
+
+    return posKeywords.some(
+      keyword => title.includes(keyword) || bodyText.includes(keyword)
     );
   }
 
@@ -109,14 +121,14 @@ class POSDetector {
       posSystem: this.posSystem.type,
       currentScreen: this.identifyCurrentScreen(),
       visibleElements: this.extractVisibleElements(),
-      userActions: this.getRecentActions()
+      userActions: this.getRecentActions(),
     };
   }
 
   identifyCurrentScreen() {
     const url = window.location.pathname;
     const title = document.title.toLowerCase();
-    
+
     // Common screen patterns
     if (url.includes('/dashboard') || title.includes('dashboard')) {
       return 'dashboard';
@@ -130,20 +142,23 @@ class POSDetector {
       return 'customers';
     } else if (url.includes('/settings') || title.includes('settings')) {
       return 'settings';
-    } else if (url.includes('/transactions') || title.includes('transactions')) {
+    } else if (
+      url.includes('/transactions') ||
+      title.includes('transactions')
+    ) {
       return 'transactions';
     }
-    
+
     return 'unknown';
   }
 
   extractVisibleElements() {
     const elements = [];
-    
+
     // Common POS UI elements
     const selectors = [
       '[data-testid*="checkout"]',
-      '[data-testid*="payment"]', 
+      '[data-testid*="payment"]',
       '[data-testid*="product"]',
       '[data-testid*="inventory"]',
       '.checkout-button',
@@ -152,7 +167,7 @@ class POSDetector {
       '.add-item-button',
       '.pos-button',
       '[class*="pos-"]',
-      '[id*="pos-"]'
+      '[id*="pos-"]',
     ];
 
     selectors.forEach(selector => {
@@ -163,7 +178,7 @@ class POSDetector {
             type: this.getElementType(el),
             text: el.textContent?.trim() || '',
             selector: selector,
-            position: this.getElementPosition(el)
+            position: this.getElementPosition(el),
           });
         }
       });
@@ -174,22 +189,27 @@ class POSDetector {
 
   isElementVisible(element) {
     const rect = element.getBoundingClientRect();
-    return rect.width > 0 && rect.height > 0 && 
-           rect.top >= 0 && rect.left >= 0 &&
-           rect.top < window.innerHeight && rect.left < window.innerWidth;
+    return (
+      rect.width > 0 &&
+      rect.height > 0 &&
+      rect.top >= 0 &&
+      rect.left >= 0 &&
+      rect.top < window.innerHeight &&
+      rect.left < window.innerWidth
+    );
   }
 
   getElementType(element) {
     const tagName = element.tagName.toLowerCase();
     const className = element.className || '';
     const testId = element.getAttribute('data-testid') || '';
-    
+
     if (tagName === 'button' || className.includes('button')) return 'button';
     if (tagName === 'input') return 'input';
     if (tagName === 'select') return 'select';
     if (testId.includes('checkout')) return 'checkout';
     if (testId.includes('payment')) return 'payment';
-    
+
     return 'element';
   }
 
@@ -197,7 +217,7 @@ class POSDetector {
     const rect = element.getBoundingClientRect();
     return {
       x: Math.round(rect.left + rect.width / 2),
-      y: Math.round(rect.top + rect.height / 2)
+      y: Math.round(rect.top + rect.height / 2),
     };
   }
 
@@ -214,8 +234,8 @@ class POSDetector {
         type: 'POS_CONTEXT_UPDATE',
         data: {
           posSystem: this.posSystem,
-          context: this.currentContext
-        }
+          context: this.currentContext,
+        },
       });
     }
 
@@ -223,7 +243,7 @@ class POSDetector {
     window.taskOrlyPOSContext = {
       posSystem: this.posSystem,
       context: this.currentContext,
-      detector: this
+      detector: this,
     };
   }
 
@@ -240,10 +260,10 @@ class POSDetector {
         }, 500);
       }
     });
-    
+
     observer.observe(document.body, {
       childList: true,
-      subtree: true
+      subtree: true,
     });
 
     // Watch for visibility changes

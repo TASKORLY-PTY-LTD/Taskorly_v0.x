@@ -12,10 +12,10 @@ beforeAll(() => {
     // Use Object.defineProperty to override read-only property in test environment
     Object.defineProperty(process.env, 'NODE_ENV', {
       value: 'test',
-      writable: true
+      writable: true,
     });
   }
-  
+
   // Validate that required test environment variables are loaded
   const requiredEnvVars = [
     'NEXT_PUBLIC_SUPABASE_URL',
@@ -23,12 +23,14 @@ beforeAll(() => {
     'SUPABASE_SERVICE_ROLE_KEY',
     'ENCRYPTION_KEY',
     'NEXTAUTH_SECRET',
-    'NEXTAUTH_URL'
+    'NEXTAUTH_URL',
   ];
 
   for (const envVar of requiredEnvVars) {
     if (!process.env[envVar]) {
-      throw new Error(`Missing required test environment variable: ${envVar}. Please ensure .env.test is configured properly.`);
+      throw new Error(
+        `Missing required test environment variable: ${envVar}. Please ensure .env.test is configured properly.`
+      );
     }
   }
 

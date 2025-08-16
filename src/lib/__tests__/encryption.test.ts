@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest';
-import { encrypt, decrypt, hash, verifyHash, generateToken } from '../encryption';
+import {
+  encrypt,
+  decrypt,
+  hash,
+  verifyHash,
+  generateToken,
+} from '../encryption';
 
 // Mock environment
 beforeAll(() => {
@@ -45,7 +51,9 @@ describe('Encryption Utils', () => {
     });
 
     it('should throw error for invalid encrypted data format', () => {
-      expect(() => decrypt('invalid-format')).toThrow('Invalid encrypted data format');
+      expect(() => decrypt('invalid-format')).toThrow(
+        'Invalid encrypted data format'
+      );
       expect(() => decrypt('only:one:colon')).toThrow();
     });
   });

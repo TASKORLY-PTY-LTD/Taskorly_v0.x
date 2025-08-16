@@ -1,6 +1,7 @@
 # Code Quality and Linting Guide
 
-This document outlines the comprehensive code quality system implemented for the RAG Chat System project.
+This document outlines the comprehensive code quality system implemented for the RAG Chat System
+project.
 
 ## Overview
 
@@ -36,6 +37,7 @@ Enhanced TypeScript configuration with strict type checking:
 ```
 
 **Key Features:**
+
 - Strict type checking enabled
 - No implicit any types allowed
 - Unused variables and parameters detection
@@ -161,22 +163,26 @@ Automatically runs on `git push`:
 The project implements several quality gates:
 
 ### Gate 1: Development (IDE)
+
 - Real-time TypeScript errors
 - ESLint warnings in editor
 - Prettier formatting on save
 - Import organization
 
 ### Gate 2: Pre-commit
+
 - Staged file linting and formatting
 - Type checking validation
 - Test execution
 
 ### Gate 3: Pre-push
+
 - Full project validation
 - Production build test
 - Security audit
 
 ### Gate 4: CI/CD (GitHub Actions)
+
 - Multi-job validation pipeline
 - Security dependency review
 - Build artifact generation
@@ -227,18 +233,21 @@ The project includes VSCode settings for:
 ### Common Issues
 
 1. **TypeScript Errors**
+
    ```bash
    npm run type-check        # Check specific errors
    # Fix types or add proper type annotations
    ```
 
 2. **ESLint Errors**
+
    ```bash
    npm run lint:strict       # See all linting issues
    npm run lint:fix          # Auto-fix what's possible
    ```
 
 3. **Formatting Issues**
+
    ```bash
    npm run format:check      # Check formatting
    npm run format            # Fix formatting
@@ -303,6 +312,7 @@ The project includes VSCode settings for:
 ### Adding New Rules
 
 1. **ESLint Rules**
+
    ```javascript
    // .eslintrc.js
    rules: {
@@ -312,6 +322,7 @@ The project includes VSCode settings for:
    ```
 
 2. **TypeScript Configuration**
+
    ```json
    // tsconfig.json
    {
@@ -325,7 +336,7 @@ The project includes VSCode settings for:
    ```javascript
    // .prettierrc.js
    module.exports = {
-     newOption: 'value'
+     newOption: 'value',
    };
    ```
 
@@ -339,10 +350,10 @@ overrides: [
   {
     files: ['src/api/**/*.ts'],
     rules: {
-      'no-console': 'off' // Allow console in API routes
-    }
-  }
-]
+      'no-console': 'off', // Allow console in API routes
+    },
+  },
+];
 ```
 
 ## Conclusion
@@ -355,4 +366,5 @@ This comprehensive quality system ensures:
 - **Maintainability** through enforced best practices
 - **Reliability** through automated testing and validation
 
-The system is designed to catch issues early in the development process, reducing bugs and improving code quality while maintaining development velocity.
+The system is designed to catch issues early in the development process, reducing bugs and improving
+code quality while maintaining development velocity.

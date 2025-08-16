@@ -36,7 +36,9 @@ requiredFiles.forEach(file => {
 });
 
 if (missingFiles.length > 0) {
-  console.log(`\n❌ Missing ${missingFiles.length} required files. Cannot proceed with tests.`);
+  console.log(
+    `\n❌ Missing ${missingFiles.length} required files. Cannot proceed with tests.`
+  );
   process.exit(1);
 }
 
@@ -65,7 +67,9 @@ requiredDeps.forEach(dep => {
 });
 
 if (missingDeps.length > 0) {
-  console.log(`\n⚠️  Missing ${missingDeps.length} dependencies. Run 'npm install' first.`);
+  console.log(
+    `\n⚠️  Missing ${missingDeps.length} dependencies. Run 'npm install' first.`
+  );
 }
 
 // Check TypeScript compilation
@@ -83,11 +87,13 @@ try {
 console.log('\n🌍 Checking environment configuration...');
 if (fs.existsSync('.env.example')) {
   console.log('✅ .env.example present');
-  
+
   if (fs.existsSync('.env.local')) {
     console.log('✅ .env.local exists (configure with your values)');
   } else {
-    console.log('⚠️  .env.local not found (copy from .env.example and configure)');
+    console.log(
+      '⚠️  .env.local not found (copy from .env.example and configure)'
+    );
   }
 } else {
   console.log('❌ .env.example missing');
@@ -111,9 +117,22 @@ apiRoutes.forEach(route => {
 // Check database migration
 console.log('\n🗄️  Checking database migration...');
 if (fs.existsSync('supabase/migrations/001_initial_schema.sql')) {
-  const migration = fs.readFileSync('supabase/migrations/001_initial_schema.sql', 'utf8');
-  const requiredTables = ['tenants', 'users', 'conversations', 'messages', 'documents', 'document_chunks', 'mcp_servers', 'api_keys', 'usage_logs'];
-  
+  const migration = fs.readFileSync(
+    'supabase/migrations/001_initial_schema.sql',
+    'utf8'
+  );
+  const requiredTables = [
+    'tenants',
+    'users',
+    'conversations',
+    'messages',
+    'documents',
+    'document_chunks',
+    'mcp_servers',
+    'api_keys',
+    'usage_logs',
+  ];
+
   requiredTables.forEach(table => {
     if (migration.includes(`CREATE TABLE ${table}`)) {
       console.log(`✅ ${table} table`);
@@ -125,11 +144,15 @@ if (fs.existsSync('supabase/migrations/001_initial_schema.sql')) {
 
 console.log('\n🎉 Backend structure validation complete!');
 console.log('\n📋 Next steps:');
-console.log('1. Copy .env.example to .env.local and configure your environment variables');
+console.log(
+  '1. Copy .env.example to .env.local and configure your environment variables'
+);
 console.log('2. Set up your Supabase project and run the migrations');
 console.log('3. Install dependencies: npm install');
 console.log('4. Start the development server: npm run dev');
-console.log('5. Test the health endpoint: curl http://localhost:3000/api/health');
+console.log(
+  '5. Test the health endpoint: curl http://localhost:3000/api/health'
+);
 
 console.log('\n🔧 Development commands:');
 console.log('- npm run dev: Start development server');
@@ -138,6 +161,8 @@ console.log('- npm run type-check: Check TypeScript types');
 
 console.log('\n📚 Documentation:');
 console.log('- README.md: Complete setup and usage guide');
-console.log('- API documentation available at tRPC introspection endpoint when running');
+console.log(
+  '- API documentation available at tRPC introspection endpoint when running'
+);
 
 console.log('\n✨ Your RAG Chat System backend is ready for development!');

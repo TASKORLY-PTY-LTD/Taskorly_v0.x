@@ -26,7 +26,8 @@ export interface MCPServer {
 }
 
 export class MCPManager {
-  private connectedServers: Map<string, { server: MCPServer; client: Client }> = new Map();
+  private connectedServers: Map<string, { server: MCPServer; client: Client }> =
+    new Map();
   private availableTools: Map<string, MCPTool[]> = new Map();
 
   constructor() {
@@ -55,7 +56,10 @@ export class MCPManager {
         try {
           await this.connectToServer(tenantId, server);
         } catch (error) {
-          console.error(`Failed to connect to MCP server ${server.name}:`, error);
+          console.error(
+            `Failed to connect to MCP server ${server.name}:`,
+            error
+          );
         }
       }
     } catch (error) {
@@ -66,9 +70,12 @@ export class MCPManager {
   /**
    * Connect to a specific MCP server
    */
-  private async connectToServer(tenantId: string, serverConfig: any): Promise<void> {
+  private async connectToServer(
+    tenantId: string,
+    serverConfig: any
+  ): Promise<void> {
     const cacheKey = `${tenantId}:${serverConfig.id}`;
-    
+
     // Skip if already connected
     if (this.connectedServers.has(cacheKey)) {
       return;
@@ -93,20 +100,25 @@ export class MCPManager {
           },
         });
       } else {
-        throw new Error(`Invalid server configuration for ${serverConfig.name}`);
+        throw new Error(
+          `Invalid server configuration for ${serverConfig.name}`
+        );
       }
 
       // Create and connect client
-      client = new Client({
-        name: `taskorly-client-${tenantId}`,
-        version: '1.0.0',
-      }, {
-        capabilities: {
-          tools: {},
-          resources: {},
-          prompts: {},
+      client = new Client(
+        {
+          name: `taskorly-client-${tenantId}`,
+          version: '1.0.0',
         },
-      });
+        {
+          capabilities: {
+            tools: {},
+            resources: {},
+            prompts: {},
+          },
+        }
+      );
 
       await client.connect(transport);
 
@@ -130,8 +142,11 @@ export class MCPManager {
 
       console.log(`Connected to MCP server: ${serverConfig.name}`);
     } catch (error) {
-      console.error(`Error connecting to MCP server ${serverConfig.name}:`, error);
-      
+      console.error(
+        `Error connecting to MCP server ${serverConfig.name}:`,
+        error
+      );
+
       // Clean up on error
       if (client) {
         try {
@@ -154,7 +169,7 @@ export class MCPManager {
     }
 
     const allTools: MCPTool[] = [];
-    
+
     for (const [cacheKey, tools] of this.availableTools.entries()) {
       if (cacheKey.startsWith(`${tenantId}:`)) {
         allTools.push(...tools);
@@ -173,13 +188,13 @@ export class MCPManager {
     args: any
   ): Promise<any> {
     const cacheKey = this.findServerForTool(tenantId, toolName);
-    
+
     if (!cacheKey) {
       throw new Error(`Tool ${toolName} not found for tenant ${tenantId}`);
     }
 
     const connection = this.connectedServers.get(cacheKey);
-    
+
     if (!connection) {
       throw new Error(`No connection found for tool ${toolName}`);
     }
@@ -238,8 +253,10 @@ export class MCPManager {
       try {
         await this.connectToServer(tenantId, server);
       } catch (connectionError) {
-        console.warn(`Server added but connection failed: ${(connectionError as Error).message}`);
-        
+        console.warn(
+          `Server added but connection failed: ${(connectionError as Error).message}`
+        );
+
         // Mark server as inactive if connection fails
         await supabaseAdmin
           .from('mcp_servers')
@@ -259,7 +276,7 @@ export class MCPManager {
    */
   async removeServer(tenantId: string, serverId: string): Promise<void> {
     const cacheKey = `${tenantId}:${serverId}`;
-    
+
     try {
       // Close connection if exists
       const connection = this.connectedServers.get(cacheKey);
@@ -320,7 +337,7 @@ export class MCPManager {
       if (updates.is_active === false) {
         const cacheKey = `${tenantId}:${serverId}`;
         const connection = this.connectedServers.get(cacheKey);
-        
+
         if (connection) {
           await connection.client.close();
           this.connectedServers.delete(cacheKey);
@@ -328,7 +345,11 @@ export class MCPManager {
         }
       }
       // If server was activated or config changed, reconnect
-      else if (updates.is_active === true || updates.server_url || updates.server_command) {
+      else if (
+        updates.is_active === true ||
+        updates.server_url ||
+        updates.server_command
+      ) {
         // Get updated server config
         const { data: server } = await supabaseAdmin
           .from('mcp_servers')
@@ -340,7 +361,7 @@ export class MCPManager {
           // Disconnect existing if any
           const cacheKey = `${tenantId}:${serverId}`;
           const existingConnection = this.connectedServers.get(cacheKey);
-          
+
           if (existingConnection) {
             await existingConnection.client.close();
             this.connectedServers.delete(cacheKey);
@@ -360,7 +381,16 @@ export class MCPManager {
   /**
    * Get server status and health
    */
-  async getServerHealth(tenantId: string): Promise<Record<string, { status: 'connected' | 'disconnected' | 'error'; toolCount: number; lastError?: string }>> {
+  async getServerHealth(tenantId: string): Promise<
+    Record<
+      string,
+      {
+        status: 'connected' | 'disconnected' | 'error';
+        toolCount: number;
+        lastError?: string;
+      }
+    >
+  > {
     const health: Record<string, any> = {};
 
     // Get all servers for tenant
@@ -375,7 +405,11 @@ export class MCPManager {
       const tools = this.availableTools.get(cacheKey) || [];
 
       health[server.name] = {
-        status: connection ? 'connected' : (server.is_active ? 'disconnected' : 'error'),
+        status: connection
+          ? 'connected'
+          : server.is_active
+            ? 'disconnected'
+            : 'error',
         toolCount: tools.length,
       };
     }
@@ -437,7 +471,10 @@ export class MCPManager {
 
   private findServerForTool(tenantId: string, toolName: string): string | null {
     for (const [cacheKey, tools] of this.availableTools.entries()) {
-      if (cacheKey.startsWith(`${tenantId}:`) && tools.some(tool => tool.name === toolName)) {
+      if (
+        cacheKey.startsWith(`${tenantId}:`) &&
+        tools.some(tool => tool.name === toolName)
+      ) {
         return cacheKey;
       }
     }

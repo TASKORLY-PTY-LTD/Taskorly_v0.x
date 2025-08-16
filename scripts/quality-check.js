@@ -27,23 +27,25 @@ function log(message, color = colors.reset) {
 
 function runCommand(command, description, options = {}) {
   const { ignoreErrors = false, silent = false } = options;
-  
+
   try {
     log(`\n${colors.blue}➤ ${description}${colors.reset}`);
-    const output = execSync(command, { 
+    const output = execSync(command, {
       encoding: 'utf8',
-      stdio: silent ? 'pipe' : 'inherit'
+      stdio: silent ? 'pipe' : 'inherit',
     });
-    
+
     if (silent) {
       return { success: true, output };
     }
-    
-    log(`${colors.green}✓ ${description} completed successfully${colors.reset}`);
+
+    log(
+      `${colors.green}✓ ${description} completed successfully${colors.reset}`
+    );
     return { success: true };
   } catch (error) {
     const message = `✗ ${description} failed`;
-    
+
     if (ignoreErrors) {
       log(`${colors.yellow}⚠ ${message} (ignored)${colors.reset}`);
       return { success: false, ignored: true, error };
@@ -68,8 +70,10 @@ function checkFileExists(filePath, description) {
 }
 
 async function main() {
-  log(`${colors.bold}${colors.cyan}🔍 RAG Chat System - Comprehensive Quality Check${colors.reset}\n`);
-  
+  log(
+    `${colors.bold}${colors.cyan}🔍 RAG Chat System - Comprehensive Quality Check${colors.reset}\n`
+  );
+
   const results = {
     configFiles: 0,
     typeCheck: false,
@@ -104,22 +108,32 @@ async function main() {
 
   // 3. ESLint
   log(`\n${colors.bold}🔍 ESLint Code Quality${colors.reset}`);
-  const lintResult = runCommand('npm run lint:strict', 'ESLint strict checking');
+  const lintResult = runCommand(
+    'npm run lint:strict',
+    'ESLint strict checking'
+  );
   results.lint = lintResult.success;
 
   // 4. Prettier formatting
   log(`\n${colors.bold}🎨 Prettier Code Formatting${colors.reset}`);
-  const formatResult = runCommand('npm run format:check', 'Prettier format checking');
+  const formatResult = runCommand(
+    'npm run format:check',
+    'Prettier format checking'
+  );
   results.format = formatResult.success;
 
   // 5. Security audit
   log(`\n${colors.bold}🛡️ Security Audit${colors.reset}`);
-  const securityResult = runCommand('npm audit --audit-level=high', 'Security vulnerability check', { ignoreErrors: true });
+  const securityResult = runCommand(
+    'npm audit --audit-level=high',
+    'Security vulnerability check',
+    { ignoreErrors: true }
+  );
   results.security = securityResult.success || securityResult.ignored;
 
   // 6. Build test
   log(`\n${colors.bold}🏗️ Build Test${colors.reset}`);
-  
+
   // Create temporary environment for build
   const envContent = `
 NEXT_PUBLIC_SUPABASE_URL=https://test.supabase.co
@@ -132,7 +146,7 @@ NODE_ENV=development
 `.trim();
 
   fs.writeFileSync('.env.local', envContent);
-  
+
   try {
     const buildResult = runCommand('npm run build', 'Production build test');
     results.build = buildResult.success;
@@ -145,15 +159,22 @@ NODE_ENV=development
 
   // 7. Tests
   log(`\n${colors.bold}🧪 Test Suite${colors.reset}`);
-  const testResult = runCommand('npm test', 'Running test suite', { ignoreErrors: true });
+  const testResult = runCommand('npm test', 'Running test suite', {
+    ignoreErrors: true,
+  });
   results.tests = testResult.success;
 
   // Generate report
-  log(`\n${colors.bold}${colors.magenta}📊 Quality Check Report${colors.reset}`);
+  log(
+    `\n${colors.bold}${colors.magenta}📊 Quality Check Report${colors.reset}`
+  );
   log('═'.repeat(50));
-  
+
   const checks = [
-    [`Configuration Files (${results.configFiles}/${configFiles.length})`, results.configFiles === configFiles.length],
+    [
+      `Configuration Files (${results.configFiles}/${configFiles.length})`,
+      results.configFiles === configFiles.length,
+    ],
     ['TypeScript Type Check', results.typeCheck],
     ['ESLint Code Quality', results.lint],
     ['Prettier Formatting', results.format],
@@ -170,21 +191,29 @@ NODE_ENV=development
   });
 
   log('═'.repeat(50));
-  
+
   const score = Math.round((passedChecks / checks.length) * 100);
-  const scoreColor = score >= 80 ? colors.green : score >= 60 ? colors.yellow : colors.red;
-  
-  log(`${colors.bold}Overall Score: ${scoreColor}${score}%${colors.reset} (${passedChecks}/${checks.length} checks passed)`);
+  const scoreColor =
+    score >= 80 ? colors.green : score >= 60 ? colors.yellow : colors.red;
+
+  log(
+    `${colors.bold}Overall Score: ${scoreColor}${score}%${colors.reset} (${passedChecks}/${checks.length} checks passed)`
+  );
 
   // Recommendations
   if (score < 100) {
     log(`\n${colors.bold}${colors.yellow}💡 Recommendations:${colors.reset}`);
-    
-    if (!results.typeCheck) log('• Fix TypeScript type errors before proceeding');
+
+    if (!results.typeCheck)
+      log('• Fix TypeScript type errors before proceeding');
     if (!results.lint) log('• Address ESLint warnings and errors');
     if (!results.format) log('• Run "npm run format" to fix formatting issues');
-    if (!results.security) log('• Review and update dependencies with security vulnerabilities');
-    if (!results.build) log('• Fix build errors and ensure all dependencies are properly configured');
+    if (!results.security)
+      log('• Review and update dependencies with security vulnerabilities');
+    if (!results.build)
+      log(
+        '• Fix build errors and ensure all dependencies are properly configured'
+      );
     if (!results.tests) log('• Implement and ensure all tests pass');
   }
 
@@ -200,15 +229,22 @@ NODE_ENV=development
 
   // Exit with appropriate code
   if (score >= 80) {
-    log(`\n${colors.green}${colors.bold}🎉 Quality check passed! Your code meets the quality standards.${colors.reset}`);
+    log(
+      `\n${colors.green}${colors.bold}🎉 Quality check passed! Your code meets the quality standards.${colors.reset}`
+    );
     process.exit(0);
   } else {
-    log(`\n${colors.red}${colors.bold}❌ Quality check failed. Please address the issues above.${colors.reset}`);
+    log(
+      `\n${colors.red}${colors.bold}❌ Quality check failed. Please address the issues above.${colors.reset}`
+    );
     process.exit(1);
   }
 }
 
 main().catch(error => {
-  console.error(`${colors.red}Error running quality check:${colors.reset}`, error);
+  console.error(
+    `${colors.red}Error running quality check:${colors.reset}`,
+    error
+  );
   process.exit(1);
 });

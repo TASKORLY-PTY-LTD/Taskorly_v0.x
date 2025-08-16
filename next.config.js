@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  webpack: (config) => {
+  webpack: config => {
     // Handle node modules that don't work in the browser
     config.resolve.fallback = {
       ...config.resolve.fallback,

@@ -7,10 +7,10 @@ class TaskorlyOverlayInjector {
     this.overlay = null;
     this.isVisible = false;
     this.posContext = null;
-    
+
     // Listen for POS context updates
     this.setupContextListener();
-    
+
     // Initialize overlay after page load
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => this.injectOverlay());
@@ -21,7 +21,7 @@ class TaskorlyOverlayInjector {
 
   setupContextListener() {
     // Listen for context updates from POS detector
-    window.addEventListener('message', (event) => {
+    window.addEventListener('message', event => {
       if (event.data.type === 'TASKORLY_POS_UPDATE') {
         this.posContext = event.data.context;
         this.updateOverlayContext();
@@ -53,10 +53,10 @@ class TaskorlyOverlayInjector {
 
     // Create chat widget
     this.createChatWidget();
-    
+
     // Inject CSS
     this.injectStyles();
-    
+
     // Add to page
     document.body.appendChild(this.overlay);
     this.isInjected = true;
@@ -285,7 +285,7 @@ class TaskorlyOverlayInjector {
     // Input handlers
     const input = inputContainer.querySelector('#taskorly-input');
     const sendButton = inputContainer.querySelector('#taskorly-send');
-    
+
     const sendMessage = () => {
       const text = input.value.trim();
       if (text) {
@@ -295,7 +295,7 @@ class TaskorlyOverlayInjector {
     };
 
     sendButton.addEventListener('click', sendMessage);
-    input.addEventListener('keypress', (e) => {
+    input.addEventListener('keypress', e => {
       if (e.key === 'Enter') sendMessage();
     });
 
@@ -317,12 +317,12 @@ class TaskorlyOverlayInjector {
     `;
 
     const isUser = role === 'user';
-    const avatar = isUser ? 
-      `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+    const avatar = isUser
+      ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
         <circle cx="12" cy="7" r="4"/>
-      </svg>` :
-      `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+      </svg>`
+      : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
         <path d="M12 8V4H8"/>
         <rect width="16" height="12" x="4" y="8" rx="2"/>
       </svg>`;
@@ -352,9 +352,10 @@ class TaskorlyOverlayInjector {
           border-radius: 12px;
           font-size: 14px;
           line-height: 1.4;
-          ${isUser ? 
-            'background: linear-gradient(135deg, #10b981, #059669); color: white;' :
-            'background: rgba(30, 41, 59, 0.8); color: #e2e8f0; border: 1px solid rgba(100, 116, 139, 0.3);'
+          ${
+            isUser
+              ? 'background: linear-gradient(135deg, #10b981, #059669); color: white;'
+              : 'background: rgba(30, 41, 59, 0.8); color: #e2e8f0; border: 1px solid rgba(100, 116, 139, 0.3);'
           }
         ">
           ${content}
@@ -368,15 +369,18 @@ class TaskorlyOverlayInjector {
 
   handleUserMessage(content) {
     this.addMessage('user', content);
-    
+
     // Show typing indicator
     this.showTypingIndicator();
-    
+
     // Simulate response delay
-    setTimeout(() => {
-      this.hideTypingIndicator();
-      this.addMessage('assistant', this.generateResponse(content));
-    }, 1000 + Math.random() * 1000);
+    setTimeout(
+      () => {
+        this.hideTypingIndicator();
+        this.addMessage('assistant', this.generateResponse(content));
+      },
+      1000 + Math.random() * 1000
+    );
   }
 
   showTypingIndicator() {
@@ -385,7 +389,7 @@ class TaskorlyOverlayInjector {
       display: flex;
       justify-content: flex-start;
     `;
-    
+
     this.typingIndicator.innerHTML = `
       <div style="display: flex; align-items: flex-start; gap: 8px;">
         <div style="
@@ -417,7 +421,7 @@ class TaskorlyOverlayInjector {
         </div>
       </div>
     `;
-    
+
     this.messagesContainer.appendChild(this.typingIndicator);
     this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
   }
@@ -431,7 +435,7 @@ class TaskorlyOverlayInjector {
 
   generateResponse(userInput) {
     const input = userInput.toLowerCase();
-    
+
     if (input.includes('refund')) {
       return 'To process a refund: Go to Transactions → Find the sale → Click Refund → Choose amount → Process. Need help finding a specific transaction?';
     } else if (input.includes('payment') || input.includes('terminal')) {
@@ -441,30 +445,31 @@ class TaskorlyOverlayInjector {
     } else if (input.includes('inventory')) {
       return 'For inventory management: Items & Orders → Items → View your products. You can edit stock levels, set low stock alerts, and track variants here.';
     } else if (input.includes('report') || input.includes('sales')) {
-      return 'To view sales reports: Reports → Choose date range → Select report type. I can help you understand any specific metrics you\'re seeing.';
+      return "To view sales reports: Reports → Choose date range → Select report type. I can help you understand any specific metrics you're seeing.";
     }
-    
+
     const systemName = this.getSystemDisplayName();
     return `I can help with that! Based on your ${systemName} setup, what specifically would you like assistance with?`;
   }
 
   getWelcomeMessage() {
     const systemName = this.getSystemDisplayName();
-    const currentScreen = this.posContext?.context?.currentScreen || 'dashboard';
-    
+    const currentScreen =
+      this.posContext?.context?.currentScreen || 'dashboard';
+
     return `Hi! I can see you're using ${systemName} on the ${currentScreen} screen. How can I help you today?`;
   }
 
   getSystemDisplayName(system = null) {
-    const posType = system || (this.posContext?.posSystem?.type) || 'POS';
-    
+    const posType = system || this.posContext?.posSystem?.type || 'POS';
+
     const displayNames = {
-      'square': 'Square',
-      'toast': 'Toast POS', 
-      'shopify': 'Shopify POS',
-      'generic': 'POS System'
+      square: 'Square',
+      toast: 'Toast POS',
+      shopify: 'Shopify POS',
+      generic: 'POS System',
     };
-    
+
     return displayNames[posType] || 'POS System';
   }
 
@@ -523,7 +528,7 @@ class TaskorlyOverlayInjector {
         background: rgba(100, 116, 139, 0.7);
       }
     `;
-    
+
     document.head.appendChild(style);
   }
 }

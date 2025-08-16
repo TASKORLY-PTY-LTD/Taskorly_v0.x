@@ -83,7 +83,9 @@ export class RAGPipeline {
         });
         break;
       default:
-        throw new Error(`Unsupported LLM provider: ${this.config.llm_provider}`);
+        throw new Error(
+          `Unsupported LLM provider: ${this.config.llm_provider}`
+        );
     }
   }
 
@@ -119,20 +121,23 @@ export class RAGPipeline {
     try {
       // Split document into chunks
       const chunks = await this.textSplitter.splitText(document.content);
-      
+
       // Create Document objects with metadata
-      const docs = chunks.map((chunk, index) => new Document({
-        pageContent: chunk,
-        metadata: {
-          document_id: document.id,
-          tenant_id: document.tenant_id,
-          title: document.title,
-          content_type: document.content_type,
-          source_url: document.source_url,
-          chunk_index: index,
-          ...document.metadata,
-        },
-      }));
+      const docs = chunks.map(
+        (chunk, index) =>
+          new Document({
+            pageContent: chunk,
+            metadata: {
+              document_id: document.id,
+              tenant_id: document.tenant_id,
+              title: document.title,
+              content_type: document.content_type,
+              source_url: document.source_url,
+              chunk_index: index,
+              ...document.metadata,
+            },
+          })
+      );
 
       // Add documents to vector store
       await this.vectorStore.addDocuments(docs);
@@ -158,7 +163,9 @@ export class RAGPipeline {
       return chunks.length;
     } catch (error) {
       console.error('Error processing document:', error);
-      throw new Error(`Failed to process document: ${(error as Error).message}`);
+      throw new Error(
+        `Failed to process document: ${(error as Error).message}`
+      );
     }
   }
 
@@ -193,7 +200,9 @@ export class RAGPipeline {
         }));
     } catch (error) {
       console.error('Error searching documents:', error);
-      throw new Error(`Failed to search documents: ${(error as Error).message}`);
+      throw new Error(
+        `Failed to search documents: ${(error as Error).message}`
+      );
     }
   }
 
@@ -208,7 +217,7 @@ export class RAGPipeline {
     try {
       // 1. Retrieve relevant context
       const relevantDocs = await this.searchDocuments(message, 5, 0.7);
-      
+
       if (relevantDocs.length > 0) {
         yield {
           type: 'context',
@@ -226,13 +235,15 @@ export class RAGPipeline {
 
       // 3. Build context string
       const contextString = relevantDocs
-        .map(doc => `Content: ${doc.content}\nSource: ${doc.document?.title || 'Unknown'}`)
+        .map(
+          doc =>
+            `Content: ${doc.content}\nSource: ${doc.document?.title || 'Unknown'}`
+        )
         .join('\n\n---\n\n');
 
       // 4. Build conversation history
-      const conversationHistory = messages
-        ?.map(msg => `${msg.role}: ${msg.content}`)
-        .join('\n') || '';
+      const conversationHistory =
+        messages?.map(msg => `${msg.role}: ${msg.content}`).join('\n') || '';
 
       // 5. Create RAG prompt
       const ragPrompt = PromptTemplate.fromTemplate(`
@@ -268,7 +279,7 @@ Response:`);
       // 7. Stream the response
       let fullResponse = '';
       let tokenCount = 0;
-      
+
       const stream = await chain.stream({
         message,
         context: contextString,
@@ -280,7 +291,7 @@ Response:`);
         if (typeof chunk === 'string') {
           fullResponse += chunk;
           tokenCount += this.estimateTokens(chunk);
-          
+
           yield {
             type: 'text',
             content: chunk,
@@ -300,9 +311,9 @@ Response:`);
       // 9. Provide final token count
       yield {
         type: 'token_count',
-        count: tokenCount + this.estimateTokens(contextString + conversationHistory),
+        count:
+          tokenCount + this.estimateTokens(contextString + conversationHistory),
       };
-
     } catch (error) {
       console.error('Error processing message:', error);
       throw new Error(`Failed to process message: ${(error as Error).message}`);
@@ -336,15 +347,15 @@ Response:`);
    */
   private extractToolCalls(response: string, availableTools: any[]): any[] {
     const toolCalls: any[] = [];
-    
+
     // Simple tool call detection - look for patterns like "use [tool_name]" or "call [tool_name]"
     const toolCallRegex = /(?:use|call|invoke)\s+(\w+)/gi;
     const matches = response.matchAll(toolCallRegex);
-    
+
     for (const match of matches) {
       const toolName = match[1]?.toLowerCase();
       const tool = availableTools.find(t => t.name.toLowerCase() === toolName);
-      
+
       if (tool) {
         toolCalls.push({
           name: tool.name,
@@ -353,7 +364,7 @@ Response:`);
         });
       }
     }
-    
+
     return toolCalls;
   }
 
@@ -370,12 +381,16 @@ Response:`);
    */
   async updateConfiguration(newConfig: Partial<RAGConfig>): Promise<void> {
     this.config = { ...this.config, ...newConfig };
-    
+
     // Reinitialize components if needed
-    if (newConfig.llm_provider || newConfig.llm_model || newConfig.llm_api_key) {
+    if (
+      newConfig.llm_provider ||
+      newConfig.llm_model ||
+      newConfig.llm_api_key
+    ) {
       this.initializeLLM();
     }
-    
+
     if (newConfig.embedding_model || newConfig.embedding_api_key) {
       this.initializeEmbeddings();
       this.initializeVectorStore();
@@ -406,7 +421,8 @@ Response:`);
 
     const totalChunks = chunks?.length || 0;
     const totalDocuments = documents?.length || 0;
-    const avgChunksPerDocument = totalDocuments > 0 ? totalChunks / totalDocuments : 0;
+    const avgChunksPerDocument =
+      totalDocuments > 0 ? totalChunks / totalDocuments : 0;
 
     return {
       totalChunks,

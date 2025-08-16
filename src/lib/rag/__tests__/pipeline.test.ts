@@ -11,15 +11,17 @@ vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: {
     from: vi.fn(() => ({
       insert: vi.fn(() => ({ error: null })),
-      select: vi.fn(() => ({ 
-        eq: vi.fn(() => ({ 
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
           single: vi.fn(() => ({ data: [], error: null })),
-          order: vi.fn(() => ({ limit: vi.fn(() => ({ data: [], error: null })) }))
-        }))
+          order: vi.fn(() => ({
+            limit: vi.fn(() => ({ data: [], error: null })),
+          })),
+        })),
       })),
-      delete: vi.fn(() => ({ eq: vi.fn(() => ({ error: null })) }))
-    }))
-  }
+      delete: vi.fn(() => ({ eq: vi.fn(() => ({ error: null })) })),
+    })),
+  },
 }));
 
 describe('RAGPipeline', () => {
@@ -40,7 +42,7 @@ describe('RAGPipeline', () => {
       max_context_length: 8000,
       system_prompt: 'You are a helpful assistant.',
       vector_db_config: {},
-      tenant_id: 'test-tenant-id'
+      tenant_id: 'test-tenant-id',
     };
   });
 
@@ -64,7 +66,9 @@ describe('RAGPipeline', () => {
 
     it('should throw error for unsupported provider', () => {
       const invalidConfig = { ...mockConfig, llm_provider: 'invalid' };
-      expect(() => new RAGPipeline(invalidConfig)).toThrow('Unsupported LLM provider: invalid');
+      expect(() => new RAGPipeline(invalidConfig)).toThrow(
+        'Unsupported LLM provider: invalid'
+      );
     });
   });
 
@@ -75,20 +79,21 @@ describe('RAGPipeline', () => {
         id: 'doc-1',
         tenant_id: 'test-tenant-id',
         title: 'Test Document',
-        content: 'This is a test document with some content that should be processed.',
+        content:
+          'This is a test document with some content that should be processed.',
         content_type: 'text/plain',
         source_url: null,
-        metadata: {}
+        metadata: {},
       };
 
       // Mock the text splitter to return chunks
       vi.spyOn(pipeline as any, 'textSplitter', 'get').mockReturnValue({
-        splitText: vi.fn().mockResolvedValue(['chunk1', 'chunk2'])
+        splitText: vi.fn().mockResolvedValue(['chunk1', 'chunk2']),
       });
 
       // Mock vector store addDocuments
       vi.spyOn(pipeline as any, 'vectorStore', 'get').mockReturnValue({
-        addDocuments: vi.fn().mockResolvedValue(undefined)
+        addDocuments: vi.fn().mockResolvedValue(undefined),
       });
 
       const chunkCount = await pipeline.processDocument(mockDocument);
@@ -104,65 +109,76 @@ describe('RAGPipeline', () => {
         content: 'Test content',
         content_type: 'text/plain',
         source_url: null,
-        metadata: {}
+        metadata: {},
       };
 
       // Mock text splitter to throw error
       vi.spyOn(pipeline as any, 'textSplitter', 'get').mockReturnValue({
-        splitText: vi.fn().mockRejectedValue(new Error('Processing failed'))
+        splitText: vi.fn().mockRejectedValue(new Error('Processing failed')),
       });
 
-      await expect(pipeline.processDocument(mockDocument)).rejects.toThrow('Failed to process document');
+      await expect(pipeline.processDocument(mockDocument)).rejects.toThrow(
+        'Failed to process document'
+      );
     });
   });
 
   describe('searchDocuments', () => {
     it('should search documents and return results', async () => {
       const pipeline = new RAGPipeline(mockConfig);
-      
+
       const mockResults = [
-        [{
-          pageContent: 'Test content',
-          metadata: { 
-            document_id: 'doc-1',
-            title: 'Test Doc',
-            content_type: 'text/plain'
-          }
-        }, 0.85]
+        [
+          {
+            pageContent: 'Test content',
+            metadata: {
+              document_id: 'doc-1',
+              title: 'Test Doc',
+              content_type: 'text/plain',
+            },
+          },
+          0.85,
+        ],
       ];
 
       // Mock vector store search
       vi.spyOn(pipeline as any, 'vectorStore', 'get').mockReturnValue({
-        similaritySearchWithScore: vi.fn().mockResolvedValue(mockResults)
+        similaritySearchWithScore: vi.fn().mockResolvedValue(mockResults),
       });
 
       const results = await pipeline.searchDocuments('test query');
-      
+
       expect(results).toHaveLength(1);
       expect(results[0]).toMatchObject({
         content: 'Test content',
         similarity: 0.85,
         metadata: expect.objectContaining({
-          document_id: 'doc-1'
-        })
+          document_id: 'doc-1',
+        }),
       });
     });
 
     it('should filter results by threshold', async () => {
       const pipeline = new RAGPipeline(mockConfig);
-      
+
       const mockResults = [
-        [{ pageContent: 'Good match', metadata: { document_id: 'doc-1' } }, 0.85],
-        [{ pageContent: 'Poor match', metadata: { document_id: 'doc-2' } }, 0.5]
+        [
+          { pageContent: 'Good match', metadata: { document_id: 'doc-1' } },
+          0.85,
+        ],
+        [
+          { pageContent: 'Poor match', metadata: { document_id: 'doc-2' } },
+          0.5,
+        ],
       ];
 
       // Mock vector store search
       vi.spyOn(pipeline as any, 'vectorStore', 'get').mockReturnValue({
-        similaritySearchWithScore: vi.fn().mockResolvedValue(mockResults)
+        similaritySearchWithScore: vi.fn().mockResolvedValue(mockResults),
       });
 
       const results = await pipeline.searchDocuments('test query', 10, 0.7);
-      
+
       expect(results).toHaveLength(1);
       expect(results[0].content).toBe('Good match');
     });
@@ -172,10 +188,10 @@ describe('RAGPipeline', () => {
     it('should estimate token count', () => {
       const pipeline = new RAGPipeline(mockConfig);
       const text = 'This is a test sentence with multiple words.';
-      
+
       // Access private method via any
       const tokenCount = (pipeline as any).estimateTokens(text);
-      
+
       expect(tokenCount).toBeGreaterThan(0);
       expect(typeof tokenCount).toBe('number');
     });
@@ -185,29 +201,31 @@ describe('RAGPipeline', () => {
     it('should extract tool calls from response', () => {
       const pipeline = new RAGPipeline(mockConfig);
       const response = 'I will use search tool to find information.';
-      const availableTools = [
-        { name: 'search', description: 'Search tool' }
-      ];
+      const availableTools = [{ name: 'search', description: 'Search tool' }];
 
       // Access private method
-      const toolCalls = (pipeline as any).extractToolCalls(response, availableTools);
-      
+      const toolCalls = (pipeline as any).extractToolCalls(
+        response,
+        availableTools
+      );
+
       expect(toolCalls).toHaveLength(1);
       expect(toolCalls[0]).toMatchObject({
         name: 'search',
-        description: 'Search tool'
+        description: 'Search tool',
       });
     });
 
     it('should return empty array when no tools detected', () => {
       const pipeline = new RAGPipeline(mockConfig);
       const response = 'This is a regular response without tool calls.';
-      const availableTools = [
-        { name: 'search', description: 'Search tool' }
-      ];
+      const availableTools = [{ name: 'search', description: 'Search tool' }];
 
-      const toolCalls = (pipeline as any).extractToolCalls(response, availableTools);
-      
+      const toolCalls = (pipeline as any).extractToolCalls(
+        response,
+        availableTools
+      );
+
       expect(toolCalls).toHaveLength(0);
     });
   });
