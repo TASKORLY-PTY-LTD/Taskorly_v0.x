@@ -57,7 +57,7 @@ export const mcpRouter = createTRPCRouter({
         console.error('Error executing tool:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to execute tool: ${error.message}`,
+          message: `Failed to execute tool: ${(error as Error).message}`,
         });
       }
     }),

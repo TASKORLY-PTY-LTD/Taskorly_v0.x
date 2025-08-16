@@ -40,7 +40,7 @@ export const documentsRouter = createTRPCRouter({
         const { data: config } = await ctx.supabaseAdmin
           .from('tenant_configurations')
           .select('*')
-          .eq('tenant_id', ctx.tenant?.id)
+          .eq('tenant_id', ctx.tenant?.id!)
           .single();
 
         if (!config) {
@@ -123,7 +123,7 @@ export const documentsRouter = createTRPCRouter({
         const { data: config } = await ctx.supabaseAdmin
           .from('tenant_configurations')
           .select('*')
-          .eq('tenant_id', ctx.tenant?.id)
+          .eq('tenant_id', ctx.tenant?.id!)
           .single();
 
         if (!config) {
@@ -276,7 +276,7 @@ export const documentsRouter = createTRPCRouter({
 
       // Add content type filter
       if (input.contentType) {
-        query = query.eq('content_type', input.contentType);
+        query = query.eq('content_type', input.contentType!);
       }
 
       const { data: documents, error } = await query;
@@ -348,7 +348,7 @@ export const documentsRouter = createTRPCRouter({
         const { data: config } = await ctx.supabaseAdmin
           .from('tenant_configurations')
           .select('*')
-          .eq('tenant_id', ctx.tenant?.id)
+          .eq('tenant_id', ctx.tenant?.id!)
           .single();
 
         if (config) {
@@ -419,7 +419,7 @@ export const documentsRouter = createTRPCRouter({
             const { data: config } = await ctx.supabaseAdmin
               .from('tenant_configurations')
               .select('*')
-              .eq('tenant_id', ctx.tenant?.id)
+              .eq('tenant_id', ctx.tenant?.id!)
               .single();
 
             if (config) {

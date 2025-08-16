@@ -267,7 +267,7 @@ export default function SettingsPage() {
                 <Switch
                   id="authRequired"
                   checked={settings.authRequired}
-                  onCheckedChange={(checked) => handleSettingChange("authRequired", checked)}
+                  onCheckedChange={(checked: boolean) => handleSettingChange("authRequired", checked)}
                 />
               </div>
 
@@ -279,7 +279,7 @@ export default function SettingsPage() {
                 <Switch
                   id="encryptionEnabled"
                   checked={settings.encryptionEnabled}
-                  onCheckedChange={(checked) => handleSettingChange("encryptionEnabled", checked)}
+                  onCheckedChange={(checked: boolean) => handleSettingChange("encryptionEnabled", checked)}
                 />
               </div>
             </div>
@@ -320,7 +320,7 @@ export default function SettingsPage() {
                 <Switch
                   id="emailNotifications"
                   checked={settings.emailNotifications}
-                  onCheckedChange={(checked) => handleSettingChange("emailNotifications", checked)}
+                  onCheckedChange={(checked: boolean) => handleSettingChange("emailNotifications", checked)}
                 />
               </div>
 
@@ -332,7 +332,7 @@ export default function SettingsPage() {
                 <Switch
                   id="systemAlerts"
                   checked={settings.systemAlerts}
-                  onCheckedChange={(checked) => handleSettingChange("systemAlerts", checked)}
+                  onCheckedChange={(checked: boolean) => handleSettingChange("systemAlerts", checked)}
                 />
               </div>
             </div>

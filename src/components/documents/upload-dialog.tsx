@@ -43,7 +43,9 @@ export function UploadDialog({ children }: UploadDialogProps) {
     try {
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
-        await uploadDocument(file);
+        if (file) {
+          await uploadDocument(file);
+        }
         setUploadProgress(((i + 1) / selectedFiles.length) * 100);
       }
 

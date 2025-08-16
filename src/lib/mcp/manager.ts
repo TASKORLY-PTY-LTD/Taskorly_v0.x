@@ -114,7 +114,7 @@ export class MCPManager {
       const capabilities = await client.listTools();
       const tools: MCPTool[] = capabilities.tools.map(tool => ({
         name: tool.name,
-        description: tool.description,
+        description: tool.description || 'No description provided',
         inputSchema: tool.inputSchema,
         serverId: serverConfig.id,
       }));
@@ -238,7 +238,7 @@ export class MCPManager {
       try {
         await this.connectToServer(tenantId, server);
       } catch (connectionError) {
-        console.warn(`Server added but connection failed: ${connectionError.message}`);
+        console.warn(`Server added but connection failed: ${(connectionError as Error).message}`);
         
         // Mark server as inactive if connection fails
         await supabaseAdmin

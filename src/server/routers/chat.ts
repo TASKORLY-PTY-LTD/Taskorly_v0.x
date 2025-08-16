@@ -20,7 +20,7 @@ export const chatRouter = createTRPCRouter({
           .from('conversations')
           .select('*')
           .eq('id', input.conversationId)
-          .eq('tenant_id', ctx.tenant?.id)
+          .eq('tenant_id', ctx.tenant!.id)
           .single();
 
         if (convError || !conversation) {
@@ -52,7 +52,7 @@ export const chatRouter = createTRPCRouter({
         const { data: config } = await ctx.supabaseAdmin
           .from('tenant_configurations')
           .select('*')
-          .eq('tenant_id', ctx.tenant?.id)
+          .eq('tenant_id', ctx.tenant!.id)
           .single();
 
         if (!config) {
@@ -78,7 +78,7 @@ export const chatRouter = createTRPCRouter({
 
         let assistantContent = '';
         let retrievedDocs: any[] = [];
-        let toolCalls: any[] = [];
+        const toolCalls: any[] = [];
         let tokenCount = 0;
 
         // Process the stream
@@ -86,11 +86,11 @@ export const chatRouter = createTRPCRouter({
           if (chunk.type === 'text') {
             assistantContent += chunk.content;
           } else if (chunk.type === 'context') {
-            retrievedDocs = chunk.documents;
+            retrievedDocs = chunk.documents || [];
           } else if (chunk.type === 'tool_call') {
             toolCalls.push(chunk);
           } else if (chunk.type === 'token_count') {
-            tokenCount = chunk.count;
+            tokenCount = chunk.count || 0;
           }
         }
 
@@ -299,7 +299,7 @@ export const chatRouter = createTRPCRouter({
         const { data: config } = await ctx.supabaseAdmin
           .from('tenant_configurations')
           .select('*')
-          .eq('tenant_id', ctx.tenant?.id)
+          .eq('tenant_id', ctx.tenant!.id)
           .single();
 
         if (!config) {

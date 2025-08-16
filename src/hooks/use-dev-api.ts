@@ -29,7 +29,7 @@ export function useDevApi() {
       "Let me analyze the content in your documents to provide a comprehensive answer.",
     ];
 
-    const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+    const randomResponse = responses[Math.floor(Math.random() * responses.length)] || "I'm sorry, I don't have a response at the moment.";
     
     addMockMessage({
       content: randomResponse,

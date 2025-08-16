@@ -1,34 +1,34 @@
-import { createEnv } from "@t3-oss/env-nextjs";
-import { z } from "zod";
+import { createEnv } from '@t3-oss/env-nextjs';
+import { z } from 'zod';
 
 export const env = createEnv({
   server: {
     // Database
-    NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string(),
     SUPABASE_SERVICE_ROLE_KEY: z.string(),
-    
+
     // LLM Providers
     OPENAI_API_KEY: z.string().optional(),
     ANTHROPIC_API_KEY: z.string().optional(),
     GOOGLE_API_KEY: z.string().optional(),
-    
+
     // Vector Database
     PINECONE_API_KEY: z.string().optional(),
     PINECONE_INDEX_NAME: z.string().optional(),
     PINECONE_ENVIRONMENT: z.string().optional(),
-    
+
     // Security
     ENCRYPTION_KEY: z.string().min(32),
     NEXTAUTH_SECRET: z.string(),
-    
+
     // Application
     NEXTAUTH_URL: z.string().url().optional(),
-    NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-    
+    NODE_ENV: z
+      .enum(['development', 'test', 'production'])
+      .default('development'),
+
     // MCP Configuration
-    MCP_SERVER_TIMEOUT: z.string().transform(Number).default("30000"),
-    MCP_MAX_RETRIES: z.string().transform(Number).default("3"),
+    MCP_SERVER_TIMEOUT: z.string().transform(Number).default('30000'),
+    MCP_MAX_RETRIES: z.string().transform(Number).default('3'),
   },
   client: {
     NEXT_PUBLIC_SUPABASE_URL: z.string().url(),

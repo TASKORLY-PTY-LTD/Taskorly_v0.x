@@ -16,7 +16,7 @@ export interface RAGConfig {
   llm_model: string;
   llm_api_key: string;
   embedding_model: string;
-  embedding_api_key?: string;
+  embedding_api_key?: string | null;
   temperature: number;
   max_context_length: number;
   system_prompt: string;
@@ -42,10 +42,10 @@ export interface SearchResult {
 
 export class RAGPipeline {
   private config: RAGConfig;
-  private llm: ChatOpenAI | ChatAnthropic | ChatGoogleGenerativeAI;
-  private embeddings: OpenAIEmbeddings;
-  private vectorStore: SupabaseVectorStore;
-  private textSplitter: RecursiveCharacterTextSplitter;
+  private llm!: ChatOpenAI | ChatAnthropic | ChatGoogleGenerativeAI;
+  private embeddings!: OpenAIEmbeddings;
+  private vectorStore!: SupabaseVectorStore;
+  private textSplitter!: RecursiveCharacterTextSplitter;
 
   constructor(config: RAGConfig) {
     this.config = config;
@@ -158,7 +158,7 @@ export class RAGPipeline {
       return chunks.length;
     } catch (error) {
       console.error('Error processing document:', error);
-      throw new Error(`Failed to process document: ${error.message}`);
+      throw new Error(`Failed to process document: ${(error as Error).message}`);
     }
   }
 
@@ -193,7 +193,7 @@ export class RAGPipeline {
         }));
     } catch (error) {
       console.error('Error searching documents:', error);
-      throw new Error(`Failed to search documents: ${error.message}`);
+      throw new Error(`Failed to search documents: ${(error as Error).message}`);
     }
   }
 
@@ -305,7 +305,7 @@ Response:`);
 
     } catch (error) {
       console.error('Error processing message:', error);
-      throw new Error(`Failed to process message: ${error.message}`);
+      throw new Error(`Failed to process message: ${(error as Error).message}`);
     }
   }
 
@@ -327,7 +327,7 @@ Response:`);
       }
     } catch (error) {
       console.error('Error deleting document:', error);
-      throw new Error(`Failed to delete document: ${error.message}`);
+      throw new Error(`Failed to delete document: ${(error as Error).message}`);
     }
   }
 
@@ -342,7 +342,7 @@ Response:`);
     const matches = response.matchAll(toolCallRegex);
     
     for (const match of matches) {
-      const toolName = match[1].toLowerCase();
+      const toolName = match[1]?.toLowerCase();
       const tool = availableTools.find(t => t.name.toLowerCase() === toolName);
       
       if (tool) {

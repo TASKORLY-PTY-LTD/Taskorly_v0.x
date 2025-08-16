@@ -282,14 +282,16 @@ export const configRouter = createTRPCRouter({
       // Group by day
       const dailyStats = stats?.reduce((acc, log) => {
         const date = log.created_at.split('T')[0];
-        if (!acc[date]) {
+        if (date && !acc[date]) {
           acc[date] = { tokens: 0, cost: 0, messages: 0, documents: 0, tools: 0 };
         }
-        acc[date].tokens += log.tokens_used || 0;
-        acc[date].cost += log.cost_cents || 0;
-        if (log.event_type === 'message') acc[date].messages++;
-        if (log.event_type === 'document_upload') acc[date].documents++;
-        if (log.event_type === 'tool_execution') acc[date].tools++;
+        if (date && acc[date]) {
+          acc[date].tokens += log.tokens_used || 0;
+          acc[date].cost += log.cost_cents || 0;
+          if (log.event_type === 'message') acc[date].messages++;
+          if (log.event_type === 'document_upload') acc[date].documents++;
+          if (log.event_type === 'tool_execution') acc[date].tools++;
+        }
         return acc;
       }, {} as Record<string, any>) || {};
 
