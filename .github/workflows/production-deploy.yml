@@ -1,0 +1,306 @@
+name: Production Deployment
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  quality-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Lint (strict)
+        run: npm run lint:strict
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Security audit
+        run: npm audit --audit-level high
+
+      - name: Run tests
+        run: npm run test
+        env:
+          # Test environment variables
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_KEY }}
+          ENCRYPTION_KEY: abcdefghijklmnopqrstuvwxyz123456
+          NEXTAUTH_SECRET: test-secret-for-ci
+
+      - name: E2E tests
+        run: npm run test:e2e
+        env:
+          # E2E test environment
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY }}
+
+  database-migration-check:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Validate migrations
+        run: |
+          echo "Checking for new migrations..."
+          if [ -d "supabase/migrations" ] && [ "$(ls -A supabase/migrations)" ]; then
+            echo "✅ Migrations directory exists and contains files"
+            for file in supabase/migrations/*.sql; do
+              echo "Validating migration: $file"
+              # Basic SQL syntax validation
+              if ! grep -q "BEGIN\|COMMIT" "$file"; then
+                echo "⚠️ Migration $file should be wrapped in transaction"
+              fi
+            done
+          else
+            echo "No migrations found"
+          fi
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run security scan
+        uses: securecodewarrior/github-action-add-sarif@v1
+        with:
+          sarif-file: 'security-scan-results.sarif'
+        continue-on-error: true
+
+      - name: Check for secrets in code
+        run: |
+          # Check for potential secrets or keys in code
+          if grep -r "sk-" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" src/; then
+            echo "❌ Potential API keys found in source code!"
+            exit 1
+          else
+            echo "✅ No hardcoded secrets detected"
+          fi
+
+  preview-deployment:
+    runs-on: ubuntu-latest
+    needs: [quality-checks]
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel Environment Information
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build Project Artifacts
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Preview
+        id: preview-deploy
+        run: |
+          PREVIEW_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          echo "preview_url=$PREVIEW_URL" >> $GITHUB_OUTPUT
+          echo "PREVIEW_URL=$PREVIEW_URL" >> $GITHUB_ENV
+
+      - name: Run smoke tests on preview
+        run: |
+          sleep 30  # Wait for deployment to be ready
+          curl -f ${{ steps.preview-deploy.outputs.preview_url }}/api/health || exit 1
+          echo "✅ Preview deployment health check passed"
+
+      - name: Comment PR with preview URL
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const previewUrl = '${{ steps.preview-deploy.outputs.preview_url }}';
+            const body = `🚀 **Preview deployment ready!**
+            
+            📍 **URL**: ${previewUrl}
+            🏥 **Health**: [${previewUrl}/api/health](${previewUrl}/api/health)
+            
+            **What to test:**
+            - [ ] User registration and login
+            - [ ] Document upload functionality
+            - [ ] Chat interface with RAG
+            - [ ] Settings and configuration
+            
+            This preview will be automatically updated with new commits.`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+  production-deployment:
+    runs-on: ubuntu-latest
+    needs: [quality-checks, security-scan]
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Pre-deployment health check
+        run: |
+          echo "🔍 Checking production environment..."
+          curl -f https://${{ vars.PRODUCTION_DOMAIN }}/api/health || echo "Current production may be down"
+
+      - name: Database Migration (if needed)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: |
+          echo "🗄️ Checking for pending migrations..."
+          if [ -d "supabase/migrations" ] && [ "$(ls -A supabase/migrations)" ]; then
+            echo "Applying migrations to production database..."
+            supabase db push --project-id $SUPABASE_PROJECT_ID
+            echo "✅ Database migrations completed"
+          else
+            echo "No migrations to apply"
+          fi
+
+      - name: Pull Vercel Environment Information
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build Project Artifacts
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Production
+        id: production-deploy
+        run: |
+          echo "🚀 Deploying to production..."
+          DEPLOYMENT_URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          echo "deployment_url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+          echo "DEPLOYMENT_URL=$DEPLOYMENT_URL" >> $GITHUB_ENV
+
+      - name: Wait for deployment propagation
+        run: |
+          echo "⏳ Waiting for deployment to propagate globally..."
+          sleep 45
+
+      - name: Production Health Check
+        run: |
+          echo "🏥 Running production health checks..."
+          
+          # Primary health check
+          if ! curl -f https://${{ vars.PRODUCTION_DOMAIN }}/api/health; then
+            echo "❌ Production health check failed!"
+            exit 1
+          fi
+          
+          # Extended health checks
+          HEALTH_RESPONSE=$(curl -s https://${{ vars.PRODUCTION_DOMAIN }}/api/health)
+          echo "Health response: $HEALTH_RESPONSE"
+          
+          # Check if database is healthy
+          if ! echo "$HEALTH_RESPONSE" | grep -q '"database":"healthy"'; then
+            echo "❌ Database health check failed!"
+            exit 1
+          fi
+          
+          echo "✅ All health checks passed!"
+
+      - name: Performance validation
+        run: |
+          echo "⚡ Running performance checks..."
+          
+          # Check response time (should be under 2 seconds)
+          RESPONSE_TIME=$(curl -o /dev/null -s -w '%{time_total}\n' https://${{ vars.PRODUCTION_DOMAIN }})
+          echo "Response time: ${RESPONSE_TIME}s"
+          
+          if (( $(echo "$RESPONSE_TIME > 2.0" | bc -l) )); then
+            echo "⚠️ Response time is higher than expected (${RESPONSE_TIME}s > 2.0s)"
+            # Don't fail deployment for performance, just warn
+          else
+            echo "✅ Response time is acceptable"
+          fi
+
+      - name: Update deployment status
+        run: |
+          echo "📝 Recording deployment metadata..."
+          
+          # Log deployment details
+          echo "Deployment completed at: $(date)"
+          echo "Commit SHA: $GITHUB_SHA"
+          echo "Deployment URL: ${{ steps.production-deploy.outputs.deployment_url }}"
+          echo "Production domain: ${{ vars.PRODUCTION_DOMAIN }}"
+
+      - name: Notify team (success)
+        if: success()
+        run: |
+          echo "✅ Production deployment successful!"
+          echo "🌐 Live at: https://${{ vars.PRODUCTION_DOMAIN }}"
+          echo "📊 Health: https://${{ vars.PRODUCTION_DOMAIN }}/api/health"
+          
+          # Add webhook notification here if using Slack/Discord
+          # curl -X POST -H 'Content-type: application/json' \
+          #   --data '{"text":"✅ Taskorly production deployment successful!"}' \
+          #   ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Notify team (failure)
+        if: failure()
+        run: |
+          echo "❌ Production deployment failed!"
+          echo "🔍 Check the logs above for details"
+          echo "🔄 Consider rolling back if necessary"
+          
+          # Add critical alert notification here
+          # curl -X POST -H 'Content-type: application/json' \
+          #   --data '{"text":"🚨 Taskorly production deployment FAILED!"}' \
+          #   ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  post-deployment-monitoring:
+    runs-on: ubuntu-latest
+    needs: [production-deployment]
+    if: success() && github.ref == 'refs/heads/main'
+    steps:
+      - name: Monitor deployment for 5 minutes
+        run: |
+          echo "👀 Monitoring production for immediate issues..."
+          
+          for i in {1..10}; do
+            echo "Check $i/10..."
+            
+            # Health check
+            if ! curl -f -s https://${{ vars.PRODUCTION_DOMAIN }}/api/health > /dev/null; then
+              echo "❌ Health check failed on attempt $i"
+              exit 1
+            fi
+            
+            echo "✅ Health check $i passed"
+            sleep 30
+          done
+          
+          echo "🎉 5-minute monitoring completed successfully!"

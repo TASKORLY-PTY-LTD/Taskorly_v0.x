@@ -1,21 +1,21 @@
-import { z } from 'zod';
-import { createTRPCRouter, publicProcedure, protectedProcedure } from '../trpc';
+import { supabaseAdmin } from '@/lib/supabase';
 import { TRPCError } from '@trpc/server';
 import bcrypt from 'bcryptjs';
-import { supabaseAdmin } from '@/lib/supabase';
+import { z } from 'zod';
+import { createTRPCRouter, protectedProcedure, publicProcedure } from '../trpc';
 
 // Permission definitions for different roles
 const ROLE_PERMISSIONS = {
   owner: [
     'admin:*',
-    'manager:*', 
+    'manager:*',
     'user:*',
     'servers:*',
     'settings:*',
     'analytics:*',
     'vector-store:*',
     'billing:*',
-    'tenant:*'
+    'tenant:*',
   ],
   admin: [
     'admin:*',
@@ -24,7 +24,7 @@ const ROLE_PERMISSIONS = {
     'servers:*',
     'settings:*',
     'analytics:*',
-    'vector-store:*'
+    'vector-store:*',
   ],
   manager: [
     'manager:*',
@@ -33,29 +33,24 @@ const ROLE_PERMISSIONS = {
     'settings:read',
     'analytics:read',
     'documents:*',
-    'chat:*'
-  ],
-  user: [
-    'user:read',
     'chat:*',
-    'documents:read'
   ],
-  guest: [
-    'user:read',
-    'chat:read'
-  ]
+  user: ['user:read', 'chat:*', 'documents:read'],
+  guest: ['user:read', 'chat:read'],
 } as const;
 
 export const authRouter = createTRPCRouter({
   // User signup with email/password
   signup: publicProcedure
-    .input(z.object({
-      email: z.string().email(),
-      password: z.string().min(8).max(100),
-      fullName: z.string().min(1).max(100),
-      tenantName: z.string().min(1).max(50).optional(),
-      role: z.enum(['owner', 'admin', 'manager', 'user']).default('user'),
-    }))
+    .input(
+      z.object({
+        email: z.string().email(),
+        password: z.string().min(8).max(100),
+        fullName: z.string().min(1).max(100),
+        tenantName: z.string().min(1).max(50).optional(),
+        role: z.enum(['owner', 'admin', 'manager', 'user']).default('user'),
+      })
+    )
     .mutation(async ({ input }) => {
       try {
         // Check if user already exists
@@ -78,6 +73,11 @@ export const authRouter = createTRPCRouter({
         // Create or get tenant
         let tenant;
         if (input.role === 'owner' && input.tenantName) {
+          // Verify we're using the admin client with proper permissions
+          console.log(
+            'Creating tenant with admin client for:',
+            input.tenantName
+          );
           // Create new tenant for owner
           const tenantSlug = input.tenantName
             .toLowerCase()
@@ -89,15 +89,25 @@ export const authRouter = createTRPCRouter({
             .from('tenants')
             .insert({
               name: input.tenantName,
-              slug: tenantSlug
+              slug: tenantSlug,
             })
             .select()
             .single();
 
           if (tenantError) {
+            console.error('Tenant creation failed:', {
+              error: tenantError,
+              message: tenantError.message,
+              code: tenantError.code,
+              details: tenantError.details,
+              hint: tenantError.hint,
+              tenantName: input.tenantName,
+              slug: tenantSlug,
+            });
             throw new TRPCError({
               code: 'INTERNAL_SERVER_ERROR',
-              message: 'Failed to create tenant',
+              message: `Failed to create tenant: ${tenantError.message}`,
+              cause: tenantError,
             });
           }
 
@@ -112,16 +122,17 @@ export const authRouter = createTRPCRouter({
         }
 
         // Create user using Supabase Auth
-        const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
-          email: input.email,
-          password: input.password,
-          email_confirm: true, // Auto-confirm for now
-          user_metadata: {
-            full_name: input.fullName,
-            tenant_id: tenant.id,
-            role: input.role
-          }
-        });
+        const { data: authUser, error: authError } =
+          await supabaseAdmin.auth.admin.createUser({
+            email: input.email,
+            password: input.password,
+            email_confirm: true, // Auto-confirm for now
+            user_metadata: {
+              full_name: input.fullName,
+              tenant_id: tenant.id,
+              role: input.role,
+            },
+          });
 
         if (authError || !authUser.user) {
           throw new TRPCError({
@@ -138,7 +149,7 @@ export const authRouter = createTRPCRouter({
             email: input.email,
             full_name: input.fullName,
             tenant_id: tenant.id,
-            role: input.role
+            role: input.role,
           })
           .select()
           .single();
@@ -153,7 +164,8 @@ export const authRouter = createTRPCRouter({
         }
 
         // Create user permissions record
-        const permissions = ROLE_PERMISSIONS[input.role] || ROLE_PERMISSIONS.user;
+        const permissions =
+          ROLE_PERMISSIONS[input.role] || ROLE_PERMISSIONS.user;
         // TODO: Re-enable after database migration
         // try {
         //   await supabaseAdmin
@@ -169,19 +181,17 @@ export const authRouter = createTRPCRouter({
 
         // Create default tenant configuration for owner
         if (input.role === 'owner') {
-          await supabaseAdmin
-            .from('tenant_configurations')
-            .insert({
-              tenant_id: tenant.id,
-              llm_provider: 'openai',
-              llm_model: 'gpt-4o',
-              llm_api_key: '', // Will be set later
-              embedding_model: 'text-embedding-3-small',
-              system_prompt: 'You are a helpful AI assistant.',
-              temperature: 0.7,
-              max_context_length: 4000,
-              vector_db_config: {}
-            });
+          await supabaseAdmin.from('tenant_configurations').insert({
+            tenant_id: tenant.id,
+            llm_provider: 'openai',
+            llm_model: 'gpt-4o',
+            llm_api_key: '', // Will be set later
+            embedding_model: 'text-embedding-3-small',
+            system_prompt: 'You are a helpful AI assistant.',
+            temperature: 0.7,
+            max_context_length: 4000,
+            vector_db_config: {},
+          });
         }
 
         return {
@@ -191,19 +201,18 @@ export const authRouter = createTRPCRouter({
             fullName: dbUser.full_name,
             role: dbUser.role,
             tenantId: dbUser.tenant_id,
-            permissions
+            permissions,
           },
           tenant: {
             id: tenant.id,
             name: tenant.name,
-            slug: tenant.slug
-          }
+            slug: tenant.slug,
+          },
         };
-
       } catch (error) {
         console.error('Signup error:', error);
         if (error instanceof TRPCError) throw error;
-        
+
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to create user account',
@@ -213,17 +222,20 @@ export const authRouter = createTRPCRouter({
 
   // User login with email/password
   login: publicProcedure
-    .input(z.object({
-      email: z.string().email(),
-      password: z.string(),
-    }))
+    .input(
+      z.object({
+        email: z.string().email(),
+        password: z.string(),
+      })
+    )
     .mutation(async ({ input }) => {
       try {
         // Authenticate with Supabase
-        const { data: authData, error: authError } = await supabaseAdmin.auth.signInWithPassword({
-          email: input.email,
-          password: input.password,
-        });
+        const { data: authData, error: authError } =
+          await supabaseAdmin.auth.signInWithPassword({
+            email: input.email,
+            password: input.password,
+          });
 
         if (authError || !authData.user) {
           throw new TRPCError({
@@ -235,10 +247,12 @@ export const authRouter = createTRPCRouter({
         // Get user details from database
         const { data: dbUser, error: dbError } = await supabaseAdmin
           .from('users')
-          .select(`
+          .select(
+            `
             *,
             tenants!inner(*)
-          `)
+          `
+          )
           .eq('id', authData.user.id)
           .single();
 
@@ -257,7 +271,8 @@ export const authRouter = createTRPCRouter({
         //   .eq('user_id', authData.user.id)
         //   .single();
 
-        const permissions = ROLE_PERMISSIONS[dbUser.role as keyof typeof ROLE_PERMISSIONS] || [];
+        const permissions =
+          ROLE_PERMISSIONS[dbUser.role as keyof typeof ROLE_PERMISSIONS] || [];
 
         return {
           user: {
@@ -266,17 +281,16 @@ export const authRouter = createTRPCRouter({
             fullName: dbUser.full_name,
             role: dbUser.role,
             tenantId: dbUser.tenant_id,
-            permissions
+            permissions,
           },
           tenant: dbUser.tenants,
           accessToken: authData.session?.access_token,
-          refreshToken: authData.session?.refresh_token
+          refreshToken: authData.session?.refresh_token,
         };
-
       } catch (error) {
         console.error('Login error:', error);
         if (error instanceof TRPCError) throw error;
-        
+
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Login failed',
@@ -285,64 +299,67 @@ export const authRouter = createTRPCRouter({
     }),
 
   // Get current user info (requires auth)
-  me: protectedProcedure
-    .query(async ({ ctx }) => {
-      try {
-        const { data: dbUser, error } = await ctx.supabaseAdmin
-          .from('users')
-          .select(`
+  me: protectedProcedure.query(async ({ ctx }) => {
+    try {
+      const { data: dbUser, error } = await ctx.supabaseAdmin
+        .from('users')
+        .select(
+          `
             *,
             tenants!inner(*)
-          `)
-          .eq('id', ctx.user.id)
-          .single();
+          `
+        )
+        .eq('id', ctx.user.id)
+        .single();
 
-        if (error || !dbUser) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'User not found',
-          });
-        }
-
-        // Get user permissions
-        // TODO: Re-enable after database migration
-        // const { data: userPermissions } = await ctx.supabaseAdmin
-        //   .from('user_permissions')
-        //   .select('permissions')
-        //   .eq('user_id', ctx.user.id)
-        //   .single();
-
-        const permissions = ROLE_PERMISSIONS[dbUser.role as keyof typeof ROLE_PERMISSIONS] || [];
-
-        return {
-          user: {
-            id: dbUser.id,
-            email: dbUser.email,
-            fullName: dbUser.full_name,
-            role: dbUser.role,
-            tenantId: dbUser.tenant_id,
-            permissions
-          },
-          tenant: dbUser.tenants
-        };
-
-      } catch (error) {
-        console.error('Get user error:', error);
-        if (error instanceof TRPCError) throw error;
-        
+      if (error || !dbUser) {
         throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to get user info',
+          code: 'NOT_FOUND',
+          message: 'User not found',
         });
       }
-    }),
+
+      // Get user permissions
+      // TODO: Re-enable after database migration
+      // const { data: userPermissions } = await ctx.supabaseAdmin
+      //   .from('user_permissions')
+      //   .select('permissions')
+      //   .eq('user_id', ctx.user.id)
+      //   .single();
+
+      const permissions =
+        ROLE_PERMISSIONS[dbUser.role as keyof typeof ROLE_PERMISSIONS] || [];
+
+      return {
+        user: {
+          id: dbUser.id,
+          email: dbUser.email,
+          fullName: dbUser.full_name,
+          role: dbUser.role,
+          tenantId: dbUser.tenant_id,
+          permissions,
+        },
+        tenant: dbUser.tenants,
+      };
+    } catch (error) {
+      console.error('Get user error:', error);
+      if (error instanceof TRPCError) throw error;
+
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to get user info',
+      });
+    }
+  }),
 
   // Update user role (admin only)
   updateUserRole: protectedProcedure
-    .input(z.object({
-      userId: z.string().uuid(),
-      role: z.enum(['owner', 'admin', 'manager', 'user', 'guest']),
-    }))
+    .input(
+      z.object({
+        userId: z.string().uuid(),
+        role: z.enum(['owner', 'admin', 'manager', 'user', 'guest']),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       // Check if current user is admin or owner
       if (!['admin', 'owner'].includes(ctx.user.role)) {
@@ -356,9 +373,9 @@ export const authRouter = createTRPCRouter({
         // Update user role
         const { data: updatedUser, error } = await ctx.supabaseAdmin
           .from('users')
-          .update({ 
+          .update({
             role: input.role,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
           })
           .eq('id', input.userId)
           .eq('tenant_id', ctx.tenant!.id) // Ensure same tenant
@@ -373,7 +390,8 @@ export const authRouter = createTRPCRouter({
         }
 
         // Update permissions
-        const permissions = ROLE_PERMISSIONS[input.role] || ROLE_PERMISSIONS.user;
+        const permissions =
+          ROLE_PERMISSIONS[input.role] || ROLE_PERMISSIONS.user;
         // TODO: Re-enable after database migration
         // await ctx.supabaseAdmin
         //   .from('user_permissions')
@@ -384,11 +402,10 @@ export const authRouter = createTRPCRouter({
         //   });
 
         return updatedUser;
-
       } catch (error) {
         console.error('Update role error:', error);
         if (error instanceof TRPCError) throw error;
-        
+
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to update user role',
@@ -398,10 +415,12 @@ export const authRouter = createTRPCRouter({
 
   // List users in tenant (admin only)
   listUsers: protectedProcedure
-    .input(z.object({
-      limit: z.number().min(1).max(100).default(50),
-      offset: z.number().min(0).default(0),
-    }))
+    .input(
+      z.object({
+        limit: z.number().min(1).max(100).default(50),
+        offset: z.number().min(0).default(0),
+      })
+    )
     .query(async ({ ctx, input }) => {
       // Check if current user is admin or owner
       if (!['admin', 'owner'].includes(ctx.user.role)) {
@@ -427,11 +446,10 @@ export const authRouter = createTRPCRouter({
         }
 
         return users || [];
-
       } catch (error) {
         console.error('List users error:', error);
         if (error instanceof TRPCError) throw error;
-        
+
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to list users',
@@ -441,11 +459,13 @@ export const authRouter = createTRPCRouter({
 
   // Invite user to tenant (admin only)
   inviteUser: protectedProcedure
-    .input(z.object({
-      email: z.string().email(),
-      fullName: z.string().min(1).max(100),
-      role: z.enum(['admin', 'manager', 'user']).default('user'),
-    }))
+    .input(
+      z.object({
+        email: z.string().email(),
+        fullName: z.string().min(1).max(100),
+        role: z.enum(['admin', 'manager', 'user']).default('user'),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       // Check if current user is admin or owner
       if (!['admin', 'owner'].includes(ctx.user.role)) {
@@ -475,18 +495,19 @@ export const authRouter = createTRPCRouter({
         const tempPassword = Math.random().toString(36).slice(-12) + 'A1!';
 
         // Create user using Supabase Auth
-        const { data: authUser, error: authError } = await ctx.supabaseAdmin.auth.admin.createUser({
-          email: input.email,
-          password: tempPassword,
-          email_confirm: true,
-          user_metadata: {
-            full_name: input.fullName,
-            tenant_id: ctx.tenant!.id,
-            role: input.role,
-            invited_by: ctx.user.id,
-            requires_password_reset: true
-          }
-        });
+        const { data: authUser, error: authError } =
+          await ctx.supabaseAdmin.auth.admin.createUser({
+            email: input.email,
+            password: tempPassword,
+            email_confirm: true,
+            user_metadata: {
+              full_name: input.fullName,
+              tenant_id: ctx.tenant!.id,
+              role: input.role,
+              invited_by: ctx.user.id,
+              requires_password_reset: true,
+            },
+          });
 
         if (authError || !authUser.user) {
           throw new TRPCError({
@@ -503,7 +524,7 @@ export const authRouter = createTRPCRouter({
             email: input.email,
             full_name: input.fullName,
             tenant_id: ctx.tenant!.id,
-            role: input.role
+            role: input.role,
           })
           .select()
           .single();
@@ -518,7 +539,8 @@ export const authRouter = createTRPCRouter({
         }
 
         // Create user permissions
-        const permissions = ROLE_PERMISSIONS[input.role] || ROLE_PERMISSIONS.user;
+        const permissions =
+          ROLE_PERMISSIONS[input.role] || ROLE_PERMISSIONS.user;
         // TODO: Re-enable after database migration
         // try {
         //   await ctx.supabaseAdmin
@@ -537,13 +559,12 @@ export const authRouter = createTRPCRouter({
 
         return {
           user: dbUser,
-          temporaryPassword: tempPassword // Return for now - in production, send via email
+          temporaryPassword: tempPassword, // Return for now - in production, send via email
         };
-
       } catch (error) {
         console.error('Invite user error:', error);
         if (error instanceof TRPCError) throw error;
-        
+
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to invite user',

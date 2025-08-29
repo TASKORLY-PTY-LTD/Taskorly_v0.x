@@ -40,7 +40,7 @@ export async function middleware(req: NextRequest) {
   );
 
   // Public API routes that don't require auth
-  const publicApiRoutes = ['/api/auth', '/api/health'];
+  const publicApiRoutes = ['/api/auth', '/api/health', '/api/trpc/auth'];
   const isPublicApiRoute = publicApiRoutes.some(route =>
     req.nextUrl.pathname.startsWith(route)
   );
