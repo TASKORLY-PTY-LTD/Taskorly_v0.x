@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/sidebar';
 import { AppHeader } from './app-header';
 import { AppSidebar } from './app-sidebar';
-// import { LoginForm } from '@/components/auth/login-form';
+import { LoginForm } from '@/components/auth/login-form';
 import { useAuth } from '@/providers/auth-provider';
 
 interface MainLayoutProps {
@@ -29,7 +29,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   }
 
   if (!isAuthenticated) {
-    // return <LoginForm />;
+    return <LoginForm />;
   }
 
   return (
