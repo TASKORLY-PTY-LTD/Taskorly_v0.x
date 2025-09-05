@@ -73,6 +73,19 @@ export function TRPCProvider({ children }: TRPCProviderProps) {
               'content-type': 'application/json',
             };
           },
+          // Add error handling for UNAUTHORIZED responses
+          fetch(url, options) {
+            return fetch(url, options).then(async (response) => {
+              // Check if this is an UNAUTHORIZED response
+              if (response.status === 401) {
+                console.log('🔒 401 Unauthorized response detected, clearing auth data');
+                localStorage.removeItem('auth-data');
+                // Reload the page to trigger re-authentication
+                window.location.reload();
+              }
+              return response;
+            });
+          },
         }),
       ],
     })
