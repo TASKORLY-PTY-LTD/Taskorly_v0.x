@@ -1,9 +1,93 @@
 import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure, tenantProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
-import { RAGPipeline } from '@/lib/rag/pipeline';
+// import { processPDFFromBase64 } from '@/lib/file-processor'; // Temporarily disabled
+// import { RAGPipeline } from '@/lib/rag/pipeline'; // Disabled for now
 
 export const documentsRouter = createTRPCRouter({
+  // Upload and process PDF document (server-side processing) - DISABLED
+  // uploadPDF: tenantProcedure
+  //   .input(
+  //     z.object({
+  //       fileName: z.string().min(1).max(255),
+  //       fileSize: z.number().positive(),
+  //       fileData: z.string(), // Base64 encoded PDF data
+  //       metadata: z.record(z.any()).optional().default({}),
+  //     })
+  //   )
+  //   .mutation(async ({ ctx, input }) => {
+  //     try {
+  //       // Process PDF on server side
+  //       const processedPDF = await processPDFFromBase64(
+  //         input.fileData,
+  //         input.fileName,
+  //         input.fileSize
+  //       );
+
+  //       // Create document record
+  //       const { data: document, error: docError } = await ctx.supabaseAdmin
+  //         .from('documents')
+  //         .insert({
+  //           tenant_id: ctx.tenant?.id!,
+  //           title: processedPDF.metadata.fileName,
+  //           content: processedPDF.content,
+  //           content_type: processedPDF.metadata.fileType,
+  //           source_url: undefined,
+  //           metadata: {
+  //             ...input.metadata,
+  //             originalFileName: processedPDF.metadata.fileName,
+  //             fileSize: processedPDF.metadata.fileSize,
+  //             wordCount: processedPDF.metadata.wordCount,
+  //             charCount: processedPDF.metadata.charCount,
+  //             pageCount: processedPDF.metadata.pageCount,
+  //             uploadedAt: new Date().toISOString(),
+  //           },
+  //         })
+  //         .select()
+  //         .single();
+
+  //       if (docError || !document) {
+  //         throw new TRPCError({
+  //           code: 'INTERNAL_SERVER_ERROR',
+  //           message: 'Failed to create document',
+  //         });
+  //       }
+
+  //       // Update document with basic chunk count (1 for the whole document)
+  //       await ctx.supabaseAdmin
+  //         .from('documents')
+  //         .update({
+  //           chunk_count: 1,
+  //           updated_at: new Date().toISOString(),
+  //         })
+  //         .eq('id', document.id);
+
+  //       // Log usage
+  //       await ctx.supabaseAdmin.from('usage_logs').insert({
+  //         tenant_id: ctx.tenant?.id!,
+  //         user_id: ctx.user.id,
+  //         event_type: 'pdf_upload',
+  //         tokens_used: Math.ceil(processedPDF.content.length / 4),
+  //         cost_cents: 0,
+  //         metadata: {
+  //           document_id: document.id,
+  //           content_type: processedPDF.metadata.fileType,
+  //           chunk_count: 1,
+  //           content_length: processedPDF.content.length,
+  //           page_count: processedPDF.metadata.pageCount,
+  //         },
+  //       });
+
+  //       return document;
+  //     } catch (error) {
+  //       console.error('PDF upload error:', error);
+  //       throw new TRPCError({
+  //         code: 'INTERNAL_SERVER_ERROR',
+  //         message: 'Failed to upload PDF document',
+  //       });
+  //     }
+  //   }),
+
   // Upload and process document for RAG
   upload: tenantProcedure
     .input(
@@ -38,64 +122,30 @@ export const documentsRouter = createTRPCRouter({
           });
         }
 
-        // Get tenant configuration for RAG processing
-        const { data: config } = await ctx.supabaseAdmin
-          .from('tenant_configurations')
-          .select('*')
-          .eq('tenant_id', ctx.tenant.id)
-          .single();
+        // Skip RAG processing for now - just mark as processed
+        // Update document with basic chunk count (1 for the whole document)
+        await ctx.supabaseAdmin
+          .from('documents')
+          .update({
+            chunk_count: 1, // Simple: treat whole document as one chunk
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', document.id);
 
-        if (!config) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'Tenant configuration not found',
-          });
-        }
-
-        // Process document for RAG (chunk, embed, store)
-        try {
-          const ragPipeline = new RAGPipeline(config);
-          const chunkCount = await ragPipeline.processDocument(document);
-
-          // Update document with chunk count
-          await ctx.supabaseAdmin
-            .from('documents')
-            .update({
-              chunk_count: chunkCount,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', document.id);
-
-          // Log usage
-          await ctx.supabaseAdmin.from('usage_logs').insert({
-            tenant_id: ctx.tenant?.id!,
-            user_id: ctx.user.id,
-            event_type: 'document_upload',
-            tokens_used: Math.ceil(input.content.length / 4), // Rough token estimate
-            cost_cents: Math.ceil((input.content.length / 4) * 0.0001), // Embedding cost estimate
-            metadata: {
-              document_id: document.id,
-              content_type: input.contentType,
-              chunk_count: chunkCount,
-              content_length: input.content.length,
-            },
-          });
-        } catch (ragError) {
-          console.error('RAG processing error:', ragError);
-          // Don't fail the upload, but log the error
-          await ctx.supabaseAdmin
-            .from('documents')
-            .update({
-              metadata: {
-                ...input.metadata,
-                processing_error:
-                  ragError instanceof Error
-                    ? ragError.message
-                    : 'Unknown RAG processing error',
-              },
-            })
-            .eq('id', document.id);
-        }
+        // Log usage
+        await ctx.supabaseAdmin.from('usage_logs').insert({
+          tenant_id: ctx.tenant?.id!,
+          user_id: ctx.user.id,
+          event_type: 'document_upload',
+          tokens_used: Math.ceil(input.content.length / 4), // Rough token estimate
+          cost_cents: 0, // No processing cost for now
+          metadata: {
+            document_id: document.id,
+            content_type: input.contentType,
+            chunk_count: 1,
+            content_length: input.content.length,
+          },
+        });
 
         return document;
       } catch (error) {
@@ -126,21 +176,7 @@ export const documentsRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       try {
-        // Get tenant configuration
-        const { data: config } = await ctx.supabaseAdmin
-          .from('tenant_configurations')
-          .select('*')
-          .eq('tenant_id', ctx.tenant.id)
-          .single();
-
-        if (!config) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'Tenant configuration not found',
-          });
-        }
-
-        const ragPipeline = new RAGPipeline(config);
+        // Skip RAG pipeline setup for now
         const results = [];
         let totalTokens = 0;
         let totalChunks = 0;
@@ -170,50 +206,27 @@ export const documentsRouter = createTRPCRouter({
               continue;
             }
 
-            // Process for RAG
-            try {
-              const chunkCount = await ragPipeline.processDocument(document);
+            // Skip RAG processing - just mark as processed
+            const chunkCount = 1; // Simple: treat whole document as one chunk
+            
+            // Update document with chunk count
+            await ctx.supabaseAdmin
+              .from('documents')
+              .update({
+                chunk_count: chunkCount,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', document.id);
 
-              // Update document with chunk count
-              await ctx.supabaseAdmin
-                .from('documents')
-                .update({
-                  chunk_count: chunkCount,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq('id', document.id);
+            totalChunks += chunkCount;
+            totalTokens += Math.ceil(doc.content.length / 4);
 
-              totalChunks += chunkCount;
-              totalTokens += Math.ceil(doc.content.length / 4);
-
-              results.push({
-                title: doc.title,
-                success: true,
-                documentId: document.id,
-                chunkCount,
-              });
-            } catch (ragError) {
-              console.error(`RAG processing error for ${doc.title}:`, ragError);
-              await ctx.supabaseAdmin
-                .from('documents')
-                .update({
-                  metadata: {
-                    ...doc.metadata,
-                    processing_error:
-                      ragError instanceof Error
-                        ? ragError.message
-                        : 'Unknown RAG processing error',
-                  },
-                })
-                .eq('id', document.id);
-
-              results.push({
-                title: doc.title,
-                success: false,
-                documentId: document.id,
-                error: 'RAG processing failed',
-              });
-            }
+            results.push({
+              title: doc.title,
+              success: true,
+              documentId: document.id,
+              chunkCount,
+            });
           } catch (error) {
             results.push({
               title: doc.title,
@@ -357,35 +370,8 @@ export const documentsRouter = createTRPCRouter({
           .delete()
           .eq('document_id', input.documentId);
 
-        // Get tenant configuration
-        const { data: config } = await ctx.supabaseAdmin
-          .from('tenant_configurations')
-          .select('*')
-          .eq('tenant_id', ctx.tenant.id)
-          .single();
-
-        if (config) {
-          try {
-            const ragPipeline = new RAGPipeline(config);
-            const { data: document } = await ctx.supabaseAdmin
-              .from('documents')
-              .select('*')
-              .eq('id', input.documentId)
-              .single();
-
-            if (document) {
-              const updatedDoc = { ...document, ...updateData };
-              const chunkCount = await ragPipeline.processDocument(updatedDoc);
-              updateData.chunk_count = chunkCount;
-            }
-          } catch (error) {
-            console.error('RAG reprocessing error:', error);
-            updateData.metadata = {
-              ...updateData.metadata,
-              processing_error: 'Failed to reprocess for RAG',
-            };
-          }
-        }
+        // Skip RAG reprocessing for now - just set chunk count to 1
+        updateData.chunk_count = 1;
       }
 
       const { data: document, error } = await ctx.supabaseAdmin
@@ -426,23 +412,7 @@ export const documentsRouter = createTRPCRouter({
           });
         }
 
-        // Delete from vector database if needed
-        if (document.embedding_id) {
-          try {
-            const { data: config } = await ctx.supabaseAdmin
-              .from('tenant_configurations')
-              .select('*')
-              .eq('tenant_id', ctx.tenant.id)
-              .single();
-
-            if (config) {
-              const ragPipeline = new RAGPipeline(config);
-              await ragPipeline.deleteDocument(document.embedding_id);
-            }
-          } catch (error) {
-            console.error('Failed to delete from vector database:', error);
-          }
-        }
+        // Skip vector database cleanup for now (no RAG processing)
 
         // Delete document (chunks will be deleted via CASCADE)
         const { error: deleteError } = await ctx.supabaseAdmin
