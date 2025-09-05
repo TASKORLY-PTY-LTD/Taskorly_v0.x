@@ -14,14 +14,12 @@ import { trpc } from '@/utils/trpc';
 import { Upload, FileText, Database } from 'lucide-react';
 
 export default function DocumentsPage() {
-  // TODO: Add document statistics
-  // const { data: stats } = trpc.documents.getStats.useQuery();
   const { data: documents = [] } = trpc.documents.list.useQuery({
     limit: 50,
     offset: 0
   });
 
-  // const totalDocuments = stats?.totalDocuments || 0;
+  const totalDocuments = documents.length;
   const readyDocuments = documents.filter(doc => doc.chunk_count > 0).length;
   const processingDocuments = documents.filter(doc => !doc.chunk_count).length;
   const totalSize = documents.reduce((acc, doc) => acc + doc.content.length, 0);
@@ -61,7 +59,7 @@ export default function DocumentsPage() {
             <FileText className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
-            {/* <div className='text-2xl font-bold'>{totalDocuments}</div> */}
+            <div className='text-2xl font-bold'>{totalDocuments}</div>
             <p className='text-xs text-muted-foreground'>
               Documents in knowledge base
             </p>
