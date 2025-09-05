@@ -27,13 +27,14 @@ export const createTRPCContext = async (opts: { req: NextRequest }) => {
         // Get user from our database
         const { data: dbUser } = await supabaseAdmin
           .from('users')
-          .select('*, tenants(*)')
+          .select('*, tenants!inner(*)')
           .eq('id', authUser.id)
           .single();
 
         if (dbUser) {
           user = dbUser;
-          tenant = dbUser.tenants;
+          // Get the first tenant for now - in the future we might want to handle multiple tenants
+          tenant = Array.isArray(dbUser.tenants) ? dbUser.tenants[0] : dbUser.tenants;
         }
       }
     } catch (error) {
