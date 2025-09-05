@@ -70,9 +70,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (savedAuth) {
         try {
           const authData = JSON.parse(savedAuth);
-          setUser(authData.user);
-          setTenant(authData.tenant);
-          setAccessToken(authData.accessToken);
+          
+          // If we have a token, we'll let the meQuery validate it
+          // If the token is expired, the meQuery will fail and we'll handle it
+          if (authData.accessToken) {
+            setAccessToken(authData.accessToken);
+            // Don't set user/tenant immediately - let meQuery validate the token first
+          } else {
+            // No token, so we can't be authenticated
+            setUser(null);
+            setTenant(null);
+          }
         } catch (error) {
           console.error('Error parsing saved auth data:', error);
           localStorage.removeItem('auth-data');
@@ -91,6 +99,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setTenant(meQuery.data.tenant);
     }
   }, [meQuery.data]);
+
+  // Handle meQuery errors (e.g., expired token)
+  useEffect(() => {
+    if (meQuery.error) {
+      console.log('🔒 Auth validation failed, clearing auth data');
+      // Clear auth data and reset state
+      setUser(null);
+      setTenant(null);
+      setAccessToken(null);
+      localStorage.removeItem('auth-data');
+    }
+  }, [meQuery.error]);
 
   const isAuthenticated = !!user;
   const isOwner = user?.role === 'owner';
