@@ -468,46 +468,46 @@ export const documentsRouter = createTRPCRouter({
       }
     }),
 
-  // Get document statistics
-  getStats: tenantProcedure.query(async ({ ctx }) => {
-    const { data: stats, error } = await ctx.supabaseAdmin
-      .from('documents')
-      .select('id, chunk_count, content_type, created_at')
-      .eq('tenant_id', ctx.tenant.id);
+  // TODO: Add document statistics
+  // getStats: tenantProcedure.query(async ({ ctx }) => {
+  //   const { data: stats, error } = await ctx.supabaseAdmin
+  //     .from('documents')
+  //     .select('id, chunk_count, content_type, created_at')
+  //     .eq('tenant_id', ctx.tenant.id);
 
-    if (error) {
-      throw new TRPCError({
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Failed to fetch document statistics',
-      });
-    }
+  //   if (error) {
+  //     throw new TRPCError({
+  //       code: 'INTERNAL_SERVER_ERROR',
+  //       message: 'Failed to fetch document statistics',
+  //     });
+  //   }
 
-    const totalDocuments = stats?.length || 0;
-    const totalChunks =
-      stats?.reduce((sum, doc) => sum + (doc.chunk_count || 0), 0) || 0;
+  //   const totalDocuments = stats?.length || 0;
+  //   const totalChunks =
+  //     stats?.reduce((sum, doc) => sum + (doc.chunk_count || 0), 0) || 0;
 
-    const contentTypeStats =
-      stats?.reduce(
-        (acc, doc) => {
-          acc[doc.content_type] = (acc[doc.content_type] || 0) + 1;
-          return acc;
-        },
-        {} as Record<string, number>
-      ) || {};
+  //   const contentTypeStats =
+  //     stats?.reduce(
+  //       (acc, doc) => {
+  //         acc[doc.content_type] = (acc[doc.content_type] || 0) + 1;
+  //         return acc;
+  //       },
+  //       {} as Record<string, number>
+  //     ) || {};
 
-    const recentUploads =
-      stats?.filter(doc => {
-        const uploadDate = new Date(doc.created_at);
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        return uploadDate > weekAgo;
-      }).length || 0;
+  //   const recentUploads =
+  //     stats?.filter(doc => {
+  //       const uploadDate = new Date(doc.created_at);
+  //       const weekAgo = new Date();
+  //       weekAgo.setDate(weekAgo.getDate() - 7);
+  //       return uploadDate > weekAgo;
+  //     }).length || 0;
 
-    return {
-      totalDocuments,
-      totalChunks,
-      contentTypeStats,
-      recentUploads,
-    };
-  }),
+  //   return {
+  //     totalDocuments,
+  //     totalChunks,
+  //     contentTypeStats,
+  //     recentUploads,
+  //   };
+  // }),
 });

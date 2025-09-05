@@ -16,7 +16,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useDevMode } from '@/providers/dev-mode-provider';
+import { trpc } from '@/utils/trpc';
+import type { AppRouter } from '@/server/api/root';
+import type { inferRouterOutputs } from '@trpc/server';
 import {
   MoreHorizontal,
   FileText,
@@ -29,7 +31,10 @@ import {
 } from 'lucide-react';
 
 export function DocumentTable() {
-  const { mockDocuments } = useDevMode();
+  const { data: documents = [] } = trpc.documents.list.useQuery({
+    limit: 50,
+    offset: 0
+  });
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 B';
@@ -79,7 +84,7 @@ export function DocumentTable() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {mockDocuments.map(document => (
+          {documents.map((document: inferRouterOutputs<AppRouter>['documents']['list'][number]) => (
             <TableRow key={document.id}>
               <TableCell>
                 <div className='flex items-center space-x-2'>
@@ -94,25 +99,25 @@ export function DocumentTable() {
               </TableCell>
               <TableCell>
                 <Badge variant='outline' className='text-xs'>
-                  {document.type.toUpperCase()}
+                  {document.content_type.toUpperCase()}
                 </Badge>
               </TableCell>
               <TableCell className='text-sm'>
-                {formatFileSize(document.size)}
+                {formatFileSize(document.content.length)}
               </TableCell>
               <TableCell>
                 <div className='flex items-center space-x-2'>
-                  {getStatusIcon(document.status)}
+                  {getStatusIcon(document.chunk_count ? 'ready' : 'processing')}
                   <Badge
-                    variant={getStatusColor(document.status) as any}
+                    variant={getStatusColor(document.chunk_count ? 'ready' : 'processing') as any}
                     className='text-xs'
                   >
-                    {document.status}
+                    {document.chunk_count ? 'ready' : 'processing'}
                   </Badge>
                 </div>
               </TableCell>
               <TableCell className='text-sm text-muted-foreground'>
-                {document.uploadedAt.toLocaleDateString()}
+                {new Date(document.created_at).toLocaleDateString()}
               </TableCell>
               <TableCell>
                 <DropdownMenu>
@@ -142,7 +147,7 @@ export function DocumentTable() {
         </TableBody>
       </Table>
 
-      {mockDocuments.length === 0 && (
+      {documents.length === 0 && (
         <div className='text-center py-8'>
           <FileText className='mx-auto h-12 w-12 text-muted-foreground/50' />
           <h3 className='mt-4 text-lg font-semibold'>No documents</h3>
