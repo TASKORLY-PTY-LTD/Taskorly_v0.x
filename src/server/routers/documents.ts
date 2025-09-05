@@ -1,94 +1,13 @@
 import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure, tenantProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
-// import { processPDFFromBase64 } from '@/lib/file-processor'; // Temporarily disabled
-// import { RAGPipeline } from '@/lib/rag/pipeline'; // Disabled for now
+import { chunkDocumentWithGemini, type DocumentChunk } from '@/lib/gemini-chunker';
+
 
 export const documentsRouter = createTRPCRouter({
-  // Upload and process PDF document (server-side processing) - DISABLED
-  // uploadPDF: tenantProcedure
-  //   .input(
-  //     z.object({
-  //       fileName: z.string().min(1).max(255),
-  //       fileSize: z.number().positive(),
-  //       fileData: z.string(), // Base64 encoded PDF data
-  //       metadata: z.record(z.any()).optional().default({}),
-  //     })
-  //   )
-  //   .mutation(async ({ ctx, input }) => {
-  //     try {
-  //       // Process PDF on server side
-  //       const processedPDF = await processPDFFromBase64(
-  //         input.fileData,
-  //         input.fileName,
-  //         input.fileSize
-  //       );
 
-  //       // Create document record
-  //       const { data: document, error: docError } = await ctx.supabaseAdmin
-  //         .from('documents')
-  //         .insert({
-  //           tenant_id: ctx.tenant?.id!,
-  //           title: processedPDF.metadata.fileName,
-  //           content: processedPDF.content,
-  //           content_type: processedPDF.metadata.fileType,
-  //           source_url: undefined,
-  //           metadata: {
-  //             ...input.metadata,
-  //             originalFileName: processedPDF.metadata.fileName,
-  //             fileSize: processedPDF.metadata.fileSize,
-  //             wordCount: processedPDF.metadata.wordCount,
-  //             charCount: processedPDF.metadata.charCount,
-  //             pageCount: processedPDF.metadata.pageCount,
-  //             uploadedAt: new Date().toISOString(),
-  //           },
-  //         })
-  //         .select()
-  //         .single();
 
-  //       if (docError || !document) {
-  //         throw new TRPCError({
-  //           code: 'INTERNAL_SERVER_ERROR',
-  //           message: 'Failed to create document',
-  //         });
-  //       }
-
-  //       // Update document with basic chunk count (1 for the whole document)
-  //       await ctx.supabaseAdmin
-  //         .from('documents')
-  //         .update({
-  //           chunk_count: 1,
-  //           updated_at: new Date().toISOString(),
-  //         })
-  //         .eq('id', document.id);
-
-  //       // Log usage
-  //       await ctx.supabaseAdmin.from('usage_logs').insert({
-  //         tenant_id: ctx.tenant?.id!,
-  //         user_id: ctx.user.id,
-  //         event_type: 'pdf_upload',
-  //         tokens_used: Math.ceil(processedPDF.content.length / 4),
-  //         cost_cents: 0,
-  //         metadata: {
-  //           document_id: document.id,
-  //           content_type: processedPDF.metadata.fileType,
-  //           chunk_count: 1,
-  //           content_length: processedPDF.content.length,
-  //           page_count: processedPDF.metadata.pageCount,
-  //         },
-  //       });
-
-  //       return document;
-  //     } catch (error) {
-  //       console.error('PDF upload error:', error);
-  //       throw new TRPCError({
-  //         code: 'INTERNAL_SERVER_ERROR',
-  //         message: 'Failed to upload PDF document',
-  //       });
-  //     }
-  //   }),
-
-  // Upload and process document for RAG
+  // Upload and process document for RAG with Gemini chunking
   upload: tenantProcedure
     .input(
       z.object({
@@ -101,7 +20,7 @@ export const documentsRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       try {
-        // Create document record
+        // Create document record with processing status
         const { data: document, error: docError } = await ctx.supabaseAdmin
           .from('documents')
           .insert({
@@ -111,6 +30,8 @@ export const documentsRouter = createTRPCRouter({
             content_type: input.contentType,
             source_url: input.sourceUrl,
             metadata: input.metadata,
+            processing_status: 'processing',
+            chunk_count: 0, // Will be updated after chunking
           })
           .select()
           .single();
@@ -122,32 +43,111 @@ export const documentsRouter = createTRPCRouter({
           });
         }
 
-        // Skip RAG processing for now - just mark as processed
-        // Update document with basic chunk count (1 for the whole document)
-        await ctx.supabaseAdmin
-          .from('documents')
-          .update({
-            chunk_count: 1, // Simple: treat whole document as one chunk
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', document.id);
+        console.log(`Starting Gemini chunking for document: ${input.title}`);
 
-        // Log usage
-        await ctx.supabaseAdmin.from('usage_logs').insert({
-          tenant_id: ctx.tenant?.id!,
-          user_id: ctx.user.id,
-          event_type: 'document_upload',
-          tokens_used: Math.ceil(input.content.length / 4), // Rough token estimate
-          cost_cents: 0, // No processing cost for now
-          metadata: {
+        try {
+          // Use Gemini to chunk the document intelligently
+          const chunks = await chunkDocumentWithGemini(
+            input.content,
+            document.id,
+            input.title,
+            input.contentType,
+            {
+              maxChunkSize: 1000, // 1000 characters per chunk
+              overlapSize: 100,   // 100 character overlap
+              preserveStructure: true,
+              extractMetadata: true,
+            }
+          );
+
+          console.log(`Generated ${chunks.length} chunks for document: ${input.title}`);
+
+          // Store chunks in the database
+          const chunkInserts = chunks.map((chunk: DocumentChunk) => ({
             document_id: document.id,
-            content_type: input.contentType,
-            chunk_count: 1,
-            content_length: input.content.length,
-          },
-        });
+            content: chunk.content,
+            chunk_index: chunk.chunkIndex,
+            metadata: chunk.metadata,
+          }));
 
-        return document;
+          const { error: chunksError } = await ctx.supabaseAdmin
+            .from('document_chunks')
+            .insert(chunkInserts);
+
+          if (chunksError) {
+            console.error('Error inserting chunks:', chunksError);
+            throw new Error(`Failed to store document chunks: ${chunksError.message}`);
+          }
+
+          // Update document with chunk count and mark as completed
+          await ctx.supabaseAdmin
+            .from('documents')
+            .update({
+              chunk_count: chunks.length,
+              processing_status: 'completed',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', document.id);
+
+          // Log usage with actual token count
+          const totalTokens = chunks.reduce((sum: number, chunk: DocumentChunk) => sum + Math.ceil(chunk.content.length / 4), 0);
+          await ctx.supabaseAdmin.from('usage_logs').insert({
+            tenant_id: ctx.tenant?.id!,
+            user_id: ctx.user.id,
+            event_type: 'document_upload_with_chunking',
+            tokens_used: totalTokens,
+            cost_cents: Math.ceil(totalTokens * 0.0001), // Rough cost estimate
+            metadata: {
+              document_id: document.id,
+              content_type: input.contentType,
+              chunk_count: chunks.length,
+              content_length: input.content.length,
+              chunking_method: 'gemini',
+              average_chunk_size: Math.round(chunks.reduce((sum: number, chunk: DocumentChunk) => sum + chunk.content.length, 0) / chunks.length),
+            },
+          });
+
+          console.log(`Successfully processed document: ${input.title} with ${chunks.length} chunks`);
+
+          return {
+            ...document,
+            chunk_count: chunks.length,
+            processing_status: 'completed',
+          };
+
+        } catch (chunkingError) {
+          console.error('Gemini chunking failed:', chunkingError);
+          
+          // Update document status to failed
+          await ctx.supabaseAdmin
+            .from('documents')
+            .update({
+              processing_status: 'failed',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', document.id);
+
+          // Log the error
+          await ctx.supabaseAdmin.from('usage_logs').insert({
+            tenant_id: ctx.tenant?.id!,
+            user_id: ctx.user.id,
+            event_type: 'document_upload_failed',
+            tokens_used: 0,
+            cost_cents: 0,
+            metadata: {
+              document_id: document.id,
+              content_type: input.contentType,
+              error: chunkingError instanceof Error ? chunkingError.message : 'Unknown chunking error',
+              content_length: input.content.length,
+            },
+          });
+
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Document upload succeeded but chunking failed: ${chunkingError instanceof Error ? chunkingError.message : 'Unknown error'}`,
+          });
+        }
+
       } catch (error) {
         console.error('Document upload error:', error);
         throw new TRPCError({
@@ -157,7 +157,7 @@ export const documentsRouter = createTRPCRouter({
       }
     }),
 
-  // Bulk upload documents
+  // Bulk upload documents with Gemini chunking
   bulkUpload: tenantProcedure
     .input(
       z.object({
@@ -171,19 +171,20 @@ export const documentsRouter = createTRPCRouter({
               metadata: z.record(z.any()).optional().default({}),
             })
           )
-          .max(50), // Limit bulk uploads
+          .max(10), // Reduced limit for bulk processing with AI
       })
     )
     .mutation(async ({ ctx, input }) => {
       try {
-        // Skip RAG pipeline setup for now
         const results = [];
         let totalTokens = 0;
         let totalChunks = 0;
 
+        console.log(`Starting bulk upload of ${input.documents.length} documents`);
+
         for (const doc of input.documents) {
           try {
-            // Create document record
+            // Create document record with processing status
             const { data: document, error: docError } = await ctx.supabaseAdmin
               .from('documents')
               .insert({
@@ -193,6 +194,8 @@ export const documentsRouter = createTRPCRouter({
                 content_type: doc.contentType,
                 source_url: doc.sourceUrl,
                 metadata: doc.metadata,
+                processing_status: 'processing',
+                chunk_count: 0,
               })
               .select()
               .single();
@@ -206,28 +209,82 @@ export const documentsRouter = createTRPCRouter({
               continue;
             }
 
-            // Skip RAG processing - just mark as processed
-            const chunkCount = 1; // Simple: treat whole document as one chunk
-            
-            // Update document with chunk count
-            await ctx.supabaseAdmin
-              .from('documents')
-              .update({
-                chunk_count: chunkCount,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', document.id);
+            try {
+              // Use Gemini to chunk the document
+              const chunks = await chunkDocumentWithGemini(
+                doc.content,
+                document.id,
+                doc.title,
+                doc.contentType,
+                {
+                  maxChunkSize: 1000,
+                  overlapSize: 100,
+                  preserveStructure: true,
+                  extractMetadata: true,
+                }
+              );
 
-            totalChunks += chunkCount;
-            totalTokens += Math.ceil(doc.content.length / 4);
+              // Store chunks in the database
+              const chunkInserts = chunks.map((chunk: DocumentChunk) => ({
+                document_id: document.id,
+                content: chunk.content,
+                chunk_index: chunk.chunkIndex,
+                metadata: chunk.metadata,
+              }));
 
-            results.push({
-              title: doc.title,
-              success: true,
-              documentId: document.id,
-              chunkCount,
-            });
+              const { error: chunksError } = await ctx.supabaseAdmin
+                .from('document_chunks')
+                .insert(chunkInserts);
+
+              if (chunksError) {
+                throw new Error(`Failed to store chunks: ${chunksError.message}`);
+              }
+
+              // Update document with chunk count and mark as completed
+              await ctx.supabaseAdmin
+                .from('documents')
+                .update({
+                  chunk_count: chunks.length,
+                  processing_status: 'completed',
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', document.id);
+
+              totalChunks += chunks.length;
+              const docTokens = chunks.reduce((sum: number, chunk: DocumentChunk) => sum + Math.ceil(chunk.content.length / 4), 0);
+              totalTokens += docTokens;
+
+              results.push({
+                title: doc.title,
+                success: true,
+                documentId: document.id,
+                chunkCount: chunks.length,
+                tokens: docTokens,
+              });
+
+              console.log(`Successfully processed bulk document: ${doc.title} with ${chunks.length} chunks`);
+
+            } catch (chunkingError) {
+              console.error(`Chunking failed for document: ${doc.title}`, chunkingError);
+              
+              // Update document status to failed
+              await ctx.supabaseAdmin
+                .from('documents')
+                .update({
+                  processing_status: 'failed',
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', document.id);
+
+              results.push({
+                title: doc.title,
+                success: false,
+                error: `Chunking failed: ${chunkingError instanceof Error ? chunkingError.message : 'Unknown error'}`,
+              });
+            }
+
           } catch (error) {
+            console.error(`Error processing document: ${doc.title}`, error);
             results.push({
               title: doc.title,
               success: false,
@@ -241,16 +298,20 @@ export const documentsRouter = createTRPCRouter({
           await ctx.supabaseAdmin.from('usage_logs').insert({
             tenant_id: ctx.tenant?.id!,
             user_id: ctx.user.id,
-            event_type: 'bulk_document_upload',
+            event_type: 'bulk_document_upload_with_chunking',
             tokens_used: totalTokens,
-            cost_cents: Math.ceil(totalTokens * 0.0001), // Embedding cost estimate
+            cost_cents: Math.ceil(totalTokens * 0.0001),
             metadata: {
               document_count: input.documents.length,
               successful_uploads: results.filter(r => r.success).length,
+              failed_uploads: results.filter(r => !r.success).length,
               total_chunks: totalChunks,
+              chunking_method: 'gemini',
             },
           });
         }
+
+        console.log(`Bulk upload completed: ${results.filter(r => r.success).length}/${input.documents.length} successful`);
 
         return {
           results,

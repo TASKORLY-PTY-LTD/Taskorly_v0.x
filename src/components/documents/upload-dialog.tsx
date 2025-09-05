@@ -122,7 +122,7 @@ export function UploadDialog({ children }: UploadDialogProps) {
               // extractedAllergens: restaurantInfo.allergenInfo.slice(0, 3), // First 3 allergen notes
             };
             
-            // Upload to server
+            // Upload to server with chunking
             await uploadDocument({
               title: processedFile.metadata.fileName,
               content: processedFile.content,
@@ -131,8 +131,8 @@ export function UploadDialog({ children }: UploadDialogProps) {
               sourceUrl: undefined, // No URL for uploaded files
             });
             
-            // Track success
-            setFileSuccesses(prev => [...prev, `Successfully processed "${file.name}" - ${processedFile.metadata.wordCount} words, ${processedFile.metadata.pageCount || 1} page(s)`]);
+            // Track success (chunk information will be shown in the document table)
+            setFileSuccesses(prev => [...prev, `Successfully processed "${file.name}" - ${processedFile.metadata.wordCount} words (chunking in progress...)`]);
             
           } catch (fileError) {
             console.error(`Failed to process file ${file.name}:`, fileError);
@@ -285,7 +285,7 @@ export function UploadDialog({ children }: UploadDialogProps) {
               <Progress value={uploadProgress} className='w-full' />
               {processingFile && (
                 <p className='text-xs text-muted-foreground'>
-                  Extracting text content and analyzing document structure...
+                  Extracting text content, analyzing document structure, and creating intelligent chunks with Gemini AI...
                 </p>
               )}
             </div>
