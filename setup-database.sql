@@ -69,6 +69,8 @@ CREATE TABLE IF NOT EXISTS public.documents (
     content TEXT,
     content_type TEXT DEFAULT 'text/plain',
     metadata JSONB DEFAULT '{}',
+    chunk_count INTEGER DEFAULT 0,
+    processing_status TEXT DEFAULT 'pending' CHECK (processing_status IN ('pending', 'processing', 'completed', 'failed')),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -78,6 +80,7 @@ CREATE TABLE IF NOT EXISTS public.document_chunks (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
+    chunk_index INTEGER NOT NULL,
     embedding vector(1536), -- OpenAI embedding dimension
     metadata JSONB DEFAULT '{}',
     created_at TIMESTAMPTZ DEFAULT NOW()

@@ -17,8 +17,8 @@ export const createTRPCContext = async (opts: { req: NextRequest }) => {
 
   if (token) {
     try {
-      console.log('=== AUTH DEBUG ===');
-      console.log('Token found, verifying...');
+      // console.log('=== AUTH DEBUG ===');
+      // console.log('Token found, verifying...');
       
       // Verify the JWT token
       const {
@@ -41,14 +41,14 @@ export const createTRPCContext = async (opts: { req: NextRequest }) => {
         }
 
         if (dbUser) {
-          console.log('Database user found:', dbUser.id);
-          console.log('User tenant:', dbUser.tenant_id);
-          console.log('Tenants data:', dbUser.tenants);
+          // console.log('Database user found:', dbUser.id);
+          // console.log('User tenant:', dbUser.tenant_id);
+          // console.log('Tenants data:', dbUser.tenants);
           
           user = dbUser;
           // Get the first tenant for now - in the future we might want to handle multiple tenants
           tenant = Array.isArray(dbUser.tenants) ? dbUser.tenants[0] : dbUser.tenants;
-          console.log('Selected tenant:', tenant);
+          // console.log('Selected tenant:', tenant);
         } else {
           console.log('No database user found for auth user:', authUser.id);
         }
