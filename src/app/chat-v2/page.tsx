@@ -66,7 +66,9 @@ export default function ChatV2Page() {
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const sendDemoMessage = trpc.chat.sendDemoMessage.useMutation();
+//   const sendDemoMessage = trpc.chat.sendDemoMessage.useMutation();
+  const sendMessage = trpc.chat.sendMessage.useMutation();
+  const createConversation = trpc.chat.createConversation.useMutation();
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -77,6 +79,9 @@ export default function ChatV2Page() {
   useEffect(() => {
     setIsWelcomeVisible(messages.length === 0);
   }, [messages.length]);
+
+  // Store conversationId in state
+  const [conversationId, setConversationId] = useState<string | null>(null);
 
   const handleSendMessage = async (messageContent: string) => {
     if (isLoading) return;
@@ -93,8 +98,18 @@ export default function ChatV2Page() {
     setIsLoading(true);
 
     try {
-      const response = await sendDemoMessage.mutateAsync({
+      let convId = conversationId;
+      if (!convId) {
+        // Create a new conversation if none exists
+        const conv = await createConversation.mutateAsync({});
+        convId = conv.id;
+        setConversationId(convId);
+      }
+
+      const response = await sendMessage.mutateAsync({
+        conversationId: convId ?? undefined,
         message: messageContent,
+        includeContext: true,
       });
 
       // Add assistant message
@@ -103,14 +118,13 @@ export default function ChatV2Page() {
         role: 'assistant',
         content: response.content,
         timestamp: new Date(),
-        sources: response.sources,
+        sources: response.retrievedDocs,
         tokenCount: response.tokenCount,
       };
 
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Failed to send message:', error);
-      
       // Add error message
       const errorMessage: DemoMessage = {
         id: `error-${Date.now()}`,
@@ -200,6 +214,9 @@ export default function ChatV2Page() {
               </div>
             </div>
           </div>
+
+
+
         </div>
       )}
 
@@ -299,7 +316,7 @@ export default function ChatV2Page() {
 
           {/* Chat Input */}
           <div className="border-t bg-gray-50/80 rounded-b-xl">
-            <DemoChatInput 
+            <DemoChatInput
               onSendMessage={handleSendMessage}
               disabled={isLoading}
               placeholder="Ask me anything about your company information..."
