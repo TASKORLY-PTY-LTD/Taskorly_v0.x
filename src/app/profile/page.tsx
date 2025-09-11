@@ -21,6 +21,7 @@ interface SquareCredentials {
 interface SquareProduct {
   id: string;
   name: string;
+  description: string;
   price: number;
   currency: string;
   variationName: string;
@@ -84,6 +85,7 @@ export default function ProfilePage() {
         {
           id: '36MZNSSHHD7QJ45ARGQS6F4O',
           name: 'garden salad',
+          description: 'Fresh mixed greens with seasonal vegetables and house dressing',
           price: 12.00,
           currency: 'AUD',
           variationName: 'Regular',
@@ -95,6 +97,7 @@ export default function ProfilePage() {
         {
           id: 'AIQOT5XOAA3NU4KP5W5H5SAA',
           name: 'coffee shake',
+          description: 'Rich and creamy coffee blended with ice and topped with whipped cream',
           price: 6.00,
           currency: 'AUD',
           variationName: 'Regular',
@@ -291,6 +294,7 @@ export default function ProfilePage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Product Name</TableHead>
+                      <TableHead>Description</TableHead>
                       <TableHead>Variation</TableHead>
                       <TableHead>Price</TableHead>
                       <TableHead>Taxable</TableHead>
@@ -304,6 +308,9 @@ export default function ProfilePage() {
                         <TableRow key={`${product.id}-${index}`}>
                           <TableCell className='font-medium'>
                             {product.name}
+                          </TableCell>
+                          <TableCell className='max-w-xs truncate' title={product.description}>
+                            {product.description}
                           </TableCell>
                           <TableCell>
                             {product.variationName}
@@ -328,7 +335,7 @@ export default function ProfilePage() {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={6} className='text-center text-muted-foreground py-8'>
+                        <TableCell colSpan={7} className='text-center text-muted-foreground py-8'>
                           No products found. Enter your Square credentials and click &quot;Fetch Square Products&quot; to load your catalog.
                         </TableCell>
                       </TableRow>
