@@ -283,10 +283,16 @@ export class RAGPipeline {
 
       // 6. Create the chain
 
-      // Stateless Gemini-only response
-      const prompt = `${this.config.system_prompt}\n\nCurrent Message: ${message}\n`;
+      // Stateless Gemini-only response with proper system message
+      const prompt = PromptTemplate.fromTemplate(`System: ${this.config.system_prompt}
+
+IMPORTANT: You must follow the instructions above exactly. Do not answer questions outside your specified domain.
+
+User Question: {message}
+
+Response:`);
       const chain = RunnableSequence.from([
-        PromptTemplate.fromTemplate(prompt),
+        prompt,
         this.llm,
         new StringOutputParser(),
       ]);

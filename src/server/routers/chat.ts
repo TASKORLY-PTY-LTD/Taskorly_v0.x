@@ -12,6 +12,7 @@ export const chatRouter = createTRPCRouter({
         message: z.string().min(1),
         includeContext: z.boolean().default(true),
         maxTokens: z.number().optional(),
+        systemPrompt: z.string().optional(), // System prompt for LLM
       })
     )
     .mutation(async ({ input }) => {
@@ -25,7 +26,7 @@ export const chatRouter = createTRPCRouter({
           embedding_model: 'text-embedding-ada-002',
           temperature: 0.7,
           max_context_length: 2048,
-          system_prompt: 'You are a helpful assistant.',
+          system_prompt: input.systemPrompt ?? '',
           vector_db_config: {},
           tenant_id: 'public-tenant',
         };
