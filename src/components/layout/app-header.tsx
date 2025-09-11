@@ -14,10 +14,17 @@ import { useDevMode } from '@/providers/dev-mode-provider';
 import { useAuth } from '@/providers/auth-provider';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Settings, User, LogOut, Moon, Sun } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export function AppHeader() {
   const { isDevMode, toggleDevMode } = useDevMode();
   const { user, getCurrentRole, logout } = useAuth();
+  const router = useRouter();
+
+  // Handle navigation to profile page
+  const handleProfileClick = () => {
+    router.push('/profile');
+  };
 
   return (
     <header className='flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12'>
@@ -67,7 +74,7 @@ export function AppHeader() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align='end' className='w-56'>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={handleProfileClick}>
                 <User className='mr-2 h-4 w-4' />
                 <span>{user?.name || 'Profile'}</span>
               </DropdownMenuItem>

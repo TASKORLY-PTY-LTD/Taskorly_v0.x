@@ -21,6 +21,7 @@ import {
   Search,
   Home,
   Database,
+  User,
 } from 'lucide-react';
 
 const menuItems = [
@@ -43,6 +44,11 @@ const menuItems = [
     title: 'Search',
     url: '/search',
     icon: Search,
+  },
+  {
+    title: 'Profile',
+    url: '/profile',
+    icon: User,
   },
 ];
 
