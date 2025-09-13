@@ -1,5 +1,15 @@
 'use client';
 
+/*
+ * CUSTOMER CHAT PAGE - MERGED IMPLEMENTATION
+ * 
+ * This combines the best features from both versions:
+ * - Clean welcome screen from version 4
+ * - Comprehensive functionality from version 3
+ * - Proper CustomerChatBubble integration
+ * - Fixed loading states and error handling
+ */
+
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -9,9 +19,15 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { trpc } from '@/utils/trpc';
 import { POS_SYSTEM_PROMPT } from '../page';
 import {
+  MessageSquare,
   Send,
   Mic,
   Paperclip,
+  Zap,
+  Monitor,
+  Shield,
+  Sparkles,
+  Bot,
   User,
   Camera,
   Square,
@@ -20,12 +36,6 @@ import {
   FileText,
   ArrowRight,
   Settings,
-  MessageSquare,
-  Bot,
-  Monitor,
-  Zap,
-  Sparkles,
-  Shield,
 } from 'lucide-react';
 import CustomerChatBubble from '@/components/customer/customer-chat-bubble';
 
@@ -44,7 +54,7 @@ interface Message {
     similarity: number;
   }>;
   tokenCount?: number;
-  error?: boolean;
+  error?: boolean; // Changed to boolean to match bubble component
 }
 
 interface ScreenContext {
@@ -126,7 +136,7 @@ export default function CustomerChatPage() {
     url: 'https://squareup.com/dashboard',
   });
 
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // tRPC mutations
@@ -135,9 +145,7 @@ export default function CustomerChatPage() {
 
   // Auto-scroll to bottom
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   // Hide welcome when messages exist
@@ -148,7 +156,7 @@ export default function CustomerChatPage() {
   // Generate contextual suggestions based on response
   const generateSuggestions = (content: string): string[] => {
     const suggestions = [];
-
+    
     if (content.toLowerCase().includes('refund')) {
       suggestions.push('Show me refund policies', 'Process another refund');
     }
@@ -158,7 +166,7 @@ export default function CustomerChatPage() {
     if (content.toLowerCase().includes('payment')) {
       suggestions.push('Test payment terminal', 'Check connection');
     }
-
+    
     return suggestions.slice(0, 3);
   };
 
@@ -171,6 +179,7 @@ export default function CustomerChatPage() {
       role: 'user',
       content: content.trim(),
       timestamp: new Date(),
+      screenContext,
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -211,7 +220,7 @@ export default function CustomerChatPage() {
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Failed to send message:', error);
-
+      
       // Add error message
       const errorMessage: Message = {
         id: `error-${Date.now()}`,
@@ -252,6 +261,7 @@ export default function CustomerChatPage() {
       <div className='fixed inset-0 overflow-hidden pointer-events-none'>
         <div className='absolute -top-40 -right-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob'></div>
         <div className='absolute -bottom-40 -left-40 w-80 h-80 bg-teal-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000'></div>
+        <div className='absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-cyan-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000'></div>
       </div>
 
       <div className='relative z-10 min-h-screen flex flex-col'>
@@ -261,31 +271,32 @@ export default function CustomerChatPage() {
             <div className='w-10 h-10 rounded-xl flex items-center justify-center'>
               <Image
                 src='/logo.png'
-                alt='AI Assistant'
+                alt='Taskorly Logo'
                 width={40}
                 height={40}
-                className='rounded-lg' />
+                className='rounded-xl'
+              />
             </div>
             <div>
               <h1 className='text-xl font-bold bg-gradient-to-r from-blue-400 to-teal-400 bg-clip-text text-transparent'>
-                AI POS Assistant
+                Taskorly Assistant
               </h1>
-              <p className='text-sm text-slate-400'>Smart help for your business</p>
+              <p className='text-sm text-slate-400'>AI-powered POS support</p>
             </div>
           </div>
 
           <div className='flex items-center space-x-3'>
-            {/* {screenContext.posSystem && (
+            {screenContext.posSystem && (
               <Badge
-              variant='outline'
-              className='border-teal-400 text-teal-400 bg-blue-800/50'
+                variant='outline'
+                className='border-teal-400 text-teal-400 bg-blue-800/50'
               >
-              <CheckCircle className='w-3 h-3 mr-1' />
-              {screenContext.posSystem.charAt(0).toUpperCase() +
-                screenContext.posSystem.slice(1)}{' '}
-              Connected
+                <CheckCircle className='w-3 h-3 mr-1' />
+                {screenContext.posSystem.charAt(0).toUpperCase() +
+                  screenContext.posSystem.slice(1)}{' '}
+                Connected
               </Badge>
-              )} */}
+            )}
 
             {isLoading && (
               <Badge variant="outline" className="border-blue-400 text-blue-400">
@@ -296,7 +307,9 @@ export default function CustomerChatPage() {
 
             <Button
               variant='outline'
-              className='border-teal-400 text-teal-400 bg-blue-800/50'
+              size='sm'
+              onClick={captureScreen}
+              className='border-teal-400 bg-blue-800/50 hover:border-teal-300 hover:bg-blue-700/70 text-teal-100 hover:text-white hover:shadow-lg hover:shadow-teal-500/25'
             >
               <Camera className='w-4 h-4 mr-2' />
               Capture Screen
@@ -367,6 +380,7 @@ export default function CustomerChatPage() {
             </div>
           </div>
         )}
+
         {/* Main chat area */}
         <div className='flex-1 flex'>
           {/* Chat messages */}
@@ -590,7 +604,9 @@ export default function CustomerChatPage() {
             </div>
           )}
         </div>
-      </div><style jsx>{`
+      </div>
+
+      <style jsx>{`
         @keyframes blob {
           0% {
             transform: translate(0px, 0px) scale(1);
@@ -614,5 +630,7 @@ export default function CustomerChatPage() {
         .animation-delay-4000 {
           animation-delay: 4s;
         }
-      `}</style></div>)
-};
+      `}</style>
+    </div>
+  );
+}
