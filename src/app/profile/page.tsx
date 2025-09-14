@@ -76,42 +76,29 @@ export default function ProfilePage() {
     setError(null);
     setSuccess(null);
 
-    //TODO: Remove this mock data - use the actual API call
-    
-    // Simulate API call delay
-    setTimeout(() => {
-      // Mock data based on your Square response
-      const mockProducts: SquareProduct[] = [
-        {
-          id: '36MZNSSHHD7QJ45ARGQS6F4O',
-          name: 'garden salad',
-          description: 'Fresh mixed greens with seasonal vegetables and house dressing',
-          price: 12.00,
-          currency: 'AUD',
-          variationName: 'Regular',
-          isTaxable: true,
-          isArchived: false,
-          createdAt: '2025-08-30T13:57:07.62Z',
-          updatedAt: '2025-08-30T13:57:07.575Z',
-        },
-        {
-          id: 'AIQOT5XOAA3NU4KP5W5H5SAA',
-          name: 'coffee shake',
-          description: 'Rich and creamy coffee blended with ice and topped with whipped cream',
-          price: 6.00,
-          currency: 'AUD',
-          variationName: 'Regular',
-          isTaxable: true,
-          isArchived: false,
-          createdAt: '2025-09-11T00:25:07.105Z',
-          updatedAt: '2025-09-11T00:25:07.056Z',
-        },
-      ];
+    // Now we are calling the API route and getting a response
+    try {
+      const res = await fetch('/api/square/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(squareCredentials),
+      });
 
-      setProducts(mockProducts);
-      setSuccess(`Successfully fetched ${mockProducts.length} products from Square (Demo Mode)`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || 'Failed to fetch products');
+        setIsLoading(false);
+        return;
+      }
+
+      setProducts(data.products);
+      setSuccess(`Successfully fetched ${data.products.length} products from Square`);
+    } catch (err) {
+      setError('Network error');
+    } finally {
       setIsLoading(false);
-    }, 1500); // 1.5 second delay to simulate API call
+    }
   };
 
   // Format currency for display
