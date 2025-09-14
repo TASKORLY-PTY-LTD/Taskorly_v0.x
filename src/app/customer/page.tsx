@@ -276,7 +276,7 @@ export default function CustomerChatPage() {
           </div>
 
           <div className='flex items-center space-x-3'>
-            {screenContext.posSystem && (
+            {/* {screenContext.posSystem && (
               <Badge
                 variant='outline'
                 className='border-teal-400 text-teal-400 bg-blue-800/50'
@@ -286,7 +286,7 @@ export default function CustomerChatPage() {
                   screenContext.posSystem.slice(1)}{' '}
                 Connected
               </Badge>
-            )}
+            )} */}
 
             {isLoading && (
               <Badge variant="outline" className="border-blue-400 text-blue-400">
