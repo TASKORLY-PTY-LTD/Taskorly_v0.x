@@ -272,9 +272,9 @@ export default function CustomerChatPage() {
               <Image
                 src='/logo.png'
                 alt='Taskorly Logo'
-                width={40}
-                height={40}
-                className='rounded-xl'
+                width={35}
+                height={35}
+                className='rounded-lg'
               />
             </div>
             <div>
