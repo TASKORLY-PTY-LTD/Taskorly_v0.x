@@ -184,14 +184,14 @@ export default function CustomerChatPage() {
                     >
                       {/* Avatar */}
                       <div
-                        className={`w-20 h-20 rounded-full flex items-center justify-center ${
+                        className={`${message.role === 'user' ? 'w-10 h-10' : 'w-20 h-20'} rounded-full flex items-center justify-center ${
                           message.role === 'user'
                             ? 'bg-gradient-to-br from-green-500 to-emerald-600'
                             : ''
                         }`}
                       >
                         {message.role === 'user' ? (
-                          <User className='w-10 h-10 text-white' />
+                          <User className='w-7 h-7 text-white' />
                         ) : (
                           <Image
                             src='/logo.png'
