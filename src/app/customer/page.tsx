@@ -140,7 +140,7 @@ export default function CustomerChatPage() {
           </div>
 
           <div className='flex items-center space-x-3'>
-            {screenContext.posSystem && (
+            {/* {screenContext.posSystem && (
               <Badge
                 variant='outline'
                 className='border-teal-400 text-teal-400'
@@ -150,9 +150,9 @@ export default function CustomerChatPage() {
                   screenContext.posSystem.slice(1)}{' '}
                 Connected
               </Badge>
-            )}
+            )} */}
 
-            <Button
+            {/* <Button
               variant='outline'
               size='sm'
               onClick={captureScreen}
@@ -160,7 +160,7 @@ export default function CustomerChatPage() {
             >
               <Camera className='w-4 h-4 mr-2' />
               Capture Screen
-            </Button>
+            </Button> */}
           </div>
         </header>
 
@@ -334,7 +334,7 @@ export default function CustomerChatPage() {
           </div>
 
           {/* Context sidebar */}
-          <div className='w-80 p-4'>
+          {/* <div className='w-80 p-4'>
             <Card className='border-0 bg-transparent'>
               <div className='p-4'>
                 <div className='flex items-center space-x-2 mb-4'>
@@ -400,7 +400,7 @@ export default function CustomerChatPage() {
                 </div>
               </div>
             </Card>
-          </div>
+          </div> */}
         </div>
       </div>
 
