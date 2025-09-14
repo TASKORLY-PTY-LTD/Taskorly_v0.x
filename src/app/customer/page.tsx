@@ -9,7 +9,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { trpc } from '@/utils/trpc';
 import { POS_SYSTEM_PROMPT } from '../page';
 import {
-  MessageSquare,
   Send,
   Mic,
   Paperclip,
@@ -17,7 +16,6 @@ import {
   Monitor,
   Shield,
   Sparkles,
-  Bot,
   User,
   Camera,
   Square,
@@ -26,6 +24,8 @@ import {
   FileText,
   ArrowRight,
   Settings,
+  MessageSquare,
+  Bot,
 } from 'lucide-react';
 import CustomerChatBubble from '@/components/customer/customer-chat-bubble';
 
@@ -262,9 +262,9 @@ export default function CustomerChatPage() {
               <Image
                 src='/logo.png'
                 alt='Taskorly Logo'
-                width={40}
-                height={40}
-                className='rounded-xl'
+                width={35}
+                height={35}
+                className='rounded-lg'
               />
             </div>
             <div>
