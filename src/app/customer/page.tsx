@@ -1,13 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import Image from 'next/image';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
-  MessageSquare,
   Send,
   Mic,
   Paperclip,
@@ -15,60 +8,19 @@ import {
   Monitor,
   Shield,
   Sparkles,
-  Bot,
   User,
   Camera,
   Square,
 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-  screenContext?: ScreenContext;
-}
-
-interface ScreenContext {
-  url?: string;
-  posSystem?: 'square' | 'toast' | 'shopify' | 'generic';
-  currentScreen?: string;
-  visibleElements?: string[];
-}
-
-interface Suggestion {
-  id: string;
-  text: string;
-  category: 'pos' | 'general' | 'troubleshoot';
-  icon: React.ReactNode;
-}
-
-const MOCK_SUGGESTIONS: Suggestion[] = [
-  {
-    id: '1',
-    text: 'How do I process a refund in Square?',
-    category: 'pos',
-    icon: <Square className='h-4 w-4' />,
-  },
-  {
-    id: '2',
-    text: 'Payment terminal not responding',
-    category: 'troubleshoot',
-    icon: <Shield className='h-4 w-4' />,
-  },
-  {
-    id: '3',
-    text: 'How to add a new product?',
-    category: 'pos',
-    icon: <Sparkles className='h-4 w-4' />,
-  },
-  {
-    id: '4',
-    text: 'Generate daily sales report',
-    category: 'general',
-    icon: <Monitor className='h-4 w-4' />,
-  },
-];
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Message, ScreenContext, Suggestion } from './types/customer.types';
+import { MOCK_SUGGESTIONS } from './utils/customerUtils';
 
 export default function CustomerChatPage() {
   const [messages, setMessages] = useState<Message[]>([
@@ -174,9 +126,9 @@ export default function CustomerChatPage() {
               <Image
                 src='/logo.png'
                 alt='Taskorly Logo'
-                width={40}
-                height={40}
-                className='rounded-xl'
+                width={35}
+                height={35}
+                className='rounded-lg'
               />
             </div>
             <div>
