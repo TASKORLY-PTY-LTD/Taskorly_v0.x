@@ -11,6 +11,15 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'Taskorly RAG Chat',
   description: 'AI-powered document chat with RAG capabilities',
+  icons: {
+    icon: [
+      // 16x16 = standard broswer tabs, 32x32 = high DPI displays
+      { url: '/logo-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/logo-32x32.png', sizes: '32x32', type: 'image/png' },
+    ],
+    shortcut: '/logo-32x32.png',
+    apple: '/logo-32x32.png',
+  },
 };
 
 export default function RootLayout({
