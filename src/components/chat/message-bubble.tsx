@@ -40,71 +40,6 @@ function cleanContent(content: string): string {
     .trim();
 }
 
-// function preprocessContent(content: string): string {
-//   return content
-//     // Remove [object Object] first
-//     .replace(/\[object Object\]/g, '')
-    
-//     // Fix HTML entities
-//     .replace(/&#39;/g, "'")
-//     .replace(/&quot;/g, '"')
-//     .replace(/&amp;/g, '&')
-//     .replace(/&lt;/g, '<')
-//     .replace(/&gt;/g, '>')
-    
-//     // Convert <br> tags to markdown line breaks
-//     .replace(/<br\s*\/?><br\s*\/?>/g, '\n\n')
-//     .replace(/<br\s*\/?>/g, '\n')
-    
-//     // Clean up whitespace
-//     .replace(/\n{3,}/g, '\n\n')
-//     .trim();
-// }
-
-// Post-process function to style the HTML output
-// function postprocessHTML(html: string): string {
-//   return html
-//     // Style paragraphs
-//     .replace(/<p>/g, '<p class="mb-3">')
-    
-//     // Style strong tags
-//     .replace(/<strong>/g, '<strong class="font-semibold">')
-    
-//     // Style em tags  
-//     .replace(/<em>/g, '<em class="italic">')
-    
-//     // Style code spans
-//     .replace(/<code>/g, '<code class="bg-gray-100 px-2 py-1 rounded text-sm font-mono">')
-    
-//     // Style code blocks
-//     .replace(/<pre><code>/g, '<pre class="bg-gray-100 p-3 rounded-md overflow-x-auto my-3"><code class="text-sm">')
-    
-//     // Style headings
-//     .replace(/<h1>/g, '<h1 class="text-2xl font-bold mt-4 mb-2">')
-//     .replace(/<h2>/g, '<h2 class="text-xl font-bold mt-4 mb-2">')
-//     .replace(/<h3>/g, '<h3 class="text-lg font-semibold mt-4 mb-2">')
-//     .replace(/<h4>/g, '<h4 class="text-base font-semibold mt-3 mb-2">')
-//     .replace(/<h5>/g, '<h5 class="text-sm font-semibold mt-3 mb-2">')
-//     .replace(/<h6>/g, '<h6 class="text-sm font-medium mt-3 mb-2">')
-    
-//     // Style lists
-//     .replace(/<ul>/g, '<ul class="list-disc list-inside ml-4 mb-4 space-y-1">')
-//     .replace(/<ol>/g, '<ol class="list-decimal list-inside ml-4 mb-4 space-y-1">')
-//     .replace(/<li>/g, '<li class="leading-relaxed">')
-    
-//     // Style links
-//     .replace(/<a href=/g, '<a class="text-blue-600 hover:text-blue-800 underline" target="_blank" rel="noopener noreferrer" href=')
-    
-//     // Style blockquotes
-//     .replace(/<blockquote>/g, '<blockquote class="border-l-4 border-gray-300 pl-4 italic text-gray-600 my-3">')
-    
-//     // Style horizontal rules
-//     .replace(/<hr>/g, '<hr class="border-gray-300 my-4">')
-    
-//     // Remove any remaining [object Object] that might have slipped through
-//     .replace(/\[object Object\]/g, '');
-// }
-
 const MessageBubble = memo(function ChatMessages({ message, isStreaming = false }: DemoMessageBubbleProps){
   const isUser = message.role === 'user';
   const isAssistant = message.role === 'assistant';
@@ -142,26 +77,28 @@ const MessageBubble = memo(function ChatMessages({ message, isStreaming = false 
           <div className="space-y-3">
             {/* Message content */}
             <div className={cn(
-              'whitespace-pre-wrap leading-relaxed',
-              'prose prose-sm max-w-none',
+              'whitespace-pre-wrap leading-tight',
+              'prose max-w-none leading-tight',
               
               // Custom prose styling
-              'prose-headings:font-semibold prose-headings:mt-4 prose-headings:mb-2',
-              'prose-p:mb-3 prose-p:leading-relaxed',
+              'prose-headings:font-semibold prose-headings:mt-1 prose-headings:mb-1 leading-tight',
+              'prose-p:mt-1 prose-p:mb-1 prose-p:leading-tight',
               'prose-strong:font-semibold prose-em:italic',
-              'prose-code:bg-gray-100 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm ',
+              'prose-code:bg-gray-100 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm prose-code:leading-tight',
               'prose-code:text-black',
-              'prose-pre:bg-gray-100 prose-pre:p-3 prose-pre:rounded-md',
-              'prose-ul:list-disc prose-ol:list-decimal prose-li:my-1',
-              'prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline',
-              'prose-blockquote:border-l-4 prose-blockquote:border-gray-300 prose-blockquote:pl-4 prose-blockquote:italic',
+              'prose-pre:bg-gray-100 prose-pre:p-3 prose-pre:rounded-md leading-tight',
+              'prose-ul:list-disc prose-ul:leading-tight prose-ul:mt-1 prose-ul:mb-1', 
+              'prose-ol:list-decimal prose-ol:leading-tight prose-ol:mt-1 prose-ol:mb-1', 
+              'prose-li:my-1 prose-li:leading-tight prose-li:mt-1 prose-li:mb-1',
+              'prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline leading-tight',
+              'prose-blockquote:border-l-4 prose-blockquote:border-gray-300 prose-blockquote:pl-4 prose-blockquote:italic leading-tight',
               
               // Handle user messages (white text)
               isUser && [
                 'prose-invert', // Inverts colors for dark backgrounds
-                'prose-headings:text-white prose-p:text-white prose-strong:text-white',
-                'prose-code:bg-blue-600 prose-code:text-white',
-                'prose-a:text-blue-200 hover:prose-a:text-white'
+                'prose-headings:text-white prose-p:text-white prose-strong:text-white leading-tight',
+                'prose-code:bg-blue-600 prose-code:text-white leading-tight',
+                'prose-a:text-blue-200 hover:prose-a:text-white leading-tight'
               ],
               
 
