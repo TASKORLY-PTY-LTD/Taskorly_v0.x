@@ -113,7 +113,7 @@ const MessageBubble = memo(function ChatMessages({ message, isStreaming = false 
               isUser ? 'text-blue-100' : 'text-gray-500'
             )}>
               <span>
-                {message.timestamp.toLocaleTimeString()}
+                {message.timestamp.toLocaleTimeString('en-US', {hour12: true})}
               </span>
               {message.tokenCount && (
                 <span className="flex items-center gap-1">
