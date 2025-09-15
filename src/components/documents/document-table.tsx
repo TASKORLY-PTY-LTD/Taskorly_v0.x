@@ -16,7 +16,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useDevMode } from '@/providers/dev-mode-provider';
+import { trpc } from '@/utils/trpc';
+import type { AppRouter } from '@/server/api/root';
+import type { inferRouterOutputs } from '@trpc/server';
 import {
   MoreHorizontal,
   FileText,
@@ -29,7 +31,10 @@ import {
 } from 'lucide-react';
 
 export function DocumentTable() {
-  const { mockDocuments } = useDevMode();
+  const { data: documents = [] } = trpc.documents.list.useQuery({
+    limit: 50,
+    offset: 0
+  });
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 B';
@@ -39,30 +44,59 @@ export function DocumentTable() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'ready':
-        return <CheckCircle className='h-4 w-4 text-green-500' />;
-      case 'processing':
-        return <Clock className='h-4 w-4 text-yellow-500' />;
-      case 'error':
-        return <XCircle className='h-4 w-4 text-red-500' />;
-      default:
-        return <FileText className='h-4 w-4' />;
+  const getStatusIcon = (processingStatus: string, chunkCount: number) => {
+    // If processing is completed and we have chunks, it's ready
+    if (processingStatus === 'completed' && chunkCount > 0) {
+      return <CheckCircle className='h-4 w-4 text-green-500' />;
     }
+    // If processing is in progress or pending
+    if (processingStatus === 'processing' || processingStatus === 'pending') {
+      return <Clock className='h-4 w-4 text-yellow-500' />;
+    }
+    // If processing failed
+    if (processingStatus === 'failed') {
+      return <XCircle className='h-4 w-4 text-red-500' />;
+    }
+    // Default fallback
+    return <FileText className='h-4 w-4' />;
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'ready':
-        return 'default';
-      case 'processing':
-        return 'secondary';
-      case 'error':
-        return 'destructive';
-      default:
-        return 'outline';
+  const getStatusColor = (processingStatus: string, chunkCount: number) => {
+    // If processing is completed and we have chunks, it's ready
+    if (processingStatus === 'completed' && chunkCount > 0) {
+      return 'default';
     }
+    // If processing is in progress or pending
+    if (processingStatus === 'processing' || processingStatus === 'pending') {
+      return 'secondary';
+    }
+    // If processing failed
+    if (processingStatus === 'failed') {
+      return 'destructive';
+    }
+    // Default fallback
+    return 'outline';
+  };
+
+  const getStatusText = (processingStatus: string, chunkCount: number) => {
+    // If processing is completed and we have chunks, it's ready
+    if (processingStatus === 'completed' && chunkCount > 0) {
+      return `Ready (${chunkCount} chunks)`;
+    }
+    // If processing is in progress
+    if (processingStatus === 'processing') {
+      return 'Processing...';
+    }
+    // If processing is pending
+    if (processingStatus === 'pending') {
+      return 'Pending';
+    }
+    // If processing failed
+    if (processingStatus === 'failed') {
+      return 'Failed';
+    }
+    // Default fallback
+    return 'Unknown';
   };
 
   return (
@@ -79,7 +113,7 @@ export function DocumentTable() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {mockDocuments.map(document => (
+          {documents.map((document: inferRouterOutputs<AppRouter>['documents']['list'][number]) => (
             <TableRow key={document.id}>
               <TableCell>
                 <div className='flex items-center space-x-2'>
@@ -94,25 +128,25 @@ export function DocumentTable() {
               </TableCell>
               <TableCell>
                 <Badge variant='outline' className='text-xs'>
-                  {document.type.toUpperCase()}
+                  {document.content_type.toUpperCase()}
                 </Badge>
               </TableCell>
               <TableCell className='text-sm'>
-                {formatFileSize(document.size)}
+                {formatFileSize(document.content.length)}
               </TableCell>
               <TableCell>
                 <div className='flex items-center space-x-2'>
-                  {getStatusIcon(document.status)}
+                  {getStatusIcon(document.processing_status || 'pending', document.chunk_count || 0)}
                   <Badge
-                    variant={getStatusColor(document.status) as any}
+                    variant={getStatusColor(document.processing_status || 'pending', document.chunk_count || 0) as any}
                     className='text-xs'
                   >
-                    {document.status}
+                    {getStatusText(document.processing_status || 'pending', document.chunk_count || 0)}
                   </Badge>
                 </div>
               </TableCell>
               <TableCell className='text-sm text-muted-foreground'>
-                {document.uploadedAt.toLocaleDateString()}
+                {new Date(document.created_at).toLocaleDateString()}
               </TableCell>
               <TableCell>
                 <DropdownMenu>
@@ -142,7 +176,7 @@ export function DocumentTable() {
         </TableBody>
       </Table>
 
-      {mockDocuments.length === 0 && (
+      {documents.length === 0 && (
         <div className='text-center py-8'>
           <FileText className='mx-auto h-12 w-12 text-muted-foreground/50' />
           <h3 className='mt-4 text-lg font-semibold'>No documents</h3>

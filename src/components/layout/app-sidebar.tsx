@@ -31,6 +31,16 @@ const menuItems = [
     icon: Home,
   },
   {
+    title: 'Customer Chat',
+    url: '/customer',
+    icon: MessageSquare,
+  },
+  {
+    title: 'Customer Overlay',
+    url: '/customer/overlay',
+    icon: MessageSquare,
+  },
+  {
     title: 'Chat',
     url: '/chat-v2',
     icon: MessageSquare,
@@ -49,6 +59,15 @@ const menuItems = [
     title: 'Profile',
     url: '/profile',
     icon: User,
+  },
+    title: 'API-Health',
+    url: '//api/health',
+    icon: Search,
+  },
+  {
+    title: 'API-trpc',
+    url: '//api//api/trpc/*	',
+    icon: Search,
   },
 ];
 
