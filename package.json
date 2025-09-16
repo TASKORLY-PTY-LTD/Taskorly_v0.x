@@ -75,6 +75,7 @@
     "langchain": "^0.3.5",
     "lucide-react": "^0.539.0",
     "next": "^15.4.6",
+    "pdf2json": "^3.2.1",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "superjson": "^2.2.1",

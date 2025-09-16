@@ -1,5 +1,25 @@
 'use client';
 
+/**
+ * Upload Dialog Component
+ * 
+ * This component handles file uploads for the document management system.
+ * It supports two different processing paths:
+ * 
+ * 1. TEXT FILES (TXT, MD, JSON):
+ *    - Processed client-side using FileReader API
+ *    - Text content extracted immediately
+ *    - Sent to server for AI chunking and storage
+ * 
+ * 2. PDF FILES:
+ *    - Converted to base64 format for server transmission
+ *    - Sent to server for PDF parsing using pdf2json library
+ *    - Server extracts text, creates AI chunks, and stores everything
+ * 
+ * The component provides a unified interface for both file types while
+ * handling the different processing requirements behind the scenes.
+ */
+
 import { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -12,7 +32,30 @@ import {
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { trpc } from '@/utils/trpc';
-import { processFile, isSupportedFileType, getUnsupportedFileMessage } from '@/lib/file-processor';
+import { processFile, isSupportedFileType, getUnsupportedFileMessage, preparePDFForServer } from '@/lib/file-processor';
+
+// Helper function to get file type from extension (copied from file-processor.ts)
+function getFileTypeFromExtension(fileName: string): string {
+  const extension = fileName.split('.').pop()?.toLowerCase();
+  
+  switch (extension) {
+    case 'txt':
+      return 'text/plain';
+    case 'md':
+    case 'markdown':
+      return 'text/markdown';
+    case 'json':
+      return 'application/json';
+    case 'pdf':
+      return 'application/pdf';
+    case 'doc':
+      return 'application/msword';
+    case 'docx':
+      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    default:
+      return 'text/plain';
+  }
+}
 import { Upload, FileText, X, AlertCircle, CheckCircle } from 'lucide-react';
 
 interface UploadDialogProps {
@@ -38,6 +81,20 @@ export function UploadDialog({ children }: UploadDialogProps) {
   const { mutate: uploadDocument } = trpc.documents.upload.useMutation({
     onSuccess: () => {
       // Refresh the documents list when upload is successful
+      utils.documents.list.invalidate();
+    },
+  });
+  
+  // PDF upload mutation for server-side processing
+  // This mutation handles PDF files differently from text files:
+  // 1. PDFs are sent as base64 data to the server
+  // 2. Server parses the PDF using pdf2json library
+  // 3. Server extracts text and creates chunks using Gemini AI
+  // 4. Server stores the document and chunks in the database
+  const { mutate: uploadPDF } = trpc.documents.uploadPDF.useMutation({
+    onSuccess: () => {
+      // Refresh the documents list when PDF upload is successful
+      // This ensures the new PDF document appears in the UI
       utils.documents.list.invalidate();
     },
   });
@@ -103,36 +160,70 @@ export function UploadDialog({ children }: UploadDialogProps) {
             // Show which file we're processing
             setProcessingFile(file.name);
             
-            // Process the file (handles all types including PDF)
-            const processedFile = await processFile(file);
+            // Check if this is a PDF file by examining the MIME type
+            const fileType = file.type || getFileTypeFromExtension(file.name);
             
-            // Extract restaurant-specific information if it's a menu/policy document
-            // const restaurantInfo = extractRestaurantInfo(processedFile.content, file.name);
-            
-            // Prepare metadata with restaurant info
-            const enhancedMetadata = {
-              ...processedFile.metadata,
-              originalFileName: processedFile.metadata.fileName,
-              uploadedAt: new Date().toISOString(),
-              // Add restaurant-specific metadata
-              // dishCount: restaurantInfo.dishes.length,
-              // allergenCount: restaurantInfo.allergenInfo.length,
-              // policyCount: restaurantInfo.policies.length,
-              // extractedDishes: restaurantInfo.dishes.slice(0, 5), // First 5 dishes for preview
-              // extractedAllergens: restaurantInfo.allergenInfo.slice(0, 3), // First 3 allergen notes
-            };
-            
-            // Upload to server with chunking
-            await uploadDocument({
-              title: processedFile.metadata.fileName,
-              content: processedFile.content,
-              metadata: enhancedMetadata,
-              contentType: processedFile.metadata.fileType,
-              sourceUrl: undefined, // No URL for uploaded files
-            });
-            
-            // Track success (chunk information will be shown in the document table)
-            setFileSuccesses(prev => [...prev, `Successfully processed "${file.name}" - ${processedFile.metadata.wordCount} words (chunking in progress...)`]);
+            if (fileType === 'application/pdf') {
+              // ===== PDF FILE PROCESSING PATH =====
+              // PDFs require special handling because they need server-side parsing
+              
+              // Step 1: Prepare PDF for server transmission
+              // This converts the PDF file to base64 format so it can be sent via JSON
+              const pdfData = await preparePDFForServer(file);
+              
+              // Step 2: Send PDF to server for processing
+              // The server will:
+              // - Parse the PDF using pdf2json library
+              // - Extract text content from all pages
+              // - Create intelligent chunks using Gemini AI
+              // - Store document and chunks in the database
+              await uploadPDF({
+                title: pdfData.fileName,
+                fileData: pdfData.fileData, // Base64 encoded PDF data
+                fileName: pdfData.fileName,
+                fileSize: pdfData.fileSize,
+                sourceUrl: undefined, // No URL for uploaded files
+                metadata: {
+                  originalFileName: pdfData.fileName,
+                  uploadedAt: new Date().toISOString(),
+                  fileSize: pdfData.fileSize,
+                  fileType: pdfData.fileType,
+                },
+              });
+              
+              // Step 3: Show success message
+              // The actual processing happens on the server, so we show a different message
+              setFileSuccesses(prev => [...prev, `Successfully uploaded "${file.name}" for server-side PDF processing...`]);
+              
+            } else {
+              // ===== TEXT FILE PROCESSING PATH =====
+              // Text files (TXT, MD, JSON) can be processed client-side
+              
+              // Step 1: Process the text file client-side
+              // This extracts the text content and calculates metadata
+              const processedFile = await processFile(file);
+              
+              // Step 2: Prepare metadata for server storage
+              const enhancedMetadata = {
+                ...processedFile.metadata,
+                originalFileName: processedFile.metadata.fileName,
+                uploadedAt: new Date().toISOString(),
+              };
+              
+              // Step 3: Send to server for chunking and storage
+              // The server will create chunks using Gemini AI and store everything
+              await uploadDocument({
+                title: processedFile.metadata.fileName,
+                content: processedFile.content, // Already extracted text content
+                metadata: enhancedMetadata,
+                contentType: processedFile.metadata.fileType,
+                sourceUrl: undefined, // No URL for uploaded files
+              });
+              
+              // Step 4: Show success message with word count
+              // We can show word count because we processed it client-side
+              setFileSuccesses(prev => [...prev, `Successfully processed "${file.name}" - ${processedFile.metadata.wordCount} words (chunking in progress...)`]);
+            }
             
           } catch (fileError) {
             console.error(`Failed to process file ${file.name}:`, fileError);
@@ -143,6 +234,9 @@ export function UploadDialog({ children }: UploadDialogProps) {
                 errorMessage += 'This PDF appears to be image-based or corrupted. Please try converting it to text format.';
               } else if (fileError.message.includes('PDF extraction failed')) {
                 errorMessage += 'PDF processing failed. The file might be corrupted or in an unsupported format.';
+              } else if (fileError.message.includes('PDF processing must be handled by the upload dialog')) {
+                // This is expected for PDF files, we handle them differently
+                continue;
               } else {
                 errorMessage += fileError.message;
               }
@@ -191,7 +285,7 @@ export function UploadDialog({ children }: UploadDialogProps) {
         <DialogHeader>
           <DialogTitle>Upload Documents</DialogTitle>
           <DialogDescription>
-            Upload your restaurant documents to the knowledge base. Supports: TXT, MD, JSON (PDF temporarily disabled)
+            Upload your restaurant documents to the knowledge base. Supports: TXT, MD, JSON, and PDF files
           </DialogDescription>
         </DialogHeader>
 
@@ -201,7 +295,7 @@ export function UploadDialog({ children }: UploadDialogProps) {
             <input
               type='file'
               multiple
-              accept='.txt,.md,.json'
+              accept='.txt,.md,.json,.pdf'
               onChange={handleFileSelect}
               className='hidden'
               id='file-upload'
@@ -255,7 +349,7 @@ export function UploadDialog({ children }: UploadDialogProps) {
                         {file.name}
                       </p>
                       <p className='text-xs text-muted-foreground'>
-                        {formatFileSize(file.size)} • {file.type.includes('pdf') ? 'PDF' : 'Text'}
+                        {formatFileSize(file.size)} • {getFileTypeFromExtension(file.name) === 'application/pdf' ? 'PDF' : 'Text'}
                       </p>
                     </div>
                   </div>
@@ -285,7 +379,10 @@ export function UploadDialog({ children }: UploadDialogProps) {
               <Progress value={uploadProgress} className='w-full' />
               {processingFile && (
                 <p className='text-xs text-muted-foreground'>
-                  Extracting text content, analyzing document structure, and creating intelligent chunks with Gemini AI...
+                  {getFileTypeFromExtension(processingFile) === 'application/pdf' 
+                    ? 'Parsing PDF content on server, extracting text, and creating intelligent chunks with Gemini AI...'
+                    : 'Extracting text content, analyzing document structure, and creating intelligent chunks with Gemini AI...'
+                  }
                 </p>
               )}
             </div>

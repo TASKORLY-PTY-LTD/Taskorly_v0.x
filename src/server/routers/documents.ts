@@ -210,6 +210,337 @@ export const documentsRouter = createTRPCRouter({
       }
     }),
 
+  // Upload and process PDF document with server-side parsing
+  // 
+  // This mutation handles the complete PDF processing pipeline:
+  // 1. Receives base64-encoded PDF data from the client
+  // 2. Converts base64 back to binary PDF data
+  // 3. Parses PDF using pdf2json library to extract text
+  // 4. Creates intelligent chunks using Gemini AI
+  // 5. Stores document and chunks in the database
+  // 
+  // Why server-side? PDF parsing libraries are heavy and not suitable for browsers.
+  // Server-side processing provides better security, performance, and reliability.
+  uploadPDF: tenantProcedure
+    .input(
+      z.object({
+        title: z.string().min(1).max(255),
+        fileData: z.string(), // Base64 encoded PDF data from client
+        fileName: z.string(),
+        fileSize: z.number(),
+        sourceUrl: z.string().url().optional(),
+        metadata: z.record(z.any()).optional().default({}),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Create logger with tenant and user context for better traceability
+      const logger = createLogger(ctx.tenant?.id, ctx.user.id);
+      
+      try {
+        // ===== STEP 1: CONVERT BASE64 TO BINARY PDF DATA =====
+        // The client sent us the PDF as a base64 string, so we need to convert it back
+        // to binary data that the PDF parsing library can understand
+        const pdfBuffer = Buffer.from(input.fileData, 'base64');
+        
+        // Log the start of PDF processing for better monitoring and debugging
+        await logger.info(`Starting PDF parsing for document: ${input.title}`, {
+          fileName: input.fileName,
+          fileSize: input.fileSize,
+        });
+
+        // ===== STEP 2: LOAD PDF PARSING LIBRARY =====
+        // We use dynamic import to avoid startup issues that can occur with some PDF libraries
+        // This ensures the library only loads when we actually need to parse a PDF
+        let PDFParser;
+        try {
+          PDFParser = (await import('pdf2json')).default;
+        } catch (importError) {
+          throw new Error(`Failed to load PDF parsing library: ${importError instanceof Error ? importError.message : 'Unknown error'}`);
+        }
+        
+        // ===== STEP 3: PARSE PDF AND EXTRACT TEXT =====
+        // pdf2json is an event-driven library, so we need to set up event listeners
+        // and use a Promise to handle the asynchronous parsing
+        const pdfParser = new PDFParser();
+        
+        const pdfData = await new Promise<any>((resolve, reject) => {
+          // Handle parsing errors (corrupted PDFs, unsupported formats, etc.)
+          pdfParser.on('pdfParser_dataError', (errData: any) => {
+            reject(new Error(`PDF parsing error: ${errData.parserError}`));
+          });
+          
+          // Handle successful parsing - this event fires when the PDF is fully parsed
+          pdfParser.on('pdfParser_dataReady', (pdfData: any) => {
+            resolve(pdfData);
+          });
+          
+          // Start the parsing process with our binary PDF data
+          pdfParser.parseBuffer(pdfBuffer);
+        });
+
+        // ===== STEP 4: EXTRACT TEXT FROM PARSED PDF DATA =====
+        // pdf2json returns a complex data structure with text organized by pages and text runs
+        // We need to traverse this structure to extract all the readable text
+        let content = '';
+        if (pdfData.Pages) {
+          // Iterate through all pages in the PDF
+          for (const page of pdfData.Pages) {
+            if (page.Texts) {
+              // Each page contains an array of text objects
+              for (const text of page.Texts) {
+                if (text.R) {
+                  // Each text object contains an array of text runs (R)
+                  for (const run of text.R) {
+                    if (run.T) {
+                      // Each run contains the actual text (T) which is URL-encoded
+                      // We need to decode it to get the readable text
+                      content += decodeURIComponent(run.T) + ' ';
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        
+        // Clean up the extracted text by removing extra whitespace
+        content = content.trim();
+        
+        // ===== STEP 5: VALIDATE EXTRACTED CONTENT =====
+        // Check if we successfully extracted meaningful text content
+        // This catches cases where the PDF is image-based or corrupted
+        if (!content || content.length < 10) {
+          throw new Error('No text content could be extracted from this PDF. The PDF might be image-based or corrupted.');
+        }
+
+        // ===== STEP 6: CALCULATE METADATA =====
+        // Calculate useful metadata about the extracted content
+        const wordCount = content.split(/\s+/).filter((word: string) => word.length > 0).length;
+        const charCount = content.length;
+        const pageCount = pdfData.Pages ? pdfData.Pages.length : 1;
+
+        // ===== STEP 7: PREPARE ENHANCED METADATA =====
+        // Create comprehensive metadata that includes both our calculated values
+        // and information extracted from the PDF itself
+        const enhancedMetadata = {
+          ...input.metadata,
+          originalFileName: input.fileName,
+          uploadedAt: new Date().toISOString(),
+          fileSize: input.fileSize,
+          pageCount: pageCount,
+          extractionMethod: 'pdf2json', // Track which library we used for extraction
+          pdfInfo: {
+            pages: pageCount,
+            info: pdfData.Info || {}, // PDF metadata from the file itself
+            creator: pdfData.Info?.Creator || '', // Software that created the PDF
+            producer: pdfData.Info?.Producer || '', // Software that produced the PDF
+            title: pdfData.Info?.Title || '', // Title from PDF metadata
+            author: pdfData.Info?.Author || '', // Author from PDF metadata
+          },
+        };
+
+        // Log successful PDF parsing with detailed metrics
+        await logger.info(`Successfully parsed PDF: ${input.title}`, {
+          fileName: input.fileName,
+          pageCount: pageCount,
+          wordCount: wordCount,
+          charCount: charCount,
+          extractionMethod: 'pdf2json',
+        });
+
+        // Create document record with processing status
+        const { data: document, error: docError } = await ctx.supabaseAdmin
+          .from('documents')
+          .insert({
+            tenant_id: ctx.tenant?.id!,
+            title: input.title,
+            content: content,
+            content_type: 'application/pdf',
+            source_url: input.sourceUrl,
+            metadata: enhancedMetadata,
+            processing_status: 'processing',
+            chunk_count: 0, // Will be updated after chunking
+          })
+          .select()
+          .single();
+
+        if (docError || !document) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to create document record',
+          });
+        }
+
+        try {
+          // ===== STEP 9: CREATE INTELLIGENT CHUNKS USING GEMINI AI =====
+          // Instead of simple text splitting, we use Gemini AI to create semantically meaningful chunks
+          // This is crucial for RAG (Retrieval-Augmented Generation) performance because:
+          // 1. AI understands context and meaning, not just character counts
+          // 2. Chunks maintain logical coherence and complete thoughts
+          // 3. Better search and retrieval accuracy in the knowledge base
+          // 4. Preserves document structure and relationships between concepts
+          const chunks = await chunkDocumentWithGemini(
+            content,
+            document.id,
+            input.title,
+            'application/pdf',
+            {
+              // Chunk size: 2000 characters provides optimal balance between:
+              // - Context richness (enough content for meaningful retrieval)
+              // - Retrieval precision (not too large to be irrelevant)
+              // - Complete sentences and paragraphs (maintains logical units)
+              maxChunkSize: 2000,
+              
+              // Overlap: 200 characters ensures smooth transitions between chunks
+              // This prevents information loss at chunk boundaries and maintains context flow
+              overlapSize: 200,
+              
+              // Structure preservation: Maintains headings, paragraphs, lists, etc.
+              // This helps the RAG system understand document hierarchy and organization
+              preserveStructure: true,
+              
+              // Metadata extraction: AI identifies key concepts, headings, and important phrases
+              // This metadata enhances search accuracy and helps users find relevant information
+              extractMetadata: true,
+            }
+          );
+
+          // Log successful chunking with detailed metrics for monitoring and optimization
+          await logger.info(`Generated ${chunks.length} chunks for PDF: ${input.title}`, {
+            documentId: document.id,
+            chunkCount: chunks.length,
+            averageChunkSize: Math.round(chunks.reduce((sum, chunk) => sum + chunk.content.length, 0) / chunks.length),
+            totalContentLength: content.length,
+            chunkingEfficiency: Math.round((chunks.length / Math.ceil(content.length / 1000)) * 100),
+          });
+
+          // Store chunks in the database for RAG retrieval
+          const chunkInserts = chunks.map((chunk: DocumentChunk) => ({
+            document_id: document.id,
+            content: chunk.content,
+            chunk_index: chunk.chunkIndex,
+            metadata: chunk.metadata,
+          }));
+
+          const { error: chunksError } = await ctx.supabaseAdmin
+            .from('document_chunks')
+            .insert(chunkInserts);
+
+          if (chunksError) {
+            throw new TRPCError({
+              code: 'INTERNAL_SERVER_ERROR',
+              message: `Failed to store document chunks: ${chunksError.message}`,
+            });
+          }
+
+          // Update document with chunk count and mark as completed
+          await ctx.supabaseAdmin
+            .from('documents')
+            .update({
+              chunk_count: chunks.length,
+              processing_status: 'completed',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', document.id);
+
+          // Log usage with actual token count for cost tracking and optimization
+          const totalTokens = chunks.reduce((sum: number, chunk: DocumentChunk) => sum + Math.ceil(chunk.content.length / 4), 0);
+          await ctx.supabaseAdmin.from('usage_logs').insert({
+            tenant_id: ctx.tenant?.id!,
+            user_id: ctx.user.id,
+            event_type: 'pdf_upload_with_chunking',
+            tokens_used: totalTokens,
+            cost_cents: Math.ceil(totalTokens * 0.0001), // Rough cost estimate
+            metadata: {
+              document_id: document.id,
+              content_type: 'application/pdf',
+              chunk_count: chunks.length,
+              content_length: content.length,
+              page_count: pageCount,
+              chunking_method: 'gemini',
+              extraction_method: 'pdf2json',
+              average_chunk_size: Math.round(chunks.reduce((sum: number, chunk: DocumentChunk) => sum + chunk.content.length, 0) / chunks.length),
+            },
+          });
+
+          // Log successful completion for monitoring and debugging
+          await logger.info(`Successfully processed PDF: ${input.title} with ${chunks.length} chunks`, {
+            documentId: document.id,
+            totalTokens,
+            pageCount: pageCount,
+            processingTime: Date.now(), // Could be enhanced with actual timing
+          });
+
+          return {
+            ...document,
+            chunk_count: chunks.length,
+            processing_status: 'completed',
+          };
+
+        } catch (chunkingError) {
+          // Update document status to failed
+          await ctx.supabaseAdmin
+            .from('documents')
+            .update({
+              processing_status: 'failed',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', document.id);
+
+          // Log the chunking error with detailed context for debugging
+          await logger.error(`PDF chunking failed for: ${input.title}`, {
+            documentId: document.id,
+            fileName: input.fileName,
+            pageCount: pageCount,
+            contentLength: content.length,
+            error: chunkingError instanceof Error ? chunkingError.message : 'Unknown chunking error',
+            stack: chunkingError instanceof Error ? chunkingError.stack : undefined,
+          });
+
+          // Log the error for tracking purposes
+          await ctx.supabaseAdmin.from('usage_logs').insert({
+            tenant_id: ctx.tenant?.id!,
+            user_id: ctx.user.id,
+            event_type: 'pdf_upload_failed',
+            tokens_used: 0,
+            cost_cents: 0,
+            metadata: {
+              document_id: document.id,
+              content_type: 'application/pdf',
+              error: chunkingError instanceof Error ? chunkingError.message : 'Unknown chunking error',
+              content_length: content.length,
+              page_count: pageCount,
+              extraction_method: 'pdf2json',
+            },
+          });
+
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `PDF upload succeeded but chunking failed: ${chunkingError instanceof Error ? chunkingError.message : 'Unknown error'}`,
+          });
+        }
+
+      } catch (error) {
+        // Log general errors for debugging and monitoring
+        await logger.error(`PDF upload failed: ${input.title}`, {
+          fileName: input.fileName,
+          fileSize: input.fileSize,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+
+        // If it's already a TRPCError, re-throw it
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to upload PDF: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        });
+      }
+    }),
+
   // Bulk upload documents with Gemini chunking
   bulkUpload: tenantProcedure
     .input(
