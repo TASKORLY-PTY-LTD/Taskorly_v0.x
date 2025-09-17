@@ -27,7 +27,8 @@ export const createTRPCContext = async (opts: { req: NextRequest }) => {
       } = await supabase.auth.getUser(token);
 
       if (authUser && !error) {
-        console.log('Auth user found:', authUser.id);
+        // console log user here
+        // console.log('Auth user found:', authUser.id);
         
         // Get user from our database
         const { data: dbUser, error: dbError } = await supabaseAdmin
