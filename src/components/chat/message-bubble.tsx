@@ -30,13 +30,13 @@ interface DemoMessageBubbleProps {
 
 function cleanContent(content: string): string {
   return content
-    .replace(/\[object Object\]/g, '')           // Remove objects
-    .replace(/&#39;/g, "'")                     // Fix entities
+    .replace(/\[object Object\]/g, '')         
+    .replace(/&#39;/g, "'")                     
     .replace(/&quot;/g, '"')
     .replace(/&amp;/g, '&')
-    .replace(/<br\s*\/?><br\s*\/?>/g, '\n\n')   // Convert <br> tags
+    .replace(/<br\s*\/?><br\s*\/?>/g, '\n\n') 
     .replace(/<br\s*\/?>/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')                 // Clean whitespace
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 

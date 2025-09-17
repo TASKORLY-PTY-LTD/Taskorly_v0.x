@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { createTRPCRouter, publicProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
 import { RAGPipeline } from '@/lib/rag/pipeline';
+import { Provider } from '@radix-ui/react-tooltip';
 
 export const chatRouter = createTRPCRouter({
   // Send message and get streaming response
@@ -27,7 +28,13 @@ export const chatRouter = createTRPCRouter({
           temperature: 0.7,
           max_context_length: 2048,
           system_prompt: input.systemPrompt ?? '',
-          vector_db_config: {},
+          vector_db_config: {
+            Provider:"Pinecone",
+            api_key: process.env.PINECONE_API_KEY,
+            environment: process.env.PINECONE_ENVIRONMENT,
+            index_name: process.env.PINECONE_INDEX_NAME,
+            dimensions: 512,
+          },
           tenant_id: 'public-tenant',
         };
         const ragPipeline = new RAGPipeline(config);
