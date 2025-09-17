@@ -1,12 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
-  MessageSquare,
   Send,
   Mic,
   Paperclip,
@@ -14,60 +8,19 @@ import {
   Monitor,
   Shield,
   Sparkles,
-  Bot,
   User,
   Camera,
   Square,
 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-  screenContext?: ScreenContext;
-}
-
-interface ScreenContext {
-  url?: string;
-  posSystem?: 'square' | 'toast' | 'shopify' | 'generic';
-  currentScreen?: string;
-  visibleElements?: string[];
-}
-
-interface Suggestion {
-  id: string;
-  text: string;
-  category: 'pos' | 'general' | 'troubleshoot';
-  icon: React.ReactNode;
-}
-
-const MOCK_SUGGESTIONS: Suggestion[] = [
-  {
-    id: '1',
-    text: 'How do I process a refund in Square?',
-    category: 'pos',
-    icon: <Square className='h-4 w-4' />,
-  },
-  {
-    id: '2',
-    text: 'Payment terminal not responding',
-    category: 'troubleshoot',
-    icon: <Shield className='h-4 w-4' />,
-  },
-  {
-    id: '3',
-    text: 'How to add a new product?',
-    category: 'pos',
-    icon: <Sparkles className='h-4 w-4' />,
-  },
-  {
-    id: '4',
-    text: 'Generate daily sales report',
-    category: 'general',
-    icon: <Monitor className='h-4 w-4' />,
-  },
-];
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Message, ScreenContext, Suggestion } from './types/customer.types';
+import { MOCK_SUGGESTIONS } from './utils/customerUtils';
 
 export default function CustomerChatPage() {
   const [messages, setMessages] = useState<Message[]>([
@@ -157,23 +110,29 @@ export default function CustomerChatPage() {
   };
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white'>
+    <div className='min-h-screen bg-gradient-to-br from-blue-900 via-slate-800 to-teal-900 text-white'>
       {/* Animated background elements */}
       <div className='absolute inset-0 overflow-hidden'>
         <div className='absolute -top-40 -right-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob'></div>
-        <div className='absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000'></div>
+        <div className='absolute -bottom-40 -left-40 w-80 h-80 bg-teal-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000'></div>
         <div className='absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-cyan-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000'></div>
       </div>
 
       <div className='relative z-10 h-screen flex flex-col'>
         {/* Header */}
-        <header className='flex items-center justify-between p-6 border-b border-slate-700/50 backdrop-blur-lg bg-slate-800/30'>
+        <header className='flex items-center justify-between p-6'>
           <div className='flex items-center space-x-4'>
-            <div className='w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center'>
-              <Bot className='w-6 h-6 text-white' />
+            <div className='w-10 h-10 rounded-xl flex items-center justify-center'>
+              <Image
+                src='/logo.png'
+                alt='Taskorly Logo'
+                width={35}
+                height={35}
+                className='rounded-lg'
+              />
             </div>
             <div>
-              <h1 className='text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent'>
+              <h1 className='text-xl font-bold bg-gradient-to-r from-blue-400 to-teal-400 bg-clip-text text-transparent'>
                 Taskorly Assistant
               </h1>
               <p className='text-sm text-slate-400'>AI-powered POS support</p>
@@ -181,27 +140,27 @@ export default function CustomerChatPage() {
           </div>
 
           <div className='flex items-center space-x-3'>
-            {screenContext.posSystem && (
+            {/* {screenContext.posSystem && (
               <Badge
                 variant='outline'
-                className='border-blue-400 text-blue-400'
+                className='border-teal-400 text-teal-400'
               >
                 <Square className='w-3 h-3 mr-1' />
                 {screenContext.posSystem.charAt(0).toUpperCase() +
                   screenContext.posSystem.slice(1)}{' '}
                 Connected
               </Badge>
-            )}
+            )} */}
 
-            <Button
+            {/* <Button
               variant='outline'
               size='sm'
               onClick={captureScreen}
-              className='border-slate-600 hover:border-slate-500 hover:bg-slate-800'
+              className='border-teal-400 bg-blue-800/50 hover:border-teal-300 hover:bg-blue-700/70 text-teal-100 hover:text-white hover:shadow-lg hover:shadow-teal-500/25'
             >
               <Camera className='w-4 h-4 mr-2' />
               Capture Screen
-            </Button>
+            </Button> */}
           </div>
         </header>
 
@@ -225,16 +184,22 @@ export default function CustomerChatPage() {
                     >
                       {/* Avatar */}
                       <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        className={`${message.role === 'user' ? 'w-10 h-10' : 'w-20 h-20'} rounded-full flex items-center justify-center ${
                           message.role === 'user'
                             ? 'bg-gradient-to-br from-green-500 to-emerald-600'
-                            : 'bg-gradient-to-br from-blue-500 to-purple-600'
+                            : ''
                         }`}
                       >
                         {message.role === 'user' ? (
-                          <User className='w-4 h-4 text-white' />
+                          <User className='w-7 h-7 text-white' />
                         ) : (
-                          <Bot className='w-4 h-4 text-white' />
+                          <Image
+                            src='/logo.png'
+                            alt='Taskorly Logo'
+                            width={80}
+                            height={80}
+                            className='rounded-full'
+                          />
                         )}
                       </div>
 
@@ -243,7 +208,7 @@ export default function CustomerChatPage() {
                         className={`rounded-2xl px-4 py-3 ${
                           message.role === 'user'
                             ? 'bg-gradient-to-br from-green-600 to-emerald-700 text-white'
-                            : 'bg-slate-800/60 backdrop-blur-lg border border-slate-700/50 text-slate-100'
+                            : 'bg-white/10 text-white'
                         }`}
                       >
                         <div className='whitespace-pre-wrap'>
@@ -267,10 +232,16 @@ export default function CustomerChatPage() {
                 {isStreaming && (
                   <div className='flex justify-start'>
                     <div className='flex items-start space-x-3'>
-                      <div className='w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center'>
-                        <Bot className='w-4 h-4 text-white' />
+                      <div className='w-20 h-20 rounded-full flex items-center justify-center'>
+                        <Image
+                          src='/logo.png'
+                          alt='Taskorly Logo'
+                          width={80}
+                          height={80}
+                          className='rounded-full'
+                        />
                       </div>
-                      <div className='bg-slate-800/60 backdrop-blur-lg border border-slate-700/50 rounded-2xl px-4 py-3'>
+                      <div className='bg-white/10 rounded-2xl px-4 py-3'>
                         <div className='flex items-center space-x-2'>
                           <div className='flex space-x-1'>
                             <div className='w-2 h-2 bg-blue-400 rounded-full animate-bounce'></div>
@@ -291,7 +262,7 @@ export default function CustomerChatPage() {
             </ScrollArea>
 
             {/* Input area */}
-            <div className='border-t border-slate-700/50 bg-slate-800/30 backdrop-blur-lg p-6'>
+            <div className='p-6'>
               <div className='max-w-4xl mx-auto'>
                 {/* Suggestions */}
                 <div className='mb-4'>
@@ -302,7 +273,7 @@ export default function CustomerChatPage() {
                         variant='outline'
                         size='sm'
                         onClick={() => handleSuggestionClick(suggestion)}
-                        className='text-xs border-slate-600 hover:border-slate-500 hover:bg-slate-700/50 text-slate-300'
+                        className='text-xs border-teal-400 bg-blue-800/50 hover:border-teal-300 hover:bg-blue-700/70 text-teal-100 hover:text-white hover:shadow-lg hover:shadow-teal-500/25'
                       >
                         {suggestion.icon}
                         <span className='ml-2'>{suggestion.text}</span>
@@ -313,7 +284,7 @@ export default function CustomerChatPage() {
 
                 {/* Input */}
                 <div className='relative'>
-                  <div className='flex items-center space-x-3 bg-slate-900/60 backdrop-blur-lg border border-slate-700/50 rounded-2xl p-3'>
+                  <div className='flex items-center space-x-3 bg-white/10 rounded-2xl p-3'>
                     <input
                       ref={inputRef}
                       type='text'
@@ -351,7 +322,7 @@ export default function CustomerChatPage() {
                         onClick={() => handleSendMessage(inputValue)}
                         disabled={!inputValue.trim() || isStreaming}
                         size='sm'
-                        className='bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white'
+                        className='bg-gradient-to-r from-blue-500 to-teal-500 hover:from-blue-600 hover:to-teal-600 text-white'
                       >
                         <Send className='w-4 h-4' />
                       </Button>
@@ -363,8 +334,8 @@ export default function CustomerChatPage() {
           </div>
 
           {/* Context sidebar */}
-          <div className='w-80 border-l border-slate-700/50 bg-slate-800/20 backdrop-blur-lg p-4'>
-            <Card className='bg-slate-900/60 border-slate-700/50 backdrop-blur-lg'>
+          {/* <div className='w-80 p-4'>
+            <Card className='border-0 bg-transparent'>
               <div className='p-4'>
                 <div className='flex items-center space-x-2 mb-4'>
                   <Monitor className='w-5 h-5 text-blue-400' />
@@ -373,14 +344,14 @@ export default function CustomerChatPage() {
 
                 <div className='space-y-3 text-sm'>
                   <div>
-                    <span className='text-slate-400'>System:</span>
+                    <span className='text-slate-300'>System:</span>
                     <span className='ml-2 text-white capitalize'>
                       {screenContext.posSystem}
                     </span>
                   </div>
 
                   <div>
-                    <span className='text-slate-400'>Current Page:</span>
+                    <span className='text-slate-300'>Current Page:</span>
                     <span className='ml-2 text-white'>
                       {screenContext.currentScreen}
                     </span>
@@ -388,15 +359,15 @@ export default function CustomerChatPage() {
 
                   {screenContext.url && (
                     <div>
-                      <span className='text-slate-400'>URL:</span>
-                      <span className='ml-2 text-blue-400 text-xs break-all'>
+                      <span className='text-slate-300'>URL:</span>
+                      <span className='ml-2 text-slate-400 text-xs break-all'>
                         {screenContext.url}
                       </span>
                     </div>
                   )}
                 </div>
 
-                <div className='mt-4 pt-4 border-t border-slate-700/50'>
+                <div className='mt-4 pt-4'>
                   <h4 className='text-sm font-medium text-white mb-2'>
                     Quick Actions
                   </h4>
@@ -404,7 +375,7 @@ export default function CustomerChatPage() {
                     <Button
                       variant='outline'
                       size='sm'
-                      className='w-full justify-start border-slate-600 hover:bg-slate-700/50 text-slate-300'
+                      className='w-full justify-start border-teal-400 bg-blue-800/50 hover:border-teal-300 hover:bg-blue-700/70 text-teal-100 hover:text-white hover:shadow-lg hover:shadow-teal-500/25'
                     >
                       <Zap className='w-4 h-4 mr-2' />
                       Process Refund
@@ -412,7 +383,7 @@ export default function CustomerChatPage() {
                     <Button
                       variant='outline'
                       size='sm'
-                      className='w-full justify-start border-slate-600 hover:bg-slate-700/50 text-slate-300'
+                      className='w-full justify-start border-teal-400 bg-blue-800/50 hover:border-teal-300 hover:bg-blue-700/70 text-teal-100 hover:text-white hover:shadow-lg hover:shadow-teal-500/25'
                     >
                       <Sparkles className='w-4 h-4 mr-2' />
                       Add Product
@@ -420,7 +391,7 @@ export default function CustomerChatPage() {
                     <Button
                       variant='outline'
                       size='sm'
-                      className='w-full justify-start border-slate-600 hover:bg-slate-700/50 text-slate-300'
+                      className='w-full justify-start border-teal-400 bg-blue-800/50 hover:border-teal-300 hover:bg-blue-700/70 text-teal-100 hover:text-white hover:shadow-lg hover:shadow-teal-500/25'
                     >
                       <Shield className='w-4 h-4 mr-2' />
                       Troubleshoot
@@ -429,7 +400,7 @@ export default function CustomerChatPage() {
                 </div>
               </div>
             </Card>
-          </div>
+          </div> */}
         </div>
       </div>
 

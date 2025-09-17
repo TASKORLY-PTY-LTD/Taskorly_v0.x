@@ -4,7 +4,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { DemoMessageBubble } from '@/components/chat/demo-message-bubble';
+import MessageBubble from '@/components/chat/message-bubble';
 import { DemoChatInput } from '@/components/chat/demo-chat-input';
 import { trpc } from '@/utils/trpc';
 import { useEffect, useRef, useState } from 'react';
@@ -20,7 +20,7 @@ import {
   Loader2,
 } from 'lucide-react';
 
-const DEMO_FEATURES = [
+const FEATURES = [
   {
     icon: <MessageSquare className="w-5 h-5" />,
     title: 'Intelligent Chat',
@@ -47,7 +47,7 @@ const SAMPLE_QUESTIONS = [
   'What are the business implications discussed?',
 ];
 
-interface DemoMessage {
+interface Messages {
   id: string;
   role: 'user' | 'assistant';
   content: string;
@@ -61,12 +61,14 @@ interface DemoMessage {
 }
 
 export default function ChatV2Page() {
-  const [messages, setMessages] = useState<DemoMessage[]>([]);
+  const [messages, setMessages] = useState<Messages[]>([]);
   const [isWelcomeVisible, setIsWelcomeVisible] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const sendDemoMessage = trpc.chat.sendDemoMessage.useMutation();
+//   const sendDemoMessage = trpc.chat.sendDemoMessage.useMutation();
+  const sendMessage = trpc.chat.sendMessage.useMutation();
+  const createConversation = trpc.chat.createConversation.useMutation();
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -78,11 +80,14 @@ export default function ChatV2Page() {
     setIsWelcomeVisible(messages.length === 0);
   }, [messages.length]);
 
+  // Store conversationId in state
+  const [conversationId, setConversationId] = useState<string | null>(null);
+
   const handleSendMessage = async (messageContent: string) => {
     if (isLoading) return;
 
     // Add user message immediately
-    const userMessage: DemoMessage = {
+    const userMessage: Messages = {
       id: `user-${Date.now()}`,
       role: 'user',
       content: messageContent,
@@ -93,26 +98,35 @@ export default function ChatV2Page() {
     setIsLoading(true);
 
     try {
-      const response = await sendDemoMessage.mutateAsync({
+      let convId = conversationId;
+      if (!convId) {
+        // Create a new conversation if none exists
+        const conv = await createConversation.mutateAsync({});
+        convId = conv.id;
+        setConversationId(convId);
+      }
+
+      const response = await sendMessage.mutateAsync({
+        conversationId: convId ?? undefined,
         message: messageContent,
+        includeContext: true,
       });
 
       // Add assistant message
-      const assistantMessage: DemoMessage = {
+      const assistantMessage: Messages = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
         content: response.content,
         timestamp: new Date(),
-        sources: response.sources,
+        sources: response.retrievedDocs,
         tokenCount: response.tokenCount,
       };
 
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Failed to send message:', error);
-      
       // Add error message
-      const errorMessage: DemoMessage = {
+      const errorMessage: Messages = {
         id: `error-${Date.now()}`,
         role: 'assistant',
         content: 'Sorry, I encountered an error processing your message. Please try again.',
@@ -152,7 +166,7 @@ export default function ChatV2Page() {
 
               {/* Features Grid */}
               <div className="grid md:grid-cols-3 gap-6 mb-8">
-                {DEMO_FEATURES.map((feature, index) => (
+                {FEATURES.map((feature, index) => (
                   <Card
                     key={index}
                     className="p-6 bg-white/80 backdrop-blur-sm border-0 shadow-lg"
@@ -200,6 +214,9 @@ export default function ChatV2Page() {
               </div>
             </div>
           </div>
+
+
+
         </div>
       )}
 
@@ -275,7 +292,7 @@ export default function ChatV2Page() {
               ) : (
                 <div className="space-y-6">
                   {messages.map(message => (
-                    <DemoMessageBubble key={message.id} message={message} />
+                    <MessageBubble key={message.id} message={message} />
                   ))}
                   {isLoading && (
                     <div className="flex justify-start">
@@ -299,7 +316,7 @@ export default function ChatV2Page() {
 
           {/* Chat Input */}
           <div className="border-t bg-gray-50/80 rounded-b-xl">
-            <DemoChatInput 
+            <DemoChatInput
               onSendMessage={handleSendMessage}
               disabled={isLoading}
               placeholder="Ask me anything about your company information..."
