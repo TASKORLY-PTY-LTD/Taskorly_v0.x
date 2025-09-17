@@ -1,15 +1,5 @@
 'use client';
 
-/*
- * CUSTOMER CHAT PAGE - MERGED IMPLEMENTATION
- * 
- * This combines the best features from both versions:
- * - Clean welcome screen from version 4
- * - Comprehensive functionality from version 3
- * - Proper CustomerChatBubble integration
- * - Fixed loading states and error handling
- */
-
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -22,10 +12,6 @@ import {
   Send,
   Mic,
   Paperclip,
-  Zap,
-  Monitor,
-  Shield,
-  Sparkles,
   User,
   Camera,
   Square,
@@ -36,6 +22,10 @@ import {
   Settings,
   MessageSquare,
   Bot,
+  Monitor,
+  Zap,
+  Sparkles,
+  Shield,
 } from 'lucide-react';
 import CustomerChatBubble from '@/components/customer/customer-chat-bubble';
 
@@ -136,7 +126,7 @@ export default function CustomerChatPage() {
     url: 'https://squareup.com/dashboard',
   });
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // tRPC mutations
@@ -145,7 +135,9 @@ export default function CustomerChatPage() {
 
   // Auto-scroll to bottom
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
   }, [messages]);
 
   // Hide welcome when messages exist
@@ -179,7 +171,6 @@ export default function CustomerChatPage() {
       role: 'user',
       content: content.trim(),
       timestamp: new Date(),
-      screenContext,
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -256,12 +247,11 @@ export default function CustomerChatPage() {
   };
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-blue-900 via-slate-800 to-teal-900 text-white'>
+    <><div className='min-h-screen bg-gradient-to-br from-blue-900 via-slate-800 to-teal-900 text-white'>
       {/* Animated background */}
       <div className='fixed inset-0 overflow-hidden pointer-events-none'>
         <div className='absolute -top-40 -right-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob'></div>
         <div className='absolute -bottom-40 -left-40 w-80 h-80 bg-teal-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000'></div>
-        <div className='absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-cyan-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000'></div>
       </div>
 
       <div className='relative z-10 min-h-screen flex flex-col'>
@@ -271,17 +261,16 @@ export default function CustomerChatPage() {
             <div className='w-10 h-10 rounded-xl flex items-center justify-center'>
               <Image
                 src='/logo.png'
-                alt='Taskorly Logo'
-                width={35}
-                height={35}
-                className='rounded-lg'
-              />
+                alt='AI Assistant'
+                width={40}
+                height={40}
+                className='rounded-lg' />
             </div>
             <div>
               <h1 className='text-xl font-bold bg-gradient-to-r from-blue-400 to-teal-400 bg-clip-text text-transparent'>
-                Taskorly Assistant
+                AI POS Assistant
               </h1>
-              <p className='text-sm text-slate-400'>AI-powered POS support</p>
+              <p className='text-sm text-slate-400'>Smart help for your business</p>
             </div>
           </div>
 
@@ -307,9 +296,7 @@ export default function CustomerChatPage() {
 
             <Button
               variant='outline'
-              size='sm'
-              onClick={captureScreen}
-              className='border-teal-400 bg-blue-800/50 hover:border-teal-300 hover:bg-blue-700/70 text-teal-100 hover:text-white hover:shadow-lg hover:shadow-teal-500/25'
+              className='border-teal-400 text-teal-400 bg-blue-800/50'
             >
               <Camera className='w-4 h-4 mr-2' />
               Capture Screen
@@ -468,7 +455,7 @@ export default function CustomerChatPage() {
                           e.preventDefault();
                           handleSendMessage(inputValue);
                         }
-                      }}
+                      } }
                       placeholder='Ask me anything about your POS system...'
                       className='flex-1 bg-transparent text-white placeholder-slate-400 focus:outline-none text-sm'
                       disabled={isLoading} />
@@ -478,13 +465,13 @@ export default function CustomerChatPage() {
                       size='sm'
                       className='text-slate-400 hover:text-slate-300 p-2'
                     >
-                      <Paperclip className='w-4 h-4' />
+                      <Mic className='w-4 h-4' />
                     </Button>
 
                     <Button
                       variant='ghost'
                       size='sm'
-                      className='text-slate-400 hover:text-slate-300 p-2'
+                      className='text-slate-400 hover:text-slate-300'
                     >
                       <Mic className='w-4 h-4' />
                     </Button>
@@ -506,107 +493,106 @@ export default function CustomerChatPage() {
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Context sidebar - MOVED INSIDE the flex container */}
-          {showSidebar && (
-            <div className='w-80 p-4'>
-              <Card className='border-0 bg-white/10 backdrop-blur-sm'>
-                <div className='p-4'>
-                  <div className='flex items-center space-x-2 mb-4'>
-                    <Monitor className='w-5 h-5 text-blue-400' />
-                    <h3 className='font-semibold text-white'>Screen Context</h3>
+        {/* Context sidebar - toggleable */}
+        {showSidebar && (
+          <div className='w-80 p-4'>
+            <Card className='border-0 bg-white/10 backdrop-blur-sm'>
+              <div className='p-4'>
+                <div className='flex items-center space-x-2 mb-4'>
+                  <Monitor className='w-5 h-5 text-blue-400' />
+                  <h3 className='font-semibold text-white'>Screen Context</h3>
+                </div>
+
+                <div className='space-y-3 text-sm'>
+                  <div>
+                    <span className='text-slate-300'>System:</span>
+                    <span className='ml-2 text-white capitalize'>
+                      {screenContext.posSystem}
+                    </span>
                   </div>
 
-                  <div className='space-y-3 text-sm'>
+                  <div>
+                    <span className='text-slate-300'>Current Page:</span>
+                    <span className='ml-2 text-white'>
+                      {screenContext.currentScreen}
+                    </span>
+                  </div>
+
+                  {screenContext.url && (
                     <div>
-                      <span className='text-slate-300'>System:</span>
-                      <span className='ml-2 text-white capitalize'>
-                        {screenContext.posSystem}
+                      <span className='text-slate-300'>URL:</span>
+                      <span className='ml-2 text-slate-400 text-xs break-all'>
+                        {screenContext.url}
                       </span>
                     </div>
+                  )}
+                </div>
 
-                    <div>
-                      <span className='text-slate-300'>Current Page:</span>
-                      <span className='ml-2 text-white'>
-                        {screenContext.currentScreen}
-                      </span>
-                    </div>
-
-                    {screenContext.url && (
-                      <div>
-                        <span className='text-slate-300'>URL:</span>
-                        <span className='ml-2 text-slate-400 text-xs break-all'>
-                          {screenContext.url}
-                        </span>
-                      </div>
+                {/* Conversation Management */}
+                <div className='mt-4 pt-4 border-t border-slate-700/50'>
+                  <h4 className='text-sm font-medium text-white mb-2'>
+                    Conversation
+                  </h4>
+                  <div className='space-y-2 text-xs text-slate-400 mb-3'>
+                    <div>Messages: {messages.length}</div>
+                    {conversationId && (
+                      <div>ID: {conversationId.slice(0, 8)}...</div>
                     )}
                   </div>
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    onClick={clearConversation}
+                    className='w-full justify-start border-slate-600 hover:bg-slate-700/50 text-slate-300'
+                  >
+                    <Zap className='w-4 h-4 mr-2' />
+                    New Conversation
+                  </Button>
+                </div>
 
-                  {/* Conversation Management */}
-                  <div className='mt-4 pt-4 border-t border-slate-700/50'>
-                    <h4 className='text-sm font-medium text-white mb-2'>
-                      Conversation
-                    </h4>
-                    <div className='space-y-2 text-xs text-slate-400 mb-3'>
-                      <div>Messages: {messages.length}</div>
-                      {conversationId && (
-                        <div>ID: {conversationId.slice(0, 8)}...</div>
-                      )}
-                    </div>
+                {/* Quick Actions */}
+                <div className='mt-4 pt-4 border-t border-slate-700/50'>
+                  <h4 className='text-sm font-medium text-white mb-2'>
+                    Quick Actions
+                  </h4>
+                  <div className='space-y-2'>
                     <Button
                       variant='outline'
                       size='sm'
-                      onClick={clearConversation}
+                      onClick={() => handleSendMessage('How do I process a refund?')}
                       className='w-full justify-start border-slate-600 hover:bg-slate-700/50 text-slate-300'
                     >
                       <Zap className='w-4 h-4 mr-2' />
-                      New Conversation
+                      Process Refund
+                    </Button>
+                    <Button
+                      variant='outline'
+                      size='sm'
+                      onClick={() => handleSendMessage('How do I add a new product?')}
+                      className='w-full justify-start border-slate-600 hover:bg-slate-700/50 text-slate-300'
+                    >
+                      <Sparkles className='w-4 h-4 mr-2' />
+                      Add Product
+                    </Button>
+                    <Button
+                      variant='outline'
+                      size='sm'
+                      onClick={() => handleSendMessage('My payment terminal is not working')}
+                      className='w-full justify-start border-slate-600 hover:bg-slate-700/50 text-slate-300'
+                    >
+                      <Shield className='w-4 h-4 mr-2' />
+                      Troubleshoot
                     </Button>
                   </div>
-
-                  {/* Quick Actions */}
-                  <div className='mt-4 pt-4 border-t border-slate-700/50'>
-                    <h4 className='text-sm font-medium text-white mb-2'>
-                      Quick Actions
-                    </h4>
-                    <div className='space-y-2'>
-                      <Button
-                        variant='outline'
-                        size='sm'
-                        onClick={() => handleSendMessage('How do I process a refund?')}
-                        className='w-full justify-start border-slate-600 hover:bg-slate-700/50 text-slate-300'
-                      >
-                        <Zap className='w-4 h-4 mr-2' />
-                        Process Refund
-                      </Button>
-                      <Button
-                        variant='outline'
-                        size='sm'
-                        onClick={() => handleSendMessage('How do I add a new product?')}
-                        className='w-full justify-start border-slate-600 hover:bg-slate-700/50 text-slate-300'
-                      >
-                        <Sparkles className='w-4 h-4 mr-2' />
-                        Add Product
-                      </Button>
-                      <Button
-                        variant='outline'
-                        size='sm'
-                        onClick={() => handleSendMessage('My payment terminal is not working')}
-                        className='w-full justify-start border-slate-600 hover:bg-slate-700/50 text-slate-300'
-                      >
-                        <Shield className='w-4 h-4 mr-2' />
-                        Troubleshoot
-                      </Button>
-                    </div>
-                  </div>
                 </div>
-              </Card>
-            </div>
-          )}
-        </div>
+              </div>
+            </Card>
+          </div>
+        )}
       </div>
-
-      <style jsx>{`
+    </div><style jsx>{`
         @keyframes blob {
           0% {
             transform: translate(0px, 0px) scale(1);
@@ -631,6 +617,4 @@ export default function CustomerChatPage() {
           animation-delay: 4s;
         }
       `}</style>
-    </div>
-  );
-}
+</>)};
