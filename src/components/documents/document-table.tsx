@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -16,6 +17,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { DocumentViewDialog } from './document-view-dialog';
+// import { DocumentDeleteDialog } from './document-delete-dialog'; // Temporarily disabled
 import { trpc } from '@/utils/trpc';
 import type { AppRouter } from '@/server/api/root';
 import type { inferRouterOutputs } from '@trpc/server';
@@ -23,7 +26,7 @@ import {
   MoreHorizontal,
   FileText,
   Download,
-  Trash2,
+  Trash2, // Temporarily disabled
   Eye,
   CheckCircle,
   Clock,
@@ -31,6 +34,10 @@ import {
 } from 'lucide-react';
 
 export function DocumentTable() {
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<inferRouterOutputs<AppRouter>['documents']['list'][number] | null>(null);
+
   const { data: documents = [] } = trpc.documents.list.useQuery({
     limit: 50,
     offset: 0
@@ -99,6 +106,21 @@ export function DocumentTable() {
     return 'Unknown';
   };
 
+  const handleViewDocument = (document: inferRouterOutputs<AppRouter>['documents']['list'][number]) => {
+    setSelectedDocument(document);
+    setViewDialogOpen(true);
+  };
+
+  const handleDeleteDocument = (document: inferRouterOutputs<AppRouter>['documents']['list'][number]) => {
+    setSelectedDocument(document);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDocumentDeleted = () => {
+    // The delete dialog will handle invalidating the query
+    setSelectedDocument(null);
+  };
+
   return (
     <div className='border rounded-lg'>
       <Table>
@@ -155,18 +177,29 @@ export function DocumentTable() {
                       <MoreHorizontal className='h-4 w-4' />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align='end'>
-                    <DropdownMenuItem>
+                  <DropdownMenuContent 
+                    align='end' 
+                    className='w-48 bg-background/95 backdrop-blur-sm border border-border shadow-lg'
+                  >
+                    <DropdownMenuItem 
+                      onClick={() => handleViewDocument(document)}
+                      className='cursor-pointer hover:bg-accent hover:text-accent-foreground'
+                    >
                       <Eye className='mr-2 h-4 w-4' />
                       View
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem 
+                      className='cursor-pointer hover:bg-accent hover:text-accent-foreground'
+                    >
                       <Download className='mr-2 h-4 w-4' />
                       Download
                     </DropdownMenuItem>
-                    <DropdownMenuItem className='text-destructive'>
+                    {/* Delete function temporarily disabled */}
+                    <DropdownMenuItem 
+                      className='text-destructive cursor-pointer hover:bg-destructive hover:text-destructive-foreground'
+                    >
                       <Trash2 className='mr-2 h-4 w-4' />
-                      Delete
+                      Delete (Not Implemented)
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -185,6 +218,21 @@ export function DocumentTable() {
           </p>
         </div>
       )}
+
+      {/* Dialogs */}
+      <DocumentViewDialog
+        document={selectedDocument}
+        open={viewDialogOpen}
+        onOpenChange={setViewDialogOpen}
+      />
+      
+      {/* Delete dialog temporarily disabled */}
+      {/* <DocumentDeleteDialog
+        document={selectedDocument}
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onDeleted={handleDocumentDeleted}
+      /> */}
     </div>
   );
 }

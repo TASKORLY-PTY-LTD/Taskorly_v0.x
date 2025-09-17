@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure, tenantProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
 import { chunkDocumentWithGemini, type DocumentChunk } from '@/lib/gemini-chunker';
+import { processDocumentVectors } from '@/lib/vector-processor';
 import { createLogger } from '@/lib/logger';
 
 export const documentsRouter = createTRPCRouter({
@@ -108,7 +109,74 @@ export const documentsRouter = createTRPCRouter({
             });
           }
 
+          // ===== STEP 3: GENERATE VECTOR EMBEDDINGS AND STORE IN PINECONE =====
+          // After successful chunking, we now generate vector embeddings using Gemini AI
+          // and store them in Pinecone for semantic search and retrieval
+          let vectorProcessingResult = null;
+          const vectorProcessingErrors: string[] = [];
+          
+          try {
+            // Process document chunks through the complete vector pipeline
+            // This includes: embedding generation with Gemini AI + storage in Pinecone
+            vectorProcessingResult = await processDocumentVectors(
+              chunks,
+              document.id,
+              ctx.tenant?.id!,
+              {
+                embedding: {
+                  model: 'text-embedding-004', // Google's latest embedding model
+                  batchSize: 100, // Process up to 100 chunks at once
+                  dimensions: 768, // Standard dimensions for text-embedding-004
+                },
+                pinecone: {
+                  namespace: 'default', // Use default namespace with tenant isolation
+                },
+              }
+            );
+
+            // Log vector processing results
+            if (vectorProcessingResult.success) {
+              await logger.info(`Successfully processed vectors for document: ${input.title}`, {
+                documentId: document.id,
+                totalChunks: vectorProcessingResult.totalChunks,
+                successfulEmbeddings: vectorProcessingResult.successfulEmbeddings,
+                successfulStorages: vectorProcessingResult.successfulStorages,
+                totalTokens: vectorProcessingResult.totalTokens,
+                processingTime: vectorProcessingResult.processingTime,
+              });
+            } else {
+              // Log partial success or failure
+              await logger.warn(`Vector processing completed with issues for document: ${input.title}`, {
+                documentId: document.id,
+                success: vectorProcessingResult.success,
+                totalChunks: vectorProcessingResult.totalChunks,
+                successfulEmbeddings: vectorProcessingResult.successfulEmbeddings,
+                successfulStorages: vectorProcessingResult.successfulStorages,
+                failedEmbeddings: vectorProcessingResult.failedEmbeddings,
+                failedStorages: vectorProcessingResult.failedStorages,
+                errorCount: vectorProcessingResult.errors.length,
+              });
+              
+              // Collect errors for later reporting
+              vectorProcessingErrors.push(...vectorProcessingResult.errors);
+            }
+
+          } catch (vectorError) {
+            // Log vector processing error but don't fail the entire upload
+            const errorMessage = `Vector processing failed: ${vectorError instanceof Error ? vectorError.message : 'Unknown error'}`;
+            vectorProcessingErrors.push(errorMessage);
+            
+            await logger.error(`Vector processing failed for document: ${input.title}`, {
+              documentId: document.id,
+              chunkCount: chunks.length,
+              error: errorMessage,
+              stack: vectorError instanceof Error ? vectorError.stack : undefined,
+            });
+          }
+
           // Update document with chunk count and mark as completed
+          // Note: We mark as completed even if vector processing had issues
+          // because the document and chunks are successfully stored in Supabase
           await ctx.supabaseAdmin
             .from('documents')
             .update({
@@ -118,12 +186,16 @@ export const documentsRouter = createTRPCRouter({
             })
             .eq('id', document.id);
 
-          // Log usage with actual token count for cost tracking and optimization
-          const totalTokens = chunks.reduce((sum: number, chunk: DocumentChunk) => sum + Math.ceil(chunk.content.length / 4), 0);
+          // Log usage with comprehensive token count for cost tracking
+          // Include both chunking and embedding token usage
+          const chunkingTokens = chunks.reduce((sum: number, chunk: DocumentChunk) => sum + Math.ceil(chunk.content.length / 4), 0);
+          const embeddingTokens = vectorProcessingResult?.totalTokens || 0;
+          const totalTokens = chunkingTokens + embeddingTokens;
+          
           await ctx.supabaseAdmin.from('usage_logs').insert({
             tenant_id: ctx.tenant?.id!,
             user_id: ctx.user.id,
-            event_type: 'document_upload_with_chunking',
+            event_type: 'document_upload_with_chunking_and_vectors',
             tokens_used: totalTokens,
             cost_cents: Math.ceil(totalTokens * 0.0001), // Rough cost estimate
             metadata: {
@@ -132,14 +204,25 @@ export const documentsRouter = createTRPCRouter({
               chunk_count: chunks.length,
               content_length: input.content.length,
               chunking_method: 'gemini',
+              embedding_method: 'gemini-text-embedding-004',
+              vector_processing_success: vectorProcessingResult?.success || false,
+              successful_embeddings: vectorProcessingResult?.successfulEmbeddings || 0,
+              successful_vector_storages: vectorProcessingResult?.successfulStorages || 0,
+              chunking_tokens: chunkingTokens,
+              embedding_tokens: embeddingTokens,
+              total_tokens: totalTokens,
               average_chunk_size: Math.round(chunks.reduce((sum: number, chunk: DocumentChunk) => sum + chunk.content.length, 0) / chunks.length),
+              vector_processing_errors: vectorProcessingErrors,
             },
           });
 
           // Log successful completion for monitoring and debugging
-          await logger.info(`Successfully processed document: ${input.title} with ${chunks.length} chunks`, {
+          await logger.info(`Successfully processed document: ${input.title} with ${chunks.length} chunks and vector embeddings`, {
             documentId: document.id,
             totalTokens,
+            chunkingTokens,
+            embeddingTokens,
+            vectorProcessingSuccess: vectorProcessingResult?.success || false,
             processingTime: Date.now(), // Could be enhanced with actual timing
           });
 
@@ -433,7 +516,77 @@ export const documentsRouter = createTRPCRouter({
             });
           }
 
+          // ===== STEP 10: GENERATE VECTOR EMBEDDINGS AND STORE IN PINECONE =====
+          // After successful PDF parsing and chunking, we now generate vector embeddings
+          // using Gemini AI and store them in Pinecone for semantic search and retrieval
+          let vectorProcessingResult = null;
+          const vectorProcessingErrors: string[] = [];
+          
+          try {
+            // Process PDF chunks through the complete vector pipeline
+            // This includes: embedding generation with Gemini AI + storage in Pinecone
+            vectorProcessingResult = await processDocumentVectors(
+              chunks,
+              document.id,
+              ctx.tenant?.id!,
+              {
+                embedding: {
+                  model: 'text-embedding-004', // Google's latest embedding model
+                  batchSize: 100, // Process up to 100 chunks at once
+                  dimensions: 768, // Standard dimensions for text-embedding-004
+                },
+                pinecone: {
+                  namespace: 'default', // Use default namespace with tenant isolation
+                },
+              }
+            );
+
+            // Log vector processing results
+            if (vectorProcessingResult.success) {
+              await logger.info(`Successfully processed vectors for PDF: ${input.title}`, {
+                documentId: document.id,
+                pageCount: pageCount,
+                totalChunks: vectorProcessingResult.totalChunks,
+                successfulEmbeddings: vectorProcessingResult.successfulEmbeddings,
+                successfulStorages: vectorProcessingResult.successfulStorages,
+                totalTokens: vectorProcessingResult.totalTokens,
+                processingTime: vectorProcessingResult.processingTime,
+              });
+            } else {
+              // Log partial success or failure
+              await logger.warn(`Vector processing completed with issues for PDF: ${input.title}`, {
+                documentId: document.id,
+                pageCount: pageCount,
+                success: vectorProcessingResult.success,
+                totalChunks: vectorProcessingResult.totalChunks,
+                successfulEmbeddings: vectorProcessingResult.successfulEmbeddings,
+                successfulStorages: vectorProcessingResult.successfulStorages,
+                failedEmbeddings: vectorProcessingResult.failedEmbeddings,
+                failedStorages: vectorProcessingResult.failedStorages,
+                errorCount: vectorProcessingResult.errors.length,
+              });
+              
+              // Collect errors for later reporting
+              vectorProcessingErrors.push(...vectorProcessingResult.errors);
+            }
+
+          } catch (vectorError) {
+            // Log vector processing error but don't fail the entire upload
+            const errorMessage = `Vector processing failed: ${vectorError instanceof Error ? vectorError.message : 'Unknown error'}`;
+            vectorProcessingErrors.push(errorMessage);
+            
+            await logger.error(`Vector processing failed for PDF: ${input.title}`, {
+              documentId: document.id,
+              pageCount: pageCount,
+              chunkCount: chunks.length,
+              error: errorMessage,
+              stack: vectorError instanceof Error ? vectorError.stack : undefined,
+            });
+          }
+
           // Update document with chunk count and mark as completed
+          // Note: We mark as completed even if vector processing had issues
+          // because the document and chunks are successfully stored in Supabase
           await ctx.supabaseAdmin
             .from('documents')
             .update({
@@ -443,12 +596,16 @@ export const documentsRouter = createTRPCRouter({
             })
             .eq('id', document.id);
 
-          // Log usage with actual token count for cost tracking and optimization
-          const totalTokens = chunks.reduce((sum: number, chunk: DocumentChunk) => sum + Math.ceil(chunk.content.length / 4), 0);
+          // Log usage with comprehensive token count for cost tracking
+          // Include both chunking and embedding token usage
+          const chunkingTokens = chunks.reduce((sum: number, chunk: DocumentChunk) => sum + Math.ceil(chunk.content.length / 4), 0);
+          const embeddingTokens = vectorProcessingResult?.totalTokens || 0;
+          const totalTokens = chunkingTokens + embeddingTokens;
+          
           await ctx.supabaseAdmin.from('usage_logs').insert({
             tenant_id: ctx.tenant?.id!,
             user_id: ctx.user.id,
-            event_type: 'pdf_upload_with_chunking',
+            event_type: 'pdf_upload_with_chunking_and_vectors',
             tokens_used: totalTokens,
             cost_cents: Math.ceil(totalTokens * 0.0001), // Rough cost estimate
             metadata: {
@@ -458,16 +615,27 @@ export const documentsRouter = createTRPCRouter({
               content_length: content.length,
               page_count: pageCount,
               chunking_method: 'gemini',
+              embedding_method: 'gemini-text-embedding-004',
               extraction_method: 'pdf2json',
+              vector_processing_success: vectorProcessingResult?.success || false,
+              successful_embeddings: vectorProcessingResult?.successfulEmbeddings || 0,
+              successful_vector_storages: vectorProcessingResult?.successfulStorages || 0,
+              chunking_tokens: chunkingTokens,
+              embedding_tokens: embeddingTokens,
+              total_tokens: totalTokens,
               average_chunk_size: Math.round(chunks.reduce((sum: number, chunk: DocumentChunk) => sum + chunk.content.length, 0) / chunks.length),
+              vector_processing_errors: vectorProcessingErrors,
             },
           });
 
           // Log successful completion for monitoring and debugging
-          await logger.info(`Successfully processed PDF: ${input.title} with ${chunks.length} chunks`, {
+          await logger.info(`Successfully processed PDF: ${input.title} with ${chunks.length} chunks and vector embeddings`, {
             documentId: document.id,
             totalTokens,
+            chunkingTokens,
+            embeddingTokens,
             pageCount: pageCount,
+            vectorProcessingSuccess: vectorProcessingResult?.success || false,
             processingTime: Date.now(), // Could be enhanced with actual timing
           });
 
@@ -642,6 +810,65 @@ export const documentsRouter = createTRPCRouter({
                 });
               }
 
+              // ===== STEP 3: GENERATE VECTOR EMBEDDINGS AND STORE IN PINECONE =====
+              // Process document chunks through the complete vector pipeline
+              let vectorProcessingResult = null;
+              const vectorProcessingErrors: string[] = [];
+              
+              try {
+                vectorProcessingResult = await processDocumentVectors(
+                  chunks,
+                  document.id,
+                  ctx.tenant?.id!,
+                  {
+                    embedding: {
+                      model: 'text-embedding-004',
+                      batchSize: 100,
+                      dimensions: 768,
+                    },
+                    pinecone: {
+                      namespace: 'default',
+                    },
+                  }
+                );
+
+                // Log vector processing results for bulk operation
+                if (vectorProcessingResult.success) {
+                  await logger.info(`Successfully processed vectors for bulk document: ${doc.title}`, {
+                    documentId: document.id,
+                    totalChunks: vectorProcessingResult.totalChunks,
+                    successfulEmbeddings: vectorProcessingResult.successfulEmbeddings,
+                    successfulStorages: vectorProcessingResult.successfulStorages,
+                    bulkOperation: true,
+                  });
+                } else {
+                  await logger.warn(`Vector processing completed with issues for bulk document: ${doc.title}`, {
+                    documentId: document.id,
+                    success: vectorProcessingResult.success,
+                    totalChunks: vectorProcessingResult.totalChunks,
+                    successfulEmbeddings: vectorProcessingResult.successfulEmbeddings,
+                    successfulStorages: vectorProcessingResult.successfulStorages,
+                    failedEmbeddings: vectorProcessingResult.failedEmbeddings,
+                    failedStorages: vectorProcessingResult.failedStorages,
+                    errorCount: vectorProcessingResult.errors.length,
+                    bulkOperation: true,
+                  });
+                  
+                  vectorProcessingErrors.push(...vectorProcessingResult.errors);
+                }
+
+              } catch (vectorError) {
+                const errorMessage = `Vector processing failed: ${vectorError instanceof Error ? vectorError.message : 'Unknown error'}`;
+                vectorProcessingErrors.push(errorMessage);
+                
+                await logger.error(`Vector processing failed for bulk document: ${doc.title}`, {
+                  documentId: document.id,
+                  chunkCount: chunks.length,
+                  error: errorMessage,
+                  bulkOperation: true,
+                });
+              }
+
               // Update document with chunk count and mark as completed
               await ctx.supabaseAdmin
                 .from('documents')
@@ -653,7 +880,9 @@ export const documentsRouter = createTRPCRouter({
                 .eq('id', document.id);
 
               totalChunks += chunks.length;
-              const docTokens = chunks.reduce((sum: number, chunk: DocumentChunk) => sum + Math.ceil(chunk.content.length / 4), 0);
+              const chunkingTokens = chunks.reduce((sum: number, chunk: DocumentChunk) => sum + Math.ceil(chunk.content.length / 4), 0);
+              const embeddingTokens = vectorProcessingResult?.totalTokens || 0;
+              const docTokens = chunkingTokens + embeddingTokens;
               totalTokens += docTokens;
 
               results.push({
@@ -662,6 +891,10 @@ export const documentsRouter = createTRPCRouter({
                 documentId: document.id,
                 chunkCount: chunks.length,
                 tokens: docTokens,
+                chunkingTokens,
+                embeddingTokens,
+                vectorProcessingSuccess: vectorProcessingResult?.success || false,
+                vectorProcessingErrors,
               });
 
               // Log successful processing of individual document in bulk operation
@@ -725,12 +958,16 @@ export const documentsRouter = createTRPCRouter({
           }
         }
 
-        // Log bulk usage
+        // Log bulk usage with comprehensive vector processing information
         if (totalTokens > 0) {
+          const successfulResults = results.filter(r => r.success);
+          const vectorProcessingSuccessCount = successfulResults.filter(r => r.vectorProcessingSuccess).length;
+          const totalVectorProcessingErrors = successfulResults.reduce((sum, r) => sum + (r.vectorProcessingErrors?.length || 0), 0);
+          
           await ctx.supabaseAdmin.from('usage_logs').insert({
             tenant_id: ctx.tenant?.id!,
             user_id: ctx.user.id,
-            event_type: 'bulk_document_upload_with_chunking',
+            event_type: 'bulk_document_upload_with_chunking_and_vectors',
             tokens_used: totalTokens,
             cost_cents: Math.ceil(totalTokens * 0.0001),
             metadata: {
@@ -739,6 +976,11 @@ export const documentsRouter = createTRPCRouter({
               failed_uploads: results.filter(r => !r.success).length,
               total_chunks: totalChunks,
               chunking_method: 'gemini',
+              embedding_method: 'gemini-text-embedding-004',
+              vector_processing_success_count: vectorProcessingSuccessCount,
+              vector_processing_failure_count: successfulResults.length - vectorProcessingSuccessCount,
+              total_vector_processing_errors: totalVectorProcessingErrors,
+              average_tokens_per_document: Math.round(totalTokens / input.documents.length),
             },
           });
         }
@@ -925,7 +1167,33 @@ export const documentsRouter = createTRPCRouter({
           });
         }
 
-        // Skip vector database cleanup for now (no RAG processing)
+        // ===== STEP 2: CLEAN UP VECTOR EMBEDDINGS FROM PINECONE =====
+        // Delete all vector embeddings associated with this document from Pinecone
+        try {
+          const { deleteDocumentVectors } = await import('@/lib/vector-processor');
+          const logger = createLogger(ctx.tenant.id, ctx.user.id);
+          
+          await deleteDocumentVectors(
+            input.documentId,
+            ctx.tenant.id,
+            document.chunk_count || 0
+          );
+          
+          // Log successful vector cleanup
+          await logger.info(`Successfully deleted vectors for document: ${input.documentId}`, {
+            documentId: input.documentId,
+            chunkCount: document.chunk_count || 0,
+          });
+          
+        } catch (vectorCleanupError) {
+          // Log vector cleanup error but don't fail the document deletion
+          const logger = createLogger(ctx.tenant.id, ctx.user.id);
+          await logger.warn(`Vector cleanup failed for document: ${input.documentId}`, {
+            documentId: input.documentId,
+            chunkCount: document.chunk_count || 0,
+            error: vectorCleanupError instanceof Error ? vectorCleanupError.message : 'Unknown vector cleanup error',
+          });
+        }
 
         // Delete document (chunks will be deleted via CASCADE)
         const { error: deleteError } = await ctx.supabaseAdmin
