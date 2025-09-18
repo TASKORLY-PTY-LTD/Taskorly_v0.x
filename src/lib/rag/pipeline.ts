@@ -1,15 +1,9 @@
 import { ChatOpenAI } from '@langchain/openai';
 import { ChatAnthropic } from '@langchain/anthropic';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { OpenAIEmbeddings } from '@langchain/openai';
-import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
-import { SupabaseVectorStore } from '@langchain/community/vectorstores/supabase';
-import { Document } from 'langchain/document';
 import { PromptTemplate } from '@langchain/core/prompts';
 import { RunnableSequence } from '@langchain/core/runnables';
 import { StringOutputParser } from '@langchain/core/output_parsers';
-import { supabaseAdmin } from '@/lib/supabase';
-import type { Database } from '@/types/database.types';
 
 export interface RAGConfig {
   llm_provider: string;
@@ -43,16 +37,10 @@ export interface SearchResult {
 export class RAGPipeline {
   private config: RAGConfig;
   private llm!: ChatOpenAI | ChatAnthropic | ChatGoogleGenerativeAI;
-  // private embeddings!: OpenAIEmbeddings;
-  // private vectorStore!: SupabaseVectorStore;
-  // private textSplitter!: RecursiveCharacterTextSplitter;
 
   constructor(config: RAGConfig) {
     this.config = config;
     this.initializeLLM();
-    // this.initializeEmbeddings();
-    // this.initializeVectorStore();
-    // this.initializeTextSplitter();
   }
 
   private initializeLLM() {
@@ -75,7 +63,6 @@ export class RAGPipeline {
         });
         break;
       case 'google': {
-        // Use config.llm_api_key if provided, else fallback to process.env.GOOGLE_API_KEY
         const apiKey = this.config.llm_api_key;
         if (!apiKey) {
           throw new Error(
@@ -97,200 +84,37 @@ export class RAGPipeline {
     }
   }
 
-  private initializeEmbeddings() {
-    // const apiKey = this.config.embedding_api_key || this.config.llm_api_key;
-    // this.embeddings = new OpenAIEmbeddings({
-    //   apiKey,
-    //   modelName: this.config.embedding_model,
-    // });
-  }
-
-  private initializeVectorStore() {
-    // this.vectorStore = new SupabaseVectorStore(this.embeddings, {
-    //   client: supabaseAdmin,
-    //   tableName: 'document_chunks',
-    //   queryName: 'match_documents',
-    //   filter: { tenant_id: this.config.tenant_id },
-    // });
-  }
-
-  private initializeTextSplitter() {
-    // this.textSplitter = new RecursiveCharacterTextSplitter({
-    //   chunkSize: 1000,
-    //   chunkOverlap: 200,
-    //   separators: ['\n\n', '\n', ' ', ''],
-    // });
-  }
-
-  /**
-   * Process a document by chunking, embedding, and storing it
-   */
-  // async processDocument(document: any): Promise<number> {
-  //   try {
-  //     // Split document into chunks
-  //     const chunks = await this.textSplitter.splitText(document.content);
-  //
-  //     // Create Document objects with metadata
-  //     const docs = chunks.map(
-  //       (chunk, index) =>
-  //         new Document({
-  //           pageContent: chunk,
-  //           metadata: {
-  //             document_id: document.id,
-  //             tenant_id: document.tenant_id,
-  //             title: document.title,
-  //             content_type: document.content_type,
-  //             source_url: document.source_url,
-  //             chunk_index: index,
-  //             ...document.metadata,
-  //           },
-  //         })
-  //     );
-  //
-  //     // Add documents to vector store
-  //     // await this.vectorStore.addDocuments(docs);
-  //
-  //     // Store chunk records in database
-  //     // const chunkRecords = docs.map((doc, index) => ({
-  //     //   document_id: document.id,
-  //     //   tenant_id: document.tenant_id,
-  //     //   content: doc.pageContent,
-  //     //   chunk_index: index,
-  //     //   metadata: doc.metadata,
-  //     // }));
-  //
-  //     // const { error } = await supabaseAdmin
-  //     //   .from('document_chunks')
-  //     //   .insert(chunkRecords);
-  //
-  //     // if (error) {
-  //     //   console.error('Error storing chunk records:', error);
-  //     //   throw error;
-  //     // }
-  //
-  //     return chunks.length;
-  //   } catch (error) {
-  //     console.error('Error processing document:', error);
-  //     throw new Error(
-  //       `Failed to process document: ${(error as Error).message}`
-  //     );
-  //   }
-  // }
-
-  /**
-   * Search for relevant documents using semantic similarity
-   */
-  // async searchDocuments(
-  //   query: string,
-  //   limit: number = 10,
-  //   threshold: number = 0.7
-  // ): Promise<SearchResult[]> {
-  //   try {
-  //     // const results = await this.vectorStore.similaritySearchWithScore(
-  //     //   query,
-  //     //   limit,
-  //     //   { tenant_id: this.config.tenant_id }
-  //     // );
-  //
-  //     // return results
-  //     //   .filter(([, score]) => score >= threshold)
-  //     //   .map(([doc, score]) => ({
-  //     //     id: doc.metadata.chunk_id || doc.metadata.document_id,
-  //     //     content: doc.pageContent,
-  //     //     metadata: doc.metadata,
-  //     //     similarity: score,
-  //     //     document: {
-  //     //       id: doc.metadata.document_id,
-  //     //       title: doc.metadata.title,
-  //     //       content_type: doc.metadata.content_type,
-  //     //       source_url: doc.metadata.source_url,
-  //     //     },
-  //     //   }));
-  //
-  //     throw new Error(
-  //       `Failed to search documents: Semantic search is disabled (Supabase/VectorStore commented out)`
-  //     );
-  //   } catch (error) {
-  //     console.error('Error searching documents:', error);
-  //     throw new Error(
-  //       `Failed to search documents: ${(error as Error).message}`
-  //     );
-  //   }
-  // }
-
   /**
    * Process a message with RAG context and optional tool calls
    */
   async *processMessage(
     message: string,
+    contextString: string,
     conversationId: string,
     availableTools: any[] = []
   ): AsyncGenerator<RAGResponse> {
     try {
-      // 1. Retrieve relevant context
-      // const relevantDocs = await this.searchDocuments(message, 5, 0.7);
+      // Create the prompt template with proper parameter substitution
+      const prompt = PromptTemplate.fromTemplate(`System: {systemPrompt}
 
-      // if (relevantDocs.length > 0) {
-      //   yield {
-      //     type: 'context',
-      //     documents: relevantDocs,
-      //   };
-      // }
-
-      // 2. Get conversation history
-      // const { data: messages } = await supabaseAdmin
-      //   .from('messages')
-      //   .select('role, content')
-      //   .eq('conversation_id', conversationId)
-      //   .order('created_at', { ascending: true })
-      //   .limit(10);
-
-      // 3. Build context string
-      // const contextString = relevantDocs
-      //   .map(
-      //     doc =>
-      //       `Content: ${doc.content}\nSource: ${doc.document?.title || 'Unknown'}`
-      //   )
-      //   .join('\n\n---\n\n');
-
-      // 4. Build conversation history
-      // const conversationHistory =
-      //   messages?.map(msg => `${msg.role}: ${msg.content}`).join('\n') || '';
-
-      // 5. Create RAG prompt
-      // const ragPrompt = PromptTemplate.fromTemplate(`
-      // ${this.config.system_prompt}
-      //
-      // Context Information:
-      // ${contextString ? `\n${contextString}\n` : 'No relevant context found.'}
-      //
-      // Conversation History:
-      // ${conversationHistory}
-      //
-      // Available Tools:
-      // ${availableTools.length > 0 ? availableTools.map(tool => `- ${tool.name}: ${tool.description}`).join('\n') : 'No tools available.'}
-      //
-      // Current Message: {message}
-      //
-      // Instructions:
-      // - Use the context information to provide accurate, relevant responses
-      // - If no relevant context is found, rely on your general knowledge
-      // - If you need to use a tool, indicate which tool and why
-      // - Be conversational and helpful
-      // - Cite sources when using context information
-      //
-      // Response:`);
-
-      // 6. Create the chain
-
-      // Stateless Gemini-only response with proper system message
-      const prompt = PromptTemplate.fromTemplate(`System: ${this.config.system_prompt}
-
-IMPORTANT: You must follow the instructions above exactly. Do not answer questions outside your specified domain.
+{contextSection}
 
 User Question: {message}
 
+Instructions:
+- Use the context information above to provide accurate, relevant responses
+- If no relevant context is found, rely on your general knowledge but mention that no specific documentation was found
+- Be conversational and helpful
+- Cite sources when using context information
+
 Response:`);
+
+      // Prepare context section
+      const contextSection = contextString && contextString.trim() 
+        ? `Relevant Context:\n${contextString}\n\nPlease use this context to provide accurate, well-informed responses.`
+        : 'No relevant context found for this query.';
+
+      // Create the processing chain
       const chain = RunnableSequence.from([
         prompt,
         this.llm,
@@ -300,13 +124,20 @@ Response:`);
       let fullResponse = '';
       let tokenCount = 0;
 
-      // const stream = await chain.stream({
-      //   message,
-      //   context: contextString,
-      //   history: conversationHistory,
-      //   tools: availableTools,
-      // });
-      const stream = await chain.stream({ message });
+      // Debug logging
+      console.log('Processing message with context:', {
+        messageLength: message.length,
+        contextLength: contextString?.length || 0,
+        hasContext: !!(contextString && contextString.trim())
+      });
+
+      // Stream the response
+      const stream = await chain.stream({
+        systemPrompt: this.config.system_prompt,
+        contextSection: contextSection,
+        message: message
+      });
+
       for await (const chunk of stream) {
         if (typeof chunk === 'string') {
           fullResponse += chunk;
@@ -318,7 +149,7 @@ Response:`);
         }
       }
 
-      // 8. Check for tool calls in the response
+      // Extract tool calls from the response
       const toolCalls = this.extractToolCalls(fullResponse, availableTools);
       for (const toolCall of toolCalls) {
         yield {
@@ -327,11 +158,18 @@ Response:`);
         };
       }
 
-      // 9. Provide final token count
+      // Provide final token count
       yield {
         type: 'token_count',
         count: tokenCount,
       };
+
+      console.log('Message processed successfully:', {
+        responseLength: fullResponse.length,
+        tokenCount: tokenCount,
+        toolCalls: toolCalls.length
+      });
+
     } catch (error) {
       console.error('Error processing message:', error);
       throw new Error(`Failed to process message: ${(error as Error).message}`);
@@ -339,26 +177,12 @@ Response:`);
   }
 
   /**
-   * Delete document embeddings from vector store
+   * Search for relevant documents using semantic similarity
+   * Note: This method is not implemented as vector search is handled in the chat router
    */
-  // async deleteDocument(embeddingId: string): Promise<void> {
-  //   try {
-  //     // Delete from vector store (implementation depends on vector DB)
-  //     // For Supabase, we'll delete the chunks  which will cascade
-  //     // const { error } = await supabaseAdmin
-  //     //   .from('document_chunks')
-  //     //   .delete()
-  //     //   .eq('embedding_id', embeddingId);
-  //
-  //     // if (error) {
-  //     //   console.error('Error deleting document chunks:', error);
-  //     //   throw error;
-  //     // }
-  //   } catch (error) {
-  //     console.error('Error deleting document:', error);
-  //     throw new Error(`Failed to delete document: ${(error as Error).message}`);
-  //   }
-  // }
+  searchDocuments(query: string, limit: number, threshold: number) {
+    throw new Error('Document search should be handled in the chat router using searchSimilarVectors');
+  }
 
   /**
    * Extract potential tool calls from LLM response
@@ -395,12 +219,12 @@ Response:`);
   }
 
   /**
-   * Update vector store configuration
+   * Update pipeline configuration
    */
   async updateConfiguration(newConfig: Partial<RAGConfig>): Promise<void> {
     this.config = { ...this.config, ...newConfig };
 
-    // Reinitialize components if needed
+    // Reinitialize LLM if provider/model changed
     if (
       newConfig.llm_provider ||
       newConfig.llm_model ||
@@ -408,45 +232,32 @@ Response:`);
     ) {
       this.initializeLLM();
     }
-
-    // Commented out embedding/vector store reinitialization
-    // if (newConfig.embedding_model || newConfig.embedding_api_key) {
-    //   this.initializeEmbeddings();
-    //   this.initializeVectorStore();
-    // }
   }
 
   /**
-   * Get pipeline statistics
+   * Get current configuration
    */
-  // async getStats(): Promise<{
-  //   totalChunks: number;
-  //   totalDocuments: number;
-  //   avgChunksPerDocument: number;
-  // }> {
-  //   const { data: chunks, error: chunksError } = await supabaseAdmin
-  //     .from('document_chunks')
-  //     .select('document_id')
-  //     .eq('tenant_id', this.config.tenant_id);
-  //
-  //   const { data: documents, error: docsError } = await supabaseAdmin
-  //     .from('documents')
-  //     .select('id')
-  //     .eq('tenant_id', this.config.tenant_id);
-  //
-  //   if (chunksError || docsError) {
-  //     throw new Error('Failed to fetch pipeline statistics');
-  //   }
-  //
-  //   const totalChunks = chunks?.length || 0;
-  //   const totalDocuments = documents?.length || 0;
-  //   const avgChunksPerDocument =
-  //     totalDocuments > 0 ? totalChunks / totalDocuments : 0;
-  //
-  //   return {
-  //     totalChunks,
-  //     totalDocuments,
-  //     avgChunksPerDocument: Math.round(avgChunksPerDocument * 100) / 100,
-  //   };
-  // }
+  getConfig(): RAGConfig {
+    return { ...this.config };
+  }
+
+  /**
+   * Validate configuration
+   */
+  validateConfig(): boolean {
+    const required = [
+      'llm_provider',
+      'llm_model', 
+      'llm_api_key',
+      'system_prompt'
+    ];
+
+    for (const field of required) {
+      if (!this.config[field as keyof RAGConfig]) {
+        throw new Error(`Missing required config field: ${field}`);
+      }
+    }
+
+    return true;
+  }
 }

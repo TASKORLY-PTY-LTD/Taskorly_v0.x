@@ -1,60 +1,125 @@
 import { z } from 'zod';
-import { createTRPCRouter, publicProcedure } from '../trpc';
+import { createTRPCRouter, publicProcedure, tenantProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
 import { RAGPipeline } from '@/lib/rag/pipeline';
-import { Provider } from '@radix-ui/react-tooltip';
+import { generateSingleEmbedding } from '@/lib/vector-embedder';
+import { searchSimilarVectors } from '@/lib/pinecone-client';
 
 export const chatRouter = createTRPCRouter({
-  // Send message and get streaming response
-  sendMessage: publicProcedure
+  // Enhanced sendMessage with RAG functionality
+  sendMessage: tenantProcedure
     .input(
       z.object({
         conversationId: z.string().uuid().optional(),
         message: z.string().min(1),
         includeContext: z.boolean().default(true),
         maxTokens: z.number().optional(),
-        systemPrompt: z.string().optional(), // System prompt for LLM
+        systemPrompt: z.string().optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       try {
-        // Directly use Gemini LLM (RAGPipeline)
-        // CONST CONFIG!!
+        let retrievedDocs: any[] = [];
+        let contextString = '';
+
+        // Step 1: Generate embedding for the user's query
+        if (input.includeContext) {
+          console.log('Generating embedding for query:', input.message);
+          
+          const queryEmbedding = await generateSingleEmbedding(input.message, {
+            model: 'text-embedding-004' // Use the same model as vector-embedder
+          });
+
+          // Step 2: Search Pinecone for relevant documents
+          console.log('Searching Pinecone for relevant documents...');
+          
+          
+          const searchResults = await searchSimilarVectors(
+            queryEmbedding,
+            ctx.tenant?.id || 'public-tenant',
+            {
+              topK: 5,
+              includeMetadata: true,
+            }
+          );
+
+          console.log('Search results from Pinecone:', {
+            totalMatches: searchResults?.length || 0,
+            firstResult: searchResults?.[0] ? {
+              id: searchResults[0].id,
+              score: searchResults[0].score,
+              hasContent: !!searchResults[0].metadata?.content
+            } : null
+          });
+
+          // Step 3: Process search results
+          if (searchResults && searchResults.length > 0) {
+            retrievedDocs = searchResults
+              .filter(result => result.score >= 0.3)
+              .map(result => ({
+                id: result.id,
+                content: result.metadata.content || '',
+                title: result.metadata.documentId || 'Unknown Document',
+                similarity: result.score,
+                metadata: result.metadata
+              }));
+
+            // Build context string for the LLM
+            contextString = retrievedDocs
+              .map(doc => `Document: ${doc.title}\nContent: ${doc.content}`)
+              .join('\n\n---\n\n');
+
+            console.log(`Found ${retrievedDocs.length} relevant documents`);
+          }
+        }
+
+        // Step 4: Enhanced system prompt with context
+        const enhancedSystemPrompt = input.systemPrompt 
+          ? `${input.systemPrompt}\n\n${contextString ? `\nRelevant Context:\n${contextString}\n\nPlease use this context to provide accurate, well-informed responses. If the context doesn't contain relevant information, rely on your general knowledge but mention that no specific documentation was found.` : ''}`
+          : `You are a helpful AI assistant. ${contextString ? `\n\nRelevant Context:\n${contextString}\n\nUse this context to provide accurate responses.` : ''}`;
+
+        console.log('Enhanced system prompt:', {
+          length: enhancedSystemPrompt.length,
+          includesContext: enhancedSystemPrompt.includes('Relevant Context')
+        });
+
+        // Step 5: Configure RAG Pipeline
         const config = {
           llm_provider: 'google',
-          llm_model: 'gemini-2.5-flash-lite',
+          llm_model: 'gemini-2.0-flash-exp',
           llm_api_key: process.env.GOOGLE_API_KEY ?? '',
-          embedding_model: 'text-embedding-ada-002',
+          embedding_model: 'text-embedding-004',
           temperature: 0.7,
-          max_context_length: 2048,
-          system_prompt: input.systemPrompt ?? '',
+          max_context_length: 4096,
+          system_prompt: enhancedSystemPrompt,
           vector_db_config: {
-            Provider:"Pinecone",
+            Provider: "Pinecone",
             api_key: process.env.PINECONE_API_KEY,
             environment: process.env.PINECONE_ENVIRONMENT,
             index_name: process.env.PINECONE_INDEX_NAME,
-            dimensions: 512,
+            dimensions: 768, // Match text-embedding-004 dimensions
           },
-          tenant_id: 'public-tenant',
+          tenant_id: ctx.tenant?.id || 'public-tenant',
         };
+
+        // Step 6: Process message with RAG pipeline
         const ragPipeline = new RAGPipeline(config);
         const availableTools: any[] = [];
         const responseStream = await ragPipeline.processMessage(
           input.message,
+          contextString,
           input.conversationId ?? 'public-conv-id',
           availableTools
         );
 
         let assistantContent = '';
-        let retrievedDocs: any[] = [];
         const toolCalls: any[] = [];
         let tokenCount = 0;
 
+        // Step 7: Process response stream
         for await (const chunk of responseStream) {
           if (chunk.type === 'text') {
             assistantContent += chunk.content;
-          } else if (chunk.type === 'context') {
-            retrievedDocs = chunk.documents || [];
           } else if (chunk.type === 'tool_call') {
             toolCalls.push(chunk);
           } else if (chunk.type === 'token_count') {
@@ -62,23 +127,123 @@ export const chatRouter = createTRPCRouter({
           }
         }
 
+        // Step 8: Add source citation if context was used
+        if (retrievedDocs.length > 0 && assistantContent) {
+          assistantContent += '\n\n---\n**Sources:**\n' + 
+            retrievedDocs.map(doc => `• ${doc.title} (${Math.round(doc.similarity * 100)}% relevance)`).join('\n');
+        }
+
         return {
           content: assistantContent,
           retrievedDocs,
           toolCalls,
           tokenCount,
+          contextUsed: retrievedDocs.length > 0
         };
       } catch (error) {
         console.error('Chat error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to process message',
+          message: `Failed to process message: ${error instanceof Error ? error.message : 'Unknown error'}`,
         });
       }
     }),
 
+  // Standalone document search endpoint
+  searchDocuments: tenantProcedure
+    .input(
+      z.object({
+        query: z.string().min(1),
+        limit: z.number().default(10),
+        threshold: z.number().default(0.3),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      try {
+        // Generate embedding for search query
+        console.log('Generating embedding for search query:', input.query);
+        
+        const queryEmbedding = await generateSingleEmbedding(input.query, {
+          model: 'text-embedding-004'
+        });
+
+        // Search Pinecone
+        console.log('Searching Pinecone...');
+        
+        const searchResults = await searchSimilarVectors(
+          queryEmbedding,
+          ctx.tenant?.id || 'public-tenant',
+          {
+            topK: input.limit,
+            includeMetadata: true,
+          }
+        );
+
+        // Process and return results
+        const results = searchResults
+          .filter(result => result.score >= input.threshold)
+          .map(result => ({
+            id: result.id,
+            score: result.score,
+            content: result.metadata.content || '',
+            title: result.metadata.documentId || 'Unknown',
+            metadata: result.metadata,
+          }));
+
+        return {
+          query: input.query,
+          results,
+          totalResults: results.length
+        };
+      } catch (error) {
+        console.error('Document search error:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to search documents',
+        });
+      }
+    }),
+
+  // Test vector search connectivity
+  testVectorSearch: tenantProcedure
+    .input(z.object({ 
+      testQuery: z.string().default("test query") 
+    }))
+    .query(async ({ input, ctx }) => {
+      try {
+        const embedding = await generateSingleEmbedding(input.testQuery, {
+          model: 'text-embedding-004'
+        });
+        
+        const results = await searchSimilarVectors(
+          embedding,
+          ctx.tenant?.id || 'public-tenant',
+          {
+            topK: 3,
+            includeMetadata: true,
+          }
+        );
+
+        return {
+          success: true,
+          embeddingDimensions: embedding.length,
+          resultsFound: results.length,
+          sampleResults: results.slice(0, 2).map(result => ({
+            id: result.id,
+            score: result.score,
+            hasMetadata: !!result.metadata
+          }))
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    }),
+
   // Create new conversation (stateless, returns a random UUID)
-  createConversation: publicProcedure
+  createConversation: tenantProcedure
     .input(
       z.object({
         title: z.string().optional(),

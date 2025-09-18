@@ -366,3 +366,73 @@ export function getChunkingStats(chunks: DocumentChunk[]): {
     chunkTypes,
   };
 }
+
+/**
+ * Chunk restaurant menu specifically by menu items
+ * This function creates one chunk per menu item for optimal RAG retrieval
+ */
+export async function chunkRestaurantMenu(
+  content: string,
+  documentId: string,
+  title: string
+): Promise<DocumentChunk[]> {
+  const chunks: DocumentChunk[] = [];
+  const now = new Date().toISOString();
+  
+  // Split by menu items (identified by price patterns)
+  const pricePattern = /\$\d+\.\d{2}/;
+  const lines = content.split('\n');
+  
+  let currentItem = '';
+  let chunkIndex = 0;
+  
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    
+    if (trimmedLine.includes('$') && pricePattern.test(trimmedLine)) {
+      // If we have accumulated content, save it as a chunk
+      if (currentItem.trim()) {
+        chunks.push({
+          content: currentItem.trim(),
+          chunkIndex: chunkIndex++,
+          metadata: {
+            documentId,
+            originalTitle: title,
+            contentType: 'application/pdf',
+            wordCount: currentItem.split(/\s+/).length,
+            charCount: currentItem.length,
+            chunkType: 'menu_item',
+            createdAt: now,
+          },
+        });
+        
+        currentItem = '';
+      }
+      
+      // Start new item with the price line
+      currentItem = trimmedLine + '\n';
+    } else if (trimmedLine) {
+      // Add to current item
+      currentItem += trimmedLine + '\n';
+    }
+  }
+  
+  // Add the last item if exists
+  if (currentItem.trim()) {
+    chunks.push({
+      content: currentItem.trim(),
+      chunkIndex: chunkIndex++,
+      metadata: {
+        documentId,
+        originalTitle: title,
+        contentType: 'application/pdf',
+        wordCount: currentItem.split(/\s+/).length,
+        charCount: currentItem.length,
+        chunkType: 'menu_item',
+        createdAt: now,
+      },
+    });
+  }
+  
+  return chunks;
+}
