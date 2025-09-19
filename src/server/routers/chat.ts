@@ -69,7 +69,7 @@ export const chatRouter = createTRPCRouter({
               .map(doc => `Document: ${doc.title}\nContent: ${doc.content}`)
               .join('\n\n---\n\n');
 
-            console.log(`Found ${retrievedDocs.length} relevant documents`);
+            console.log(`Found ${retrievedDocs.length} relevant documents.`);
           }
         }
 
@@ -80,7 +80,8 @@ export const chatRouter = createTRPCRouter({
 
         console.log('Enhanced system prompt:', {
           length: enhancedSystemPrompt.length,
-          includesContext: enhancedSystemPrompt.includes('Relevant Context')
+          includesContext: enhancedSystemPrompt.includes('Relevant Context'),
+          context: contextString,
         });
 
         // Step 5: Configure RAG Pipeline

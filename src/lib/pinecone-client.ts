@@ -116,6 +116,7 @@ export async function storeEmbeddings(
         chunkId: embedding.metadata.chunkId,
         documentId: embedding.metadata.documentId,
         tenantId: embedding.metadata.tenantId,
+        content: embedding.metadata.content,
         chunkIndex: embedding.metadata.chunkIndex,
         contentLength: embedding.metadata.contentLength,
         createdAt: embedding.metadata.createdAt,
