@@ -1,5 +1,6 @@
 'use client';
 
+
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { trpc } from '@/utils/trpc';
 import { POS_SYSTEM_PROMPT } from '../page';
+
 import {
   Send,
   Mic,
@@ -163,7 +165,7 @@ export default function CustomerChatPage() {
   };
 
   const handleSendMessage = async (content: string) => {
-    if (!content.trim() || isLoading) return;
+    if (!content.trim()) return;
 
     // Add user message immediately
     const userMessage: Message = {
@@ -232,6 +234,7 @@ export default function CustomerChatPage() {
     handleSendMessage(text);
   };
 
+
   const captureScreen = () => {
     setScreenContext(prev => ({
       ...prev,
@@ -261,6 +264,7 @@ export default function CustomerChatPage() {
             <div className='w-10 h-10 rounded-xl flex items-center justify-center'>
               <Image
                 src='/logo.png'
+
                 alt='AI Assistant'
                 width={40}
                 height={40}
@@ -275,18 +279,16 @@ export default function CustomerChatPage() {
           </div>
 
           <div className='flex items-center space-x-3'>
-            {screenContext.posSystem && (
+            {/* {screenContext.posSystem && (
               <Badge
                 variant='outline'
-                className='border-teal-400 text-teal-400 bg-blue-800/50'
               >
                 <CheckCircle className='w-3 h-3 mr-1' />
                 {screenContext.posSystem.charAt(0).toUpperCase() +
                   screenContext.posSystem.slice(1)}{' '}
                 Connected
               </Badge>
-            )}
-
+            )} */}
             {isLoading && (
               <Badge variant="outline" className="border-blue-400 text-blue-400">
                 <Loader2 className="w-3 h-3 mr-1 animate-spin" />
@@ -378,6 +380,7 @@ export default function CustomerChatPage() {
                   <div className='flex flex-col items-center justify-center h-64 text-center'>
                     <div className='w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mb-4'>
                       <Sparkles className='w-8 h-8 text-teal-300' />
+
                     </div>
                     <h3 className='text-lg font-semibold text-white mb-2'>
                       Ready to help with your POS system
@@ -399,7 +402,6 @@ export default function CustomerChatPage() {
                       onSuggestionClick={(suggestion) => handleSendMessage(suggestion)} />
                   ))
                 )}
-
                 {/* Loading with CustomerChatBubble */}
                 {isLoading && (
                   <CustomerChatBubble
