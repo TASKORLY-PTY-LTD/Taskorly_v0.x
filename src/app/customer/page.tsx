@@ -189,6 +189,18 @@ export default function CustomerChatPage() {
                             ? 'bg-gradient-to-br from-green-500 to-emerald-600'
                             : ''
                         }`}
+                        style={{
+                          transform: 'scale(1)',
+                          animation: 'none',
+                          width: message.role === 'user' ? '40px' : '45px',
+                          height: message.role === 'user' ? '40px' : '45px',
+                          minWidth: message.role === 'user' ? '40px' : '45px',
+                          minHeight: message.role === 'user' ? '40px' : '45px',
+                          maxWidth: message.role === 'user' ? '40px' : '45px',
+                          maxHeight: message.role === 'user' ? '40px' : '45px',
+                          flexShrink: '0',
+                          flexGrow: '0',
+                        }}
                       >
                         {message.role === 'user' ? (
                           <User className='w-7 h-7 text-white' />
@@ -196,9 +208,19 @@ export default function CustomerChatPage() {
                           <Image
                             src='/logo.png'
                             alt='Taskorly Logo'
-                            width={80}
-                            height={80}
+                            width={45}
+                            height={45}
                             className='rounded-full'
+                            style={{
+                              transform: 'scale(1)',
+                              animation: 'none',
+                              width: '45px',
+                              height: '45px',
+                              minWidth: '45px',
+                              minHeight: '45px',
+                              maxWidth: '45px',
+                              maxHeight: '45px',
+                            }}
                           />
                         )}
                       </div>
@@ -221,7 +243,11 @@ export default function CustomerChatPage() {
                               : 'text-slate-400'
                           }`}
                         >
-                          {message.timestamp.toLocaleTimeString()}
+                          {message.timestamp.toLocaleTimeString([], {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true,
+                          })}
                         </div>
                       </div>
                     </div>
@@ -231,14 +257,38 @@ export default function CustomerChatPage() {
                 {/* Streaming indicator */}
                 {isStreaming && (
                   <div className='flex justify-start'>
-                    <div className='flex items-start space-x-3'>
-                      <div className='w-20 h-20 rounded-full flex items-center justify-center'>
+                    <div className='flex items-start space-x-3 max-w-2xl'>
+                      <div
+                        className={`w-20 h-20 rounded-full flex items-center justify-center`}
+                        style={{
+                          transform: 'scale(1)',
+                          animation: 'none',
+                          width: '45px',
+                          height: '45px',
+                          minWidth: '45px',
+                          minHeight: '45px',
+                          maxWidth: '45px',
+                          maxHeight: '45px',
+                          flexShrink: '0',
+                          flexGrow: '0',
+                        }}
+                      >
                         <Image
                           src='/logo.png'
                           alt='Taskorly Logo'
-                          width={80}
-                          height={80}
+                          width={45}
+                          height={45}
                           className='rounded-full'
+                          style={{
+                            transform: 'scale(1)',
+                            animation: 'none',
+                            width: '45px',
+                            height: '45px',
+                            minWidth: '45px',
+                            minHeight: '45px',
+                            maxWidth: '45px',
+                            maxHeight: '45px',
+                          }}
                         />
                       </div>
                       <div className='bg-white/10 rounded-2xl px-4 py-3'>
