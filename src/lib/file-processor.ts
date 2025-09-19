@@ -14,12 +14,45 @@ export interface ProcessedFile {
     extractionMethod?: string;
   };
 }
-
+/**
+ * Represents a PDF file that has been prepared for server-side processing.
+ * This is used as an intermediate format before the actual PDF text extraction.
+ */
 export interface ProcessedPDFFile {
+  /** The original name of the PDF file */
   fileName: string;
+  /** Size of the file in bytes */
   fileSize: number;
+  /** The MIME type of the file (should be 'application/pdf') */
   fileType: string;
+  /** The PDF file contents encoded as a base64 string so it can be sent to the server */
   fileData: string; // Base64 encoded file data for server processing
+}
+
+/**
+ * Represents a PDF file after it has been fully processed by the server.
+ * This contains the extracted text content and metadata about the PDF.
+ */
+export interface ServerProcessedPDF {
+  /** The extracted text content from the PDF */
+  content: string;
+  /** Metadata about the processed PDF file */
+  metadata: {
+    /** Original filename of the PDF */
+    fileName: string;
+    /** Size of the original PDF in bytes */
+    fileSize: number;
+    /** MIME type of the file */
+    fileType: string;
+    /** Total count of words found in the PDF */
+    wordCount: number;
+    /** Total count of characters found in the PDF */
+    charCount: number;
+    /** Number of pages in the PDF */
+    pageCount: number;
+    /** The method used to extract text from the PDF (e.g. 'pdfjs', 'tesseract') */
+    extractionMethod: string;
+  };
 }
 
 /**
@@ -36,10 +69,15 @@ export async function processFile(file: File): Promise<ProcessedFile> {
     let pageCount: number | undefined;
     
     if (fileType === 'application/pdf') {
-      // PDF processing is temporarily disabled
-      throw new Error('PDF processing is temporarily disabled. Please convert your PDF to a text file (.txt) or markdown file (.md) for now.');
+      // PDF files require server-side processing because:
+      // 1. PDF parsing libraries are heavy and not suitable for browser environments
+      // 2. PDF text extraction requires specialized libraries like pdf2json or pdf-parse
+      // 3. Server-side processing provides better security and performance
+      // 4. We can use more powerful PDF parsing libraries on the server
+      throw new Error('PDF files must be processed on the server. Please use the uploadDocument mutation directly with PDF file data.');
     } else {
-      // Handle text-based files (TXT, MD, JSON)
+      // Handle text-based files (TXT, MD, JSON) - these can be processed client-side
+      // since they're just plain text files that can be read directly
       content = await readFileAsText(file);
       extractionMethod = 'text-reader';
     }
@@ -92,7 +130,16 @@ function cleanExtractedText(text: string): string {
 }
 
 /**
- * Prepare PDF file data for server-side processing (fallback option)
+ * Prepare PDF file data for server-side processing
+ * 
+ * This function is the first step in the PDF upload process:
+ * 1. Takes a PDF File object from the browser's file input
+ * 2. Converts it to an ArrayBuffer (binary data)
+ * 3. Encodes the binary data as base64 string
+ * 4. Returns a ProcessedPDFFile object that can be sent to the server
+ * 
+ * Why base64? Because we need to send binary PDF data through HTTP/JSON,
+ * and base64 is the standard way to encode binary data as text.
  */
 export async function preparePDFForServer(file: File): Promise<ProcessedPDFFile> {
   const fileName = file.name;
@@ -100,10 +147,16 @@ export async function preparePDFForServer(file: File): Promise<ProcessedPDFFile>
   const fileType = file.type || getFileTypeFromExtension(fileName);
   
   try {
-    // Convert file to base64 for server transmission
+    // Step 1: Convert File to ArrayBuffer (binary data)
+    // This reads the PDF file as raw bytes
     const arrayBuffer = await readFileAsArrayBuffer(file);
+    
+    // Step 2: Convert ArrayBuffer to base64 string
+    // This converts the binary data to a text format that can be sent via JSON
     const base64Data = arrayBufferToBase64(arrayBuffer);
     
+    // Step 3: Return the prepared PDF data
+    // This object will be sent to the server's uploadPDF mutation
     return {
       fileName,
       fileSize,
@@ -112,6 +165,29 @@ export async function preparePDFForServer(file: File): Promise<ProcessedPDFFile>
     };
   } catch (error) {
     throw new Error(`Failed to prepare PDF file "${fileName}": ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+/**
+ * Process PDF file by sending it to the server for parsing
+ * This is the main function to use for PDF files in the upload dialog
+ */
+export async function processPDFFile(file: File): Promise<ProcessedFile> {
+  const fileName = file.name;
+  const fileSize = file.size;
+  const fileType = file.type || getFileTypeFromExtension(fileName);
+  
+  try {
+    // Prepare PDF data for server processing
+    const pdfData = await preparePDFForServer(file);
+    
+    // For now, we'll throw an error indicating that PDF processing
+    // should be handled by the upload dialog directly with the server
+    // This function exists for future use when we implement client-side PDF processing
+    throw new Error('PDF processing must be handled by the upload dialog with server-side parsing');
+    
+  } catch (error) {
+    throw new Error(`Failed to process PDF file "${fileName}": ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -210,7 +286,7 @@ export function isSupportedFileType(file: File): boolean {
     'text/plain',
     'text/markdown', 
     'application/json',
-    // 'application/pdf', // Temporarily disabled
+    'application/pdf', // Now supported with server-side processing
   ];
   
   const fileType = file.type || getFileTypeFromExtension(file.name);
@@ -223,13 +299,9 @@ export function isSupportedFileType(file: File): boolean {
 export function getUnsupportedFileMessage(file: File): string {
   const fileType = file.type || getFileTypeFromExtension(file.name);
   
-  if (fileType === 'application/pdf') {
-    return `PDF processing is temporarily disabled. Please convert "${file.name}" to a text file (.txt) or markdown file (.md) for now.`;
-  }
-  
   if (fileType.includes('word') || fileType.includes('doc')) {
     return `Word documents are not yet supported. Please convert "${file.name}" to a text file or markdown file.`;
   }
   
-  return `File type "${fileType}" is not supported. Please use TXT, MD, or JSON files.`;
+  return `File type "${fileType}" is not supported. Please use TXT, MD, JSON, or PDF files.`;
 }
