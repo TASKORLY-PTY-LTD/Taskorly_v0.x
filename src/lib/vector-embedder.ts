@@ -23,8 +23,12 @@ export interface EmbeddingResult {
     documentId: string;
     tenantId: string;
     chunkIndex: number;
+    content: string;
     contentLength: number;
     createdAt: string;
+    title?: string;
+    chunkType?: string;
+    sectionTitle?: string;
   };
 }
 
@@ -186,8 +190,10 @@ async function processBatch(
             documentId: documentId,
             tenantId: tenantId,
             chunkIndex: chunk.chunkIndex,
+            content: chunk.content,
             contentLength: chunk.content.length,
             createdAt: new Date().toISOString(),
+            title: `Document ${documentId} - Chunk ${chunk.chunkIndex}`,
           },
         });
         

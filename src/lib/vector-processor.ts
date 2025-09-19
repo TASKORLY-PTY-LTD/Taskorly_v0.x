@@ -87,7 +87,7 @@ export async function processDocumentVectors(
     const chunksForEmbedding = chunks.map((chunk, index) => ({
       content: chunk.content,
       chunkIndex: chunk.chunkIndex,
-      chunkId: `${documentId}-chunk-${chunk.chunkIndex}`,
+      chunkId: `${tenantId}-${documentId}-chunk-${chunk.chunkIndex}`,
     }));
 
     // ===== STEP 1: GENERATE EMBEDDINGS =====

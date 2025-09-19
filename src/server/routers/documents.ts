@@ -472,11 +472,11 @@ export const documentsRouter = createTRPCRouter({
               // - Context richness (enough content for meaningful retrieval)
               // - Retrieval precision (not too large to be irrelevant)
               // - Complete sentences and paragraphs (maintains logical units)
-              maxChunkSize: 2000,
+              maxChunkSize: 1200,
               
               // Overlap: 200 characters ensures smooth transitions between chunks
               // This prevents information loss at chunk boundaries and maintains context flow
-              overlapSize: 200,
+              overlapSize: 100,
               
               // Structure preservation: Maintains headings, paragraphs, lists, etc.
               // This helps the RAG system understand document hierarchy and organization

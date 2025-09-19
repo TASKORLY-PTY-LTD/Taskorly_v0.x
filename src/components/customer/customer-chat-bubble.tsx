@@ -2,6 +2,10 @@
 
 import { Bot, User, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { memo, useMemo } from 'react';
+import { marked } from 'marked';
+import { cn } from '@/lib/utils';
+import Image from 'next/image';
 
 interface Message {
   id: string;
@@ -10,6 +14,12 @@ interface Message {
   timestamp: Date;
   isStreaming?: boolean;
   suggestions?: string[];
+  sources?: Array<{
+    title: string;
+    similarity: number;
+  }>;
+  tokenCount?: number;
+  error?: boolean;
   posContext?: {
     system: string;
     screen: string;
@@ -19,18 +29,49 @@ interface Message {
 
 interface CustomerChatBubbleProps {
   message: Message;
+  isStreaming: boolean;
   variant?: 'default' | 'overlay' | 'fullscreen';
   onSuggestionClick?: (suggestion: string) => void;
+  useCustomLogo?: boolean;
+  logoSrc?: string;
+  logoAlt?: string;
 }
 
-export function CustomerChatBubble({
+function cleanContent(content: string): string {
+  return content
+    .replace(/\[object Object\]/g, '')         
+    .replace(/&#39;/g, "'")                     
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/<br\s*\/?><br\s*\/?>/g, '\n\n') 
+    .replace(/<br\s*\/?>/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+const CustomerChatBubble = memo(function CustomerChatBubble({
   message,
+  isStreaming = false,
   variant = 'default',
   onSuggestionClick,
+  useCustomLogo = false,
+  logoSrc = '/logo.png',
+  logoAlt = 'Assistant Logo',
 }: CustomerChatBubbleProps) {
   const isUser = message.role === 'user';
   const isOverlay = variant === 'overlay';
   const isFullscreen = variant === 'fullscreen';
+
+  // Determine avatar size based on variant
+  const avatarSize = isOverlay ? 'w-6 h-6' : variant === 'fullscreen' ? 'w-20 h-20' : 'w-8 h-8';
+  const iconSize = isOverlay ? 'w-3 h-3' : variant === 'fullscreen' ? 'w-10 h-10' : 'w-4 h-4';
+  const logoSize = variant === 'fullscreen' ? { width: 80, height: 80 } : { width: 32, height: 32 };
+
+  const FormattedMessage = useMemo(() => {  
+    const content = cleanContent(message.content);
+    const html = marked.parse(content);
+    return typeof html == 'string' ? html : '';
+  }, [message]);
 
   if (message.isStreaming) {
     return (
@@ -39,13 +80,21 @@ export function CustomerChatBubble({
           className={`flex items-start space-x-3 ${isOverlay ? 'space-x-2' : ''}`}
         >
           <div
-            className={`rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center ${
-              isOverlay ? 'w-6 h-6' : 'w-8 h-8'
+            className={`rounded-full flex items-center justify-center ${avatarSize} ${
+              useCustomLogo ? '' : 'bg-gradient-to-br from-blue-500 to-purple-600'
             }`}
           >
-            <Bot
-              className={`text-white ${isOverlay ? 'w-3 h-3' : 'w-4 h-4'}`}
-            />
+            {useCustomLogo ? (
+              <Image
+                src={logoSrc}
+                alt={logoAlt}
+                width={logoSize.width}
+                height={logoSize.height}
+                className='rounded-full'
+              />
+            ) : (
+              <Bot className={`text-white ${iconSize}`} />
+            )}
           </div>
           <div
             className={`rounded-2xl px-4 py-3 bg-slate-800/60 backdrop-blur-lg border border-slate-700/50 ${
@@ -79,22 +128,26 @@ export function CustomerChatBubble({
       >
         {/* Avatar */}
         <div
-          className={`rounded-full flex items-center justify-center ${
-            isOverlay ? 'w-6 h-6' : 'w-8 h-8'
-          } ${
+          className={`rounded-full flex items-center justify-center ${avatarSize} ${
             isUser
               ? 'bg-gradient-to-br from-green-500 to-emerald-600'
-              : 'bg-gradient-to-br from-blue-500 to-purple-600'
+              : useCustomLogo 
+                ? '' 
+                : 'bg-gradient-to-br from-blue-500 to-purple-600'
           }`}
         >
           {isUser ? (
-            <User
-              className={`text-white ${isOverlay ? 'w-3 h-3' : 'w-4 h-4'}`}
+            <User className={`text-white ${iconSize}`} />
+          ) : useCustomLogo ? (
+            <Image
+              src={logoSrc}
+              alt={logoAlt}
+              width={logoSize.width}
+              height={logoSize.height}
+              className='rounded-full'
             />
           ) : (
-            <Bot
-              className={`text-white ${isOverlay ? 'w-3 h-3' : 'w-4 h-4'}`}
-            />
+            <Bot className={`text-white ${iconSize}`} />
           )}
         </div>
 
@@ -105,14 +158,59 @@ export function CustomerChatBubble({
             className={`${isOverlay ? 'rounded-lg px-3 py-2' : 'rounded-2xl px-4 py-3'} ${
               isUser
                 ? 'bg-gradient-to-br from-green-600 to-emerald-700 text-white'
-                : 'bg-slate-800/60 backdrop-blur-lg border border-slate-700/50 text-slate-100'
+                : variant === 'fullscreen'
+                  ? 'bg-white/10 text-white'
+                  : 'bg-slate-800/60 backdrop-blur-lg border border-slate-700/50 text-slate-100'
             }`}
           >
-            <div
-              className={`whitespace-pre-wrap ${isOverlay ? 'text-sm' : ''}`}
-            >
-              {message.content}
+            <div className={cn(
+              'whitespace-pre-wrap leading-tight',
+              'prose max-w-none leading-tight text-white',
+              
+              // Custom prose styling
+              'prose-headings:font-semibold prose-headings:mt-1 prose-headings:mb-1 leading-tight',
+              'prose-p:mt-1 prose-p:mb-1 prose-p:leading-tight',
+              'prose-strong:font-semibold prose-em:italic prose-strong:text-white',
+              'prose-code:bg-gray-100 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm prose-code:leading-tight',
+              'prose-code:text-white',
+              'prose-pre:bg-gray-100 prose-pre:p-3 prose-pre:rounded-md leading-tight',
+              'prose-ul:list-disc prose-ul:leading-tight prose-ul:mt-1 prose-ul:mb-1', 
+              'prose-ol:list-decimal prose-ol:leading-tight prose-ol:mt-1 prose-ol:mb-1', 
+              'prose-li:my-1 prose-li:leading-tight prose-li:mt-1 prose-li:mb-1',
+              'prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline leading-tight',
+              'prose-blockquote:border-l-4 prose-blockquote:border-gray-300 prose-blockquote:pl-4 prose-blockquote:italic leading-tight',
+              
+              // Handle user messages (white text)
+              isUser && [
+                'prose-invert', // Inverts colors for dark backgrounds
+                'prose-headings:text-white prose-p:text-white prose-strong:text-white leading-tight',
+                'prose-code:bg-blue-600 prose-code:text-white leading-tight',
+                'prose-a:text-blue-200 hover:prose-a:text-white leading-tight'
+              ],
+              
+              isStreaming && 'animate-pulse'
+            )}>
+              <div dangerouslySetInnerHTML={{ __html: FormattedMessage }} />
             </div>
+
+            {/* Sources - Added for LLM integration */}
+            {!isUser && message.sources && message.sources.length > 0 && (
+              <div className='mt-3 pt-3 border-t border-slate-600/50'>
+                <div className='text-xs text-slate-400 mb-2'>Sources:</div>
+                {message.sources.map((source, index) => (
+                  <div key={index} className='text-xs text-slate-300 mb-1'>
+                    • {source.title} ({(source.similarity * 100).toFixed(0)}% match)
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Token count - Added for LLM integration */}
+            {message.tokenCount && (
+              <div className='text-xs text-slate-400 mt-2'>
+                Tokens: {message.tokenCount}
+              </div>
+            )}
 
             {/* POS Context indicator */}
             {!isUser && message.posContext && (
@@ -127,10 +225,14 @@ export function CustomerChatBubble({
             {/* Timestamp */}
             <div
               className={`mt-2 ${isOverlay ? 'text-xs' : 'text-xs'} ${
-                isUser ? 'text-green-100' : 'text-slate-400'
+                isUser 
+                  ? 'text-green-100' 
+                  : message.error
+                    ? 'text-red-200'
+                    : 'text-slate-400'
               }`}
             >
-              {message.timestamp.toLocaleTimeString()}
+              {message.timestamp.toLocaleTimeString('en-US', {hour12: true})}
             </div>
           </div>
 
@@ -170,4 +272,6 @@ export function CustomerChatBubble({
       `}</style>
     </div>
   );
-}
+});
+
+export default CustomerChatBubble;

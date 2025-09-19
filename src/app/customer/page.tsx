@@ -1,107 +1,241 @@
 'use client';
 
-import {
-  Send,
-  Mic,
-  Paperclip,
-  Zap,
-  Monitor,
-  Shield,
-  Sparkles,
-  User,
-  Camera,
-  Square,
-} from 'lucide-react';
+
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
-
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Message, ScreenContext, Suggestion } from './types/customer.types';
-import { MOCK_SUGGESTIONS } from './utils/customerUtils';
+import { trpc } from '@/utils/trpc';
+import { POS_SYSTEM_PROMPT } from '../page';
+
+import {
+  Send,
+  Mic,
+  Paperclip,
+  User,
+  Camera,
+  Square,
+  Loader2,
+  CheckCircle,
+  FileText,
+  ArrowRight,
+  Settings,
+  MessageSquare,
+  Bot,
+  Monitor,
+  Zap,
+  Sparkles,
+  Shield,
+} from 'lucide-react';
+import CustomerChatBubble from '@/components/customer/customer-chat-bubble';
+
+// Updated Message interface to match CustomerChatBubble requirements
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  isStreaming?: boolean;
+  suggestions?: string[];
+  screenContext?: ScreenContext;
+  sources?: Array<{
+    title: string;
+    content: string;
+    similarity: number;
+  }>;
+  tokenCount?: number;
+  error?: boolean; // Changed to boolean to match bubble component
+}
+
+interface ScreenContext {
+  url?: string;
+  posSystem?: 'square' | 'toast' | 'shopify' | 'generic';
+  currentScreen?: string;
+  visibleElements?: string[];
+}
+
+interface Suggestion {
+  id: string;
+  text: string;
+  category: 'pos' | 'general' | 'troubleshoot';
+  icon: React.ReactNode;
+}
+
+const FEATURES = [
+  {
+    icon: <MessageSquare className="w-4 h-4" />,
+    title: 'Smart Help',
+    description: 'Get instant answers about your POS system',
+  },
+  {
+    icon: <Zap className="w-4 h-4" />,
+    title: 'Quick Actions',
+    description: 'Process refunds, add products, and more',
+  },
+  {
+    icon: <FileText className="w-4 h-4" />,
+    title: 'Documentation',
+    description: 'Access guides and troubleshooting tips',
+  },
+];
+
+const MOCK_SUGGESTIONS: Suggestion[] = [
+  {
+    id: '1',
+    text: 'How do I process a refund in Square?',
+    category: 'pos',
+    icon: <Square className='h-4 w-4' />,
+  },
+  {
+    id: '2',
+    text: 'Payment terminal not responding',
+    category: 'troubleshoot',
+    icon: <Shield className='h-4 w-4' />,
+  },
+  {
+    id: '3',
+    text: 'How to add a new product?',
+    category: 'pos',
+    icon: <Sparkles className='h-4 w-4' />,
+  },
+  {
+    id: '4',
+    text: 'Generate daily sales report',
+    category: 'general',
+    icon: <Monitor className='h-4 w-4' />,
+  },
+];
+
+const SAMPLE_QUESTIONS = [
+  'How do I process a refund?',
+  'Help me add a new product',
+  'Troubleshoot payment terminal',
+  'Show me sales reports',
+];
 
 export default function CustomerChatPage() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content:
-        "Hi! I'm your AI assistant for POS systems. I can help you with Square, troubleshooting, or any questions about your system. What can I help you with today?",
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const [isStreaming, setIsStreaming] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isWelcomeVisible, setIsWelcomeVisible] = useState(true);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [showSidebar, setShowSidebar] = useState(false);
   const [screenContext, setScreenContext] = useState<ScreenContext>({
     posSystem: 'square',
     currentScreen: 'dashboard',
     url: 'https://squareup.com/dashboard',
   });
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // tRPC mutations
+  const sendMessage = trpc.chat.sendMessage.useMutation();
+  const createConversation = trpc.chat.createConversation.useMutation();
+
+  // Auto-scroll to bottom
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
   }, [messages]);
+
+  // Hide welcome when messages exist
+  useEffect(() => {
+    setIsWelcomeVisible(messages.length === 0);
+  }, [messages.length]);
+
+  // Generate contextual suggestions based on response
+  const generateSuggestions = (content: string): string[] => {
+    const suggestions = [];
+    
+    if (content.toLowerCase().includes('refund')) {
+      suggestions.push('Show me refund policies', 'Process another refund');
+    }
+    if (content.toLowerCase().includes('product')) {
+      suggestions.push('Add inventory tracking', 'Set up categories');
+    }
+    if (content.toLowerCase().includes('payment')) {
+      suggestions.push('Test payment terminal', 'Check connection');
+    }
+    
+    return suggestions.slice(0, 3);
+  };
 
   const handleSendMessage = async (content: string) => {
     if (!content.trim()) return;
 
+    // Add user message immediately
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: `user-${Date.now()}`,
       role: 'user',
       content: content.trim(),
       timestamp: new Date(),
-      screenContext,
     };
 
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
-    setIsStreaming(true);
+    setIsLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
+    try {
+      // Create conversation if needed
+      let convId = conversationId;
+      if (!convId) {
+        const conv = await createConversation.mutateAsync({
+          title: 'Customer Support Chat',
+          systemPrompt: POS_SYSTEM_PROMPT,
+        });
+        convId = conv.id;
+        setConversationId(convId);
+      }
+
+      // Send message to Gemini LLM via RAG pipeline
+      const response = await sendMessage.mutateAsync({
+        conversationId: convId ?? undefined,
+        message: content.trim(),
+        includeContext: true,
+        systemPrompt: POS_SYSTEM_PROMPT,
+      });
+
+      // Add assistant message with suggestions
       const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
+        id: `assistant-${Date.now()}`,
         role: 'assistant',
-        content: generateMockResponse(content, screenContext),
+        content: response.content,
         timestamp: new Date(),
+        sources: response.retrievedDocs,
+        tokenCount: response.tokenCount,
+        suggestions: generateSuggestions(response.content),
       };
+
       setMessages(prev => [...prev, assistantMessage]);
-      setIsStreaming(false);
-    }, 1500);
-  };
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      
+      // Add error message
+      const errorMessage: Message = {
+        id: `error-${Date.now()}`,
+        role: 'assistant',
+        content: 'Sorry, I encountered an error processing your message. Please try again.',
+        timestamp: new Date(),
+        error: true, // Boolean flag for error state
+      };
 
-  const generateMockResponse = (
-    userInput: string,
-    context: ScreenContext
-  ): string => {
-    if (userInput.toLowerCase().includes('refund')) {
-      return '🔄 To process a refund in Square:\n\n1. Navigate to your Square Dashboard\n2. Go to "Transactions" in the left menu\n3. Find the transaction you want to refund\n4. Click "Refund" and select full or partial\n5. Process the refund to the original payment method\n\nI can see you\'re currently on your Square dashboard - would you like me to guide you through this step by step?';
-    } else if (
-      userInput.toLowerCase().includes('payment') ||
-      userInput.toLowerCase().includes('terminal')
-    ) {
-      return '🛡️ Payment terminal issues can usually be resolved by:\n\n1. Check all cable connections\n2. Restart the terminal (hold power for 10 seconds)\n3. Ensure stable internet connection\n4. Contact Square support if issue persists\n\nBased on your current screen, I can help troubleshoot specific error messages. What exactly is happening with your terminal?';
-    } else if (
-      userInput.toLowerCase().includes('product') ||
-      userInput.toLowerCase().includes('add')
-    ) {
-      return '✨ Adding new products in Square:\n\n1. From your dashboard, click "Items & Orders"\n2. Select "Items" from the menu\n3. Click "+ Create Item"\n4. Fill in product details (name, price, category)\n5. Add photos and set inventory tracking if needed\n6. Save your new item\n\nWould you like me to walk through any specific product setup requirements?';
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
     }
-
-    return `I understand you're asking about "${userInput}". Based on your Square POS system, I can provide specific guidance. Could you share more details about what you're trying to accomplish?`;
   };
 
-  const handleSuggestionClick = (suggestion: Suggestion) => {
-    handleSendMessage(suggestion.text);
+  const handleSuggestionClick = (suggestion: Suggestion | string) => {
+    const text = typeof suggestion === 'string' ? suggestion : suggestion.text;
+    handleSendMessage(text);
   };
+
 
   const captureScreen = () => {
-    // Mock screen capture
     setScreenContext(prev => ({
       ...prev,
       currentScreen: 'captured',
@@ -109,33 +243,38 @@ export default function CustomerChatPage() {
     }));
   };
 
+  const clearConversation = () => {
+    setMessages([]);
+    setConversationId(null);
+    setIsWelcomeVisible(true);
+  };
+
   return (
     <div className='min-h-screen bg-gradient-to-br from-blue-900 via-slate-800 to-teal-900 text-white'>
-      {/* Animated background elements */}
-      <div className='absolute inset-0 overflow-hidden'>
+      {/* Animated background */}
+      <div className='fixed inset-0 overflow-hidden pointer-events-none'>
         <div className='absolute -top-40 -right-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob'></div>
         <div className='absolute -bottom-40 -left-40 w-80 h-80 bg-teal-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000'></div>
-        <div className='absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-cyan-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000'></div>
       </div>
 
-      <div className='relative z-10 h-screen flex flex-col'>
+      <div className='relative z-10 min-h-screen flex flex-col'>
         {/* Header */}
         <header className='flex items-center justify-between p-6'>
           <div className='flex items-center space-x-4'>
             <div className='w-10 h-10 rounded-xl flex items-center justify-center'>
               <Image
                 src='/logo.png'
-                alt='Taskorly Logo'
-                width={35}
-                height={35}
-                className='rounded-lg'
-              />
+
+                alt='AI Assistant'
+                width={40}
+                height={40}
+                className='rounded-lg' />
             </div>
             <div>
               <h1 className='text-xl font-bold bg-gradient-to-r from-blue-400 to-teal-400 bg-clip-text text-transparent'>
-                Taskorly Assistant
+                AI POS Assistant
               </h1>
-              <p className='text-sm text-slate-400'>AI-powered POS support</p>
+              <p className='text-sm text-slate-400'>Smart help for your business</p>
             </div>
           </div>
 
@@ -143,26 +282,93 @@ export default function CustomerChatPage() {
             {/* {screenContext.posSystem && (
               <Badge
                 variant='outline'
-                className='border-teal-400 text-teal-400'
               >
-                <Square className='w-3 h-3 mr-1' />
+                <CheckCircle className='w-3 h-3 mr-1' />
                 {screenContext.posSystem.charAt(0).toUpperCase() +
                   screenContext.posSystem.slice(1)}{' '}
                 Connected
               </Badge>
             )} */}
+            {isLoading && (
+              <Badge variant="outline" className="border-blue-400 text-blue-400">
+                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                Thinking...
+              </Badge>
+            )}
 
-            {/* <Button
+            <Button
               variant='outline'
-              size='sm'
-              onClick={captureScreen}
-              className='border-teal-400 bg-blue-800/50 hover:border-teal-300 hover:bg-blue-700/70 text-teal-100 hover:text-white hover:shadow-lg hover:shadow-teal-500/25'
+              className='border-teal-400 text-teal-400 bg-blue-800/50'
             >
               <Camera className='w-4 h-4 mr-2' />
               Capture Screen
-            </Button> */}
+            </Button>
+
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={() => setShowSidebar(!showSidebar)}
+              className='border-teal-400 bg-blue-800/50 hover:border-teal-300 hover:bg-blue-700/70 text-teal-100 hover:text-white'
+            >
+              <Settings className='w-4 h-4' />
+            </Button>
           </div>
         </header>
+
+        {/* Welcome Section */}
+        {isWelcomeVisible && (
+          <div className='px-6 pb-6'>
+            <div className='bg-white/10 rounded-2xl p-8 backdrop-blur-sm'>
+              <div className='text-center mb-6'>
+                <div className='w-16 h-16 bg-gradient-to-br from-blue-500 to-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-4'>
+                  <Bot className='w-8 h-8 text-white' />
+                </div>
+                <h2 className='text-2xl font-bold mb-2'>
+                  Welcome to your AI POS Assistant
+                </h2>
+                <p className='text-slate-300'>
+                  Get instant help with your POS system, from processing refunds to adding products
+                </p>
+              </div>
+
+              {/* Features */}
+              <div className='grid md:grid-cols-3 gap-4 mb-6'>
+                {FEATURES.map((feature, index) => (
+                  <div key={index} className='bg-white/5 rounded-xl p-4 text-center'>
+                    <div className='w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center mx-auto mb-3'>
+                      <div className='text-teal-300'>{feature.icon}</div>
+                    </div>
+                    <h3 className='font-semibold text-white mb-1 text-sm'>
+                      {feature.title}
+                    </h3>
+                    <p className='text-xs text-slate-400'>
+                      {feature.description}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Sample Questions */}
+              <div className='text-center'>
+                <p className='text-slate-300 mb-4 text-sm'>Try asking:</p>
+                <div className='flex flex-wrap gap-2 justify-center'>
+                  {SAMPLE_QUESTIONS.map((question, index) => (
+                    <Button
+                      key={index}
+                      variant='outline'
+                      size='sm'
+                      onClick={() => handleSuggestionClick(question)}
+                      className='text-xs border-teal-400 bg-blue-800/30 hover:border-teal-300 hover:bg-blue-700/50 text-teal-100 hover:text-white'
+                    >
+                      {question}
+                      <ArrowRight className='w-3 h-3 ml-2' />
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Main chat area */}
         <div className='flex-1 flex'>
@@ -170,167 +376,73 @@ export default function CustomerChatPage() {
           <div className='flex-1 flex flex-col'>
             <ScrollArea className='flex-1 px-6 py-4'>
               <div className='space-y-6 max-w-4xl mx-auto'>
-                {messages.map(message => (
-                  <div
-                    key={message.id}
-                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`flex items-start space-x-3 max-w-2xl ${
-                        message.role === 'user'
-                          ? 'flex-row-reverse space-x-reverse'
-                          : ''
-                      }`}
-                    >
-                      {/* Avatar */}
-                      <div
-                        className={`${message.role === 'user' ? 'w-10 h-10' : 'w-20 h-20'} rounded-full flex items-center justify-center ${
-                          message.role === 'user'
-                            ? 'bg-gradient-to-br from-green-500 to-emerald-600'
-                            : ''
-                        }`}
-                        style={{
-                          transform: 'scale(1)',
-                          animation: 'none',
-                          width: message.role === 'user' ? '40px' : '45px',
-                          height: message.role === 'user' ? '40px' : '45px',
-                          minWidth: message.role === 'user' ? '40px' : '45px',
-                          minHeight: message.role === 'user' ? '40px' : '45px',
-                          maxWidth: message.role === 'user' ? '40px' : '45px',
-                          maxHeight: message.role === 'user' ? '40px' : '45px',
-                          flexShrink: '0',
-                          flexGrow: '0',
-                        }}
-                      >
-                        {message.role === 'user' ? (
-                          <User className='w-7 h-7 text-white' />
-                        ) : (
-                          <Image
-                            src='/logo.png'
-                            alt='Taskorly Logo'
-                            width={45}
-                            height={45}
-                            className='rounded-full'
-                            style={{
-                              transform: 'scale(1)',
-                              animation: 'none',
-                              width: '45px',
-                              height: '45px',
-                              minWidth: '45px',
-                              minHeight: '45px',
-                              maxWidth: '45px',
-                              maxHeight: '45px',
-                            }}
-                          />
-                        )}
-                      </div>
+                {messages.length === 0 && !isWelcomeVisible ? (
+                  <div className='flex flex-col items-center justify-center h-64 text-center'>
+                    <div className='w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mb-4'>
+                      <Sparkles className='w-8 h-8 text-teal-300' />
 
-                      {/* Message bubble */}
-                      <div
-                        className={`rounded-2xl px-4 py-3 ${
-                          message.role === 'user'
-                            ? 'bg-gradient-to-br from-green-600 to-emerald-700 text-white'
-                            : 'bg-white/10 text-white'
-                        }`}
-                      >
-                        <div className='whitespace-pre-wrap'>
-                          {message.content}
-                        </div>
-                        <div
-                          className={`text-xs mt-2 ${
-                            message.role === 'user'
-                              ? 'text-green-100'
-                              : 'text-slate-400'
-                          }`}
-                        >
-                          {message.timestamp.toLocaleTimeString([], {
-                            hour: 'numeric',
-                            minute: '2-digit',
-                            hour12: true,
-                          })}
-                        </div>
-                      </div>
                     </div>
+                    <h3 className='text-lg font-semibold text-white mb-2'>
+                      Ready to help with your POS system
+                    </h3>
+                    <p className='text-slate-400'>
+                      Ask me anything about your business operations
+                    </p>
                   </div>
-                ))}
-
-                {/* Streaming indicator */}
-                {isStreaming && (
-                  <div className='flex justify-start'>
-                    <div className='flex items-start space-x-3 max-w-2xl'>
-                      <div
-                        className={`w-20 h-20 rounded-full flex items-center justify-center`}
-                        style={{
-                          transform: 'scale(1)',
-                          animation: 'none',
-                          width: '45px',
-                          height: '45px',
-                          minWidth: '45px',
-                          minHeight: '45px',
-                          maxWidth: '45px',
-                          maxHeight: '45px',
-                          flexShrink: '0',
-                          flexGrow: '0',
-                        }}
-                      >
-                        <Image
-                          src='/logo.png'
-                          alt='Taskorly Logo'
-                          width={45}
-                          height={45}
-                          className='rounded-full'
-                          style={{
-                            transform: 'scale(1)',
-                            animation: 'none',
-                            width: '45px',
-                            height: '45px',
-                            minWidth: '45px',
-                            minHeight: '45px',
-                            maxWidth: '45px',
-                            maxHeight: '45px',
-                          }}
-                        />
-                      </div>
-                      <div className='bg-white/10 rounded-2xl px-4 py-3'>
-                        <div className='flex items-center space-x-2'>
-                          <div className='flex space-x-1'>
-                            <div className='w-2 h-2 bg-blue-400 rounded-full animate-bounce'></div>
-                            <div className='w-2 h-2 bg-blue-400 rounded-full animate-bounce animation-delay-200'></div>
-                            <div className='w-2 h-2 bg-blue-400 rounded-full animate-bounce animation-delay-400'></div>
-                          </div>
-                          <span className='text-sm text-slate-400'>
-                            AI is thinking...
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                ) : (
+                  messages.map(message => (
+                    <CustomerChatBubble
+                      key={message.id}
+                      message={message}
+                      isStreaming={message.isStreaming || false}
+                      useCustomLogo={true}
+                      logoSrc="/logo.png"
+                      logoAlt="Taskorly Logo"
+                      variant="fullscreen"
+                      onSuggestionClick={(suggestion) => handleSendMessage(suggestion)} />
+                  ))
                 )}
-
-                <div ref={messagesEndRef} />
+                {/* Loading with CustomerChatBubble */}
+                {isLoading && (
+                  <CustomerChatBubble
+                    message={{
+                      id: 'loading',
+                      role: 'assistant',
+                      content: '',
+                      timestamp: new Date(),
+                      isStreaming: true
+                    }}
+                    isStreaming={true}
+                    useCustomLogo={true}
+                    logoSrc="/logo.png"
+                    logoAlt="Taskorly Logo"
+                    variant="fullscreen" />
+                )}
               </div>
             </ScrollArea>
 
             {/* Input area */}
             <div className='p-6'>
               <div className='max-w-4xl mx-auto'>
-                {/* Suggestions */}
-                <div className='mb-4'>
-                  <div className='flex flex-wrap gap-2'>
-                    {MOCK_SUGGESTIONS.map(suggestion => (
-                      <Button
-                        key={suggestion.id}
-                        variant='outline'
-                        size='sm'
-                        onClick={() => handleSuggestionClick(suggestion)}
-                        className='text-xs border-teal-400 bg-blue-800/50 hover:border-teal-300 hover:bg-blue-700/70 text-teal-100 hover:text-white hover:shadow-lg hover:shadow-teal-500/25'
-                      >
-                        {suggestion.icon}
-                        <span className='ml-2'>{suggestion.text}</span>
-                      </Button>
-                    ))}
+                {/* Quick suggestions when not loading */}
+                {!isLoading && messages.length > 0 && (
+                  <div className='mb-4'>
+                    <div className='flex flex-wrap gap-2'>
+                      {MOCK_SUGGESTIONS.map(suggestion => (
+                        <Button
+                          key={suggestion.id}
+                          variant='outline'
+                          size='sm'
+                          onClick={() => handleSuggestionClick(suggestion)}
+                          className='text-xs border-teal-400 bg-blue-800/50 hover:border-teal-300 hover:bg-blue-700/70 text-teal-100 hover:text-white hover:shadow-lg hover:shadow-teal-500/25'
+                        >
+                          {suggestion.icon}
+                          <span className='ml-2'>{suggestion.text}</span>
+                        </Button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Input */}
                 <div className='relative'>
@@ -348,113 +460,140 @@ export default function CustomerChatPage() {
                       }}
                       placeholder='Ask me anything about your POS system...'
                       className='flex-1 bg-transparent text-white placeholder-slate-400 focus:outline-none text-sm'
-                      disabled={isStreaming}
-                    />
+                      disabled={isLoading} />
 
-                    <div className='flex items-center space-x-2'>
-                      <Button
-                        variant='ghost'
-                        size='sm'
-                        className='text-slate-400 hover:text-slate-300'
-                      >
-                        <Paperclip className='w-4 h-4' />
-                      </Button>
+                    <Button
+                      variant='ghost'
+                      size='sm'
+                      className='text-slate-400 hover:text-slate-300 p-2'
+                    >
+                      <Paperclip className='w-4 h-4' />
+                    </Button>
 
-                      <Button
-                        variant='ghost'
-                        size='sm'
-                        className='text-slate-400 hover:text-slate-300'
-                      >
-                        <Mic className='w-4 h-4' />
-                      </Button>
+                    <Button
+                      variant='ghost'
+                      size='sm'
+                      className='text-slate-400 hover:text-slate-300 p-2'
+                    >
+                      <Mic className='w-4 h-4' />
+                    </Button>
 
-                      <Button
-                        onClick={() => handleSendMessage(inputValue)}
-                        disabled={!inputValue.trim() || isStreaming}
-                        size='sm'
-                        className='bg-gradient-to-r from-blue-500 to-teal-500 hover:from-blue-600 hover:to-teal-600 text-white'
-                      >
+                    <Button
+                      onClick={() => handleSendMessage(inputValue)}
+                      disabled={!inputValue.trim() || isLoading}
+                      size='sm'
+                      className='bg-gradient-to-r from-blue-500 to-teal-500 hover:from-blue-600 hover:to-teal-600 text-white'
+                    >
+                      {isLoading ? (
+                        <Loader2 className='w-4 h-4 animate-spin' />
+                      ) : (
                         <Send className='w-4 h-4' />
-                      </Button>
-                    </div>
+                      )}
+                    </Button>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Context sidebar */}
-          {/* <div className='w-80 p-4'>
-            <Card className='border-0 bg-transparent'>
-              <div className='p-4'>
-                <div className='flex items-center space-x-2 mb-4'>
-                  <Monitor className='w-5 h-5 text-blue-400' />
-                  <h3 className='font-semibold text-white'>Screen Context</h3>
-                </div>
-
-                <div className='space-y-3 text-sm'>
-                  <div>
-                    <span className='text-slate-300'>System:</span>
-                    <span className='ml-2 text-white capitalize'>
-                      {screenContext.posSystem}
-                    </span>
+          {/* Context sidebar - MOVED INSIDE the flex container */}
+          {showSidebar && (
+            <div className='w-80 p-4'>
+              <Card className='border-0 bg-white/10 backdrop-blur-sm'>
+                <div className='p-4'>
+                  <div className='flex items-center space-x-2 mb-4'>
+                    <Monitor className='w-5 h-5 text-blue-400' />
+                    <h3 className='font-semibold text-white'>Screen Context</h3>
                   </div>
 
-                  <div>
-                    <span className='text-slate-300'>Current Page:</span>
-                    <span className='ml-2 text-white'>
-                      {screenContext.currentScreen}
-                    </span>
-                  </div>
-
-                  {screenContext.url && (
+                  <div className='space-y-3 text-sm'>
                     <div>
-                      <span className='text-slate-300'>URL:</span>
-                      <span className='ml-2 text-slate-400 text-xs break-all'>
-                        {screenContext.url}
+                      <span className='text-slate-300'>System:</span>
+                      <span className='ml-2 text-white capitalize'>
+                        {screenContext.posSystem}
                       </span>
                     </div>
-                  )}
-                </div>
 
-                <div className='mt-4 pt-4'>
-                  <h4 className='text-sm font-medium text-white mb-2'>
-                    Quick Actions
-                  </h4>
-                  <div className='space-y-2'>
+                    <div>
+                      <span className='text-slate-300'>Current Page:</span>
+                      <span className='ml-2 text-white'>
+                        {screenContext.currentScreen}
+                      </span>
+                    </div>
+
+                    {screenContext.url && (
+                      <div>
+                        <span className='text-slate-300'>URL:</span>
+                        <span className='ml-2 text-slate-400 text-xs break-all'>
+                          {screenContext.url}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Conversation Management */}
+                  <div className='mt-4 pt-4 border-t border-slate-700/50'>
+                    <h4 className='text-sm font-medium text-white mb-2'>
+                      Conversation
+                    </h4>
+                    <div className='space-y-2 text-xs text-slate-400 mb-3'>
+                      <div>Messages: {messages.length}</div>
+                      {conversationId && (
+                        <div>ID: {conversationId.slice(0, 8)}...</div>
+                      )}
+                    </div>
                     <Button
                       variant='outline'
                       size='sm'
-                      className='w-full justify-start border-teal-400 bg-blue-800/50 hover:border-teal-300 hover:bg-blue-700/70 text-teal-100 hover:text-white hover:shadow-lg hover:shadow-teal-500/25'
+                      onClick={clearConversation}
+                      className='w-full justify-start border-slate-600 hover:bg-slate-700/50 text-slate-300'
                     >
                       <Zap className='w-4 h-4 mr-2' />
-                      Process Refund
-                    </Button>
-                    <Button
-                      variant='outline'
-                      size='sm'
-                      className='w-full justify-start border-teal-400 bg-blue-800/50 hover:border-teal-300 hover:bg-blue-700/70 text-teal-100 hover:text-white hover:shadow-lg hover:shadow-teal-500/25'
-                    >
-                      <Sparkles className='w-4 h-4 mr-2' />
-                      Add Product
-                    </Button>
-                    <Button
-                      variant='outline'
-                      size='sm'
-                      className='w-full justify-start border-teal-400 bg-blue-800/50 hover:border-teal-300 hover:bg-blue-700/70 text-teal-100 hover:text-white hover:shadow-lg hover:shadow-teal-500/25'
-                    >
-                      <Shield className='w-4 h-4 mr-2' />
-                      Troubleshoot
+                      New Conversation
                     </Button>
                   </div>
-                </div>
-              </div>
-            </Card>
-          </div> */}
-        </div>
-      </div>
 
-      <style jsx>{`
+                  {/* Quick Actions */}
+                  <div className='mt-4 pt-4 border-t border-slate-700/50'>
+                    <h4 className='text-sm font-medium text-white mb-2'>
+                      Quick Actions
+                    </h4>
+                    <div className='space-y-2'>
+                      <Button
+                        variant='outline'
+                        size='sm'
+                        onClick={() => handleSendMessage('How do I process a refund?')}
+                        className='w-full justify-start border-slate-600 hover:bg-slate-700/50 text-slate-300'
+                      >
+                        <Zap className='w-4 h-4 mr-2' />
+                        Process Refund
+                      </Button>
+                      <Button
+                        variant='outline'
+                        size='sm'
+                        onClick={() => handleSendMessage('How do I add a new product?')}
+                        className='w-full justify-start border-slate-600 hover:bg-slate-700/50 text-slate-300'
+                      >
+                        <Sparkles className='w-4 h-4 mr-2' />
+                        Add Product
+                      </Button>
+                      <Button
+                        variant='outline'
+                        size='sm'
+                        onClick={() => handleSendMessage('My payment terminal is not working')}
+                        className='w-full justify-start border-slate-600 hover:bg-slate-700/50 text-slate-300'
+                      >
+                        <Shield className='w-4 h-4 mr-2' />
+                        Troubleshoot
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )}
+        </div>
+    </div><style jsx>{`
         @keyframes blob {
           0% {
             transform: translate(0px, 0px) scale(1);
@@ -478,13 +617,4 @@ export default function CustomerChatPage() {
         .animation-delay-4000 {
           animation-delay: 4s;
         }
-        .animation-delay-200 {
-          animation-delay: 200ms;
-        }
-        .animation-delay-400 {
-          animation-delay: 400ms;
-        }
-      `}</style>
-    </div>
-  );
-}
+      `}</style></div>)};
