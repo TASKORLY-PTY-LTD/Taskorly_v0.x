@@ -69,7 +69,7 @@ const CustomerChatBubble = memo(function CustomerChatBubble({
 
   const FormattedMessage = useMemo(() => {  
     const content = cleanContent(message.content);
-    let html = marked.parse(content);
+    const html = marked.parse(content);
     return typeof html == 'string' ? html : '';
   }, [message]);
 

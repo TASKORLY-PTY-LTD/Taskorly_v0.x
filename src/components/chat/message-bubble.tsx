@@ -46,7 +46,7 @@ const MessageBubble = memo(function ChatMessages({ message, isStreaming = false 
 
   const FormattedMessage = useMemo(()=>{  
     const content = cleanContent(message.content);
-    let html = marked.parse(content);
+    const html = marked.parse(content);
     // const styledHTML = postprocessHTML(html);
     return typeof html == 'string' ? html : '';
   }, [message]);
