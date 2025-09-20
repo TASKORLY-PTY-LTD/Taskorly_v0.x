@@ -34,52 +34,52 @@ const menuItems = [
     url: '/customer',
     icon: MessageSquare,
   },
-  {
-    title: 'Customer Overlay',
-    url: '/customer/overlay',
-    icon: MessageSquare,
-  },
-  {
-    title: 'Chat',
-    url: '/chat-v2',
-    icon: MessageSquare,
-  },
+  // {
+  //   title: 'Customer Overlay',
+  //   url: '/customer/overlay',
+  //   icon: MessageSquare,
+  // },
+  // {
+  //   title: 'Chat',
+  //   url: '/chat-v2',
+  //   icon: MessageSquare,
+  // },
   {
     title: 'Documents',
     url: '/documents',
     icon: FileText,
   },
-  {
-    title: 'Search',
-    url: '/search',
-    icon: Search,
-  },
-  {
-    title: 'API-Health',
-    url: '//api/health',
-    icon: Search,
-  },
-  {
-    title: 'API-trpc',
-    url: '//api//api/trpc/*	',
-    icon: Search,
-  },
+  // {
+  //   title: 'Search',
+  //   url: '/search',
+  //   icon: Search,
+  // },
+  // {
+  //   title: 'API-Health',
+  //   url: '//api/health',
+  //   icon: Search,
+  // },
+  // {
+  //   title: 'API-trpc',
+  //   url: '//api//api/trpc/*	',
+  //   icon: Search,
+  // },
   
 ];
 
 const systemItems = [
-  {
-    title: 'MCP Servers',
-    url: '/servers',
-    icon: Server,
-    permission: 'servers:read',
-  },
-  {
-    title: 'Vector Store',
-    url: '/vector-store',
-    icon: Database,
-    permission: 'admin:*',
-  },
+  // {
+  //   title: 'MCP Servers',
+  //   url: '/servers',
+  //   icon: Server,
+  //   permission: 'servers:read',
+  // },
+  // {
+  //   title: 'Vector Store',
+  //   url: '/vector-store',
+  //   icon: Database,
+  //   permission: 'admin:*',
+  // },
   {
     title: 'Settings',
     url: '/settings',
