@@ -55,6 +55,7 @@ const DEFAULT_CONFIG: VectorProcessingConfig = {
  * 
  * @param chunks - Array of document chunks to process
  * @param documentId - Unique identifier for the document
+ * @param userId - Unique identifier for the user
  * @param tenantId - Unique identifier for the tenant
  * @param config - Optional processing configuration
  * @returns Vector processing result with detailed metrics
@@ -62,11 +63,12 @@ const DEFAULT_CONFIG: VectorProcessingConfig = {
 export async function processDocumentVectors(
   chunks: DocumentChunk[],
   documentId: string,
+  userId: string,
   tenantId: string,
   config: Partial<VectorProcessingConfig> = {}
 ): Promise<VectorProcessingResult> {
   // Create logger for this operation
-  const logger = createLogger(tenantId, '00000000-0000-0000-0000-000000000000');
+  const logger = createLogger(tenantId, userId);
   
   // Record start time for performance tracking
   const startTime = Date.now();
@@ -81,6 +83,7 @@ export async function processDocumentVectors(
       chunkCount: chunks.length,
       embeddingModel: processingConfig.embedding.model,
       batchSize: processingConfig.embedding.batchSize,
+      pineconeNamespace: processingConfig.pinecone.namespace,
     });
 
     // Prepare chunks for embedding generation
@@ -108,6 +111,7 @@ export async function processDocumentVectors(
         totalChunks: chunks.length,
         successfulEmbeddings: embeddings.length,
         failedEmbeddings: chunks.length - embeddings.length,
+        pineconeNamespace: processingConfig.pinecone.namespace,
       });
       
     } catch (embeddingError) {
@@ -154,6 +158,7 @@ export async function processDocumentVectors(
           totalEmbeddings: embeddings.length,
           upsertedCount: storageResult.upsertedCount,
           failedCount: storageResult.failedCount,
+          pineconeNamespace: processingConfig.pinecone.namespace,
         });
         
         // Add any storage errors to our error list
@@ -191,6 +196,7 @@ export async function processDocumentVectors(
       totalTokens,
       processingTime,
       errorCount: allErrors.length,
+      pineconeNamespace: processingConfig.pinecone.namespace,
     });
 
     return {
@@ -253,6 +259,7 @@ function calculateTokenUsage(chunks: DocumentChunk[]): number {
  * 
  * @param chunk - Single document chunk to process
  * @param documentId - Unique identifier for the document
+ * @param userId - Unique identifier for the user
  * @param tenantId - Unique identifier for the tenant
  * @param config - Optional processing configuration
  * @returns Vector processing result
@@ -260,6 +267,7 @@ function calculateTokenUsage(chunks: DocumentChunk[]): number {
 export async function processSingleChunkVectors(
   chunk: DocumentChunk,
   documentId: string,
+  userId: string,
   tenantId: string,
   config: Partial<VectorProcessingConfig> = {}
 ): Promise<VectorProcessingResult> {
@@ -267,7 +275,7 @@ export async function processSingleChunkVectors(
   const chunks = [chunk];
   
   // Process using the main function
-  return processDocumentVectors(chunks, documentId, tenantId, config);
+  return processDocumentVectors(chunks, documentId, tenantId, userId, config);
 }
 
 /**
@@ -301,6 +309,8 @@ export async function deleteDocumentVectors(
     // Delete vectors from Pinecone
     const result = await deleteVectors(vectorIds, tenantId, config.pinecone);
     
+    console.log('Attempting to delete vector IDs:', vectorIds, result);
+
     // Log deletion results
     await logger.info(`Deleted ${result.deletedCount} vectors for document: ${documentId}`, {
       documentId,
@@ -308,6 +318,7 @@ export async function deleteDocumentVectors(
       deletedCount: result.deletedCount,
       errorCount: result.errors.length,
     });
+    
     
     return result;
     

@@ -32,6 +32,7 @@ import {
   Clock,
   XCircle,
 } from 'lucide-react';
+import { DocumentDeleteDialog } from './document-delete-dialog';
 
 export function DocumentTable() {
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -117,7 +118,7 @@ export function DocumentTable() {
   };
 
   const handleDocumentDeleted = () => {
-    // The delete dialog will handle invalidating the query
+    setDeleteDialogOpen(false);
     setSelectedDocument(null);
   };
 
@@ -196,10 +197,11 @@ export function DocumentTable() {
                     </DropdownMenuItem>
                     {/* Delete function temporarily disabled */}
                     <DropdownMenuItem 
+                      onClick={() => {handleDeleteDocument(document)}}
                       className='text-destructive cursor-pointer hover:bg-destructive hover:text-destructive-foreground'
                     >
                       <Trash2 className='mr-2 h-4 w-4' />
-                      Delete (Not Implemented)
+                      Delete
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -227,12 +229,12 @@ export function DocumentTable() {
       />
       
       {/* Delete dialog temporarily disabled */}
-      {/* <DocumentDeleteDialog
+      <DocumentDeleteDialog
         document={selectedDocument}
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         onDeleted={handleDocumentDeleted}
-      /> */}
+      />
     </div>
   );
 }
