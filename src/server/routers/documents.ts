@@ -121,6 +121,7 @@ export const documentsRouter = createTRPCRouter({
             vectorProcessingResult = await processDocumentVectors(
               chunks,
               document.id,
+              ctx.user.id,
               ctx.tenant?.id!,
               {
                 embedding: {
@@ -528,6 +529,7 @@ export const documentsRouter = createTRPCRouter({
             vectorProcessingResult = await processDocumentVectors(
               chunks,
               document.id,
+              ctx.user.id,
               ctx.tenant?.id!,
               {
                 embedding: {
@@ -819,6 +821,7 @@ export const documentsRouter = createTRPCRouter({
                 vectorProcessingResult = await processDocumentVectors(
                   chunks,
                   document.id,
+                  ctx.user.id,
                   ctx.tenant?.id!,
                   {
                     embedding: {
