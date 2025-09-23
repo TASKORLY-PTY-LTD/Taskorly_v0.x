@@ -529,8 +529,8 @@ export const documentsRouter = createTRPCRouter({
             vectorProcessingResult = await processDocumentVectors(
               chunks,
               document.id,
+              ctx.user.tenant_id,
               ctx.user.id,
-              ctx.tenant?.id!,
               {
                 embedding: {
                   model: 'text-embedding-004', // Google's latest embedding model
@@ -538,7 +538,7 @@ export const documentsRouter = createTRPCRouter({
                   dimensions: 768, // Standard dimensions for text-embedding-004
                 },
                 pinecone: {
-                  namespace: 'default', // Use default namespace with tenant isolation
+                  namespace: `default-${ctx.user.tenant_id}`, // Use default namespace with tenant isolation
                 },
               }
             );
@@ -605,7 +605,7 @@ export const documentsRouter = createTRPCRouter({
           const totalTokens = chunkingTokens + embeddingTokens;
           
           await ctx.supabaseAdmin.from('usage_logs').insert({
-            tenant_id: ctx.tenant?.id!,
+            tenant_id: ctx.user.tenant_id,
             user_id: ctx.user.id,
             event_type: 'pdf_upload_with_chunking_and_vectors',
             tokens_used: totalTokens,
@@ -669,7 +669,7 @@ export const documentsRouter = createTRPCRouter({
 
           // Log the error for tracking purposes
           await ctx.supabaseAdmin.from('usage_logs').insert({
-            tenant_id: ctx.tenant?.id!,
+            tenant_id: ctx.user.tenant_id,
             user_id: ctx.user.id,
             event_type: 'pdf_upload_failed',
             tokens_used: 0,
@@ -1179,6 +1179,7 @@ export const documentsRouter = createTRPCRouter({
           await deleteDocumentVectors(
             input.documentId,
             ctx.tenant.id,
+            ctx.user.id,
             document.chunk_count || 0
           );
           

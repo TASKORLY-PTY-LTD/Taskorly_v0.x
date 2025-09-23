@@ -57,6 +57,7 @@ function initializeGeminiEmbeddingClient(): GoogleGenerativeAI {
  * 
  * @param chunks - Array of text chunks to embed
  * @param documentId - Unique identifier for the document
+ * @param userId - Unique identifier for the user
  * @param tenantId - Unique identifier for the tenant
  * @param config - Optional embedding configuration
  * @returns Array of embedding results with metadata
@@ -64,11 +65,12 @@ function initializeGeminiEmbeddingClient(): GoogleGenerativeAI {
 export async function generateEmbeddings(
   chunks: Array<{ content: string; chunkIndex: number; chunkId: string }>,
   documentId: string,
+  userId: string,
   tenantId: string,
   config: Partial<EmbeddingConfig> = {}
 ): Promise<EmbeddingResult[]> {
   // Create logger for this operation
-  const logger = createLogger(tenantId, '00000000-0000-0000-0000-000000000000');
+  const logger = createLogger(tenantId, userId);
   
   try {
     // Merge provided config with defaults
