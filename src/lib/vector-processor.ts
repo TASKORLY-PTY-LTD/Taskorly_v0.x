@@ -11,6 +11,7 @@ import { generateEmbeddings, type EmbeddingResult } from './vector-embedder';
 import { storeEmbeddings, type VectorUpsertResult } from './pinecone-client';
 import { createLogger } from './logger';
 import type { DocumentChunk } from './gemini-chunker';
+import _ from 'lodash';
 
 // Interface for vector processing configuration
 export interface VectorProcessingConfig {
@@ -63,9 +64,9 @@ const DEFAULT_CONFIG: VectorProcessingConfig = {
 export async function processDocumentVectors(
   chunks: DocumentChunk[],
   documentId: string,
-  userId: string,
   tenantId: string,
-  config: Partial<VectorProcessingConfig> = {}
+  userId: string,
+  config: Partial<VectorProcessingConfig> = { pinecone: { namespace: `default-${tenantId}` } }
 ): Promise<VectorProcessingResult> {
   // Create logger for this operation
   const logger = createLogger(tenantId, userId);
@@ -75,7 +76,7 @@ export async function processDocumentVectors(
   
   try {
     // Merge provided config with defaults
-    const processingConfig = { ...DEFAULT_CONFIG, ...config };
+    const processingConfig = _.merge({}, DEFAULT_CONFIG, config );
     
     // Log the start of vector processing
     await logger.info(`Starting vector processing for document: ${documentId}`, {
@@ -101,6 +102,7 @@ export async function processDocumentVectors(
       embeddings = await generateEmbeddings(
         chunksForEmbedding,
         documentId,
+        userId,
         tenantId,
         processingConfig.embedding
       );
@@ -149,6 +151,7 @@ export async function processDocumentVectors(
         storageResult = await storeEmbeddings(
           embeddings,
           tenantId,
+          userId,
           processingConfig.pinecone
         );
         
@@ -269,7 +272,7 @@ export async function processSingleChunkVectors(
   documentId: string,
   userId: string,
   tenantId: string,
-  config: Partial<VectorProcessingConfig> = {}
+  config: Partial<VectorProcessingConfig> = { pinecone: { namespace: `default-${tenantId}` } }
 ): Promise<VectorProcessingResult> {
   // Convert single chunk to array format
   const chunks = [chunk];
@@ -284,6 +287,7 @@ export async function processSingleChunkVectors(
  * 
  * @param documentId - Unique identifier for the document
  * @param tenantId - Unique identifier for the tenant
+ * @param userId - Unique identifier for the user
  * @param chunkCount - Number of chunks to delete (for generating IDs)
  * @param config - Optional processing configuration
  * @returns Deletion result
@@ -291,25 +295,27 @@ export async function processSingleChunkVectors(
 export async function deleteDocumentVectors(
   documentId: string,
   tenantId: string,
+  userId: string,
   chunkCount: number,
-  config: Partial<VectorProcessingConfig> = {}
+  config: Partial<VectorProcessingConfig> = {pinecone: { namespace: `default-${tenantId}` }}
 ): Promise<{ success: boolean; deletedCount: number; errors: string[] }> {
   // Create logger for this operation
-  const logger = createLogger(tenantId, '00000000-0000-0000-0000-000000000000');
+  const logger = createLogger(tenantId, userId);
   
   try {
-    // Generate vector IDs to delete
-    const vectorIds = Array.from({ length: chunkCount }, (_, index) => 
-      `${tenantId}-${documentId}-chunk-${index}`
+    const vectorIds = Array.from({ length: chunkCount }, (_, index) =>
+      `${tenantId}-${documentId}-${tenantId}-${documentId}-chunk-${index}`
     );
     
     // Import deleteVectors function
     const { deleteVectors } = await import('./pinecone-client');
     
+    console.log('Attempting to delete vector IDs:', vectorIds, tenantId, userId, config.pinecone);
+
     // Delete vectors from Pinecone
-    const result = await deleteVectors(vectorIds, tenantId, config.pinecone);
+    const result = await deleteVectors(vectorIds, tenantId, userId, config.pinecone);
     
-    console.log('Attempting to delete vector IDs:', vectorIds, result);
+    console.log('Attempting to delete vector IDs:', vectorIds, tenantId, userId, config.pinecone, result);
 
     // Log deletion results
     await logger.info(`Deleted ${result.deletedCount} vectors for document: ${documentId}`, {
@@ -347,7 +353,7 @@ export async function deleteDocumentVectors(
  * @returns True if valid, throws error if invalid
  */
 export function validateVectorProcessingConfig(config: Partial<VectorProcessingConfig>): boolean {
-  const processingConfig = { ...DEFAULT_CONFIG, ...config };
+  const processingConfig = _.merge({}, DEFAULT_CONFIG, config );
   
   // Validate embedding configuration
   if (processingConfig.embedding.batchSize < 1 || processingConfig.embedding.batchSize > 1000) {

@@ -8,6 +8,8 @@ import { Pinecone } from '@pinecone-database/pinecone';
 import { env } from './env';
 import { createLogger } from './logger';
 import type { EmbeddingResult } from './vector-embedder';
+import _ from 'lodash';
+import { id } from 'zod/v4/locales';
 
 // Interface for Pinecone configuration
 export interface PineconeConfig {
@@ -71,7 +73,7 @@ function initializePineconeClient(): Pinecone {
  * This returns the configured Pinecone index for vector operations
  */
 async function getPineconeIndex(config: Partial<PineconeConfig> = {}) {
-  const pineconeConfig = { ...DEFAULT_CONFIG, ...config };
+  const pineconeConfig = _.merge({}, DEFAULT_CONFIG, config );
   const pinecone = initializePineconeClient();
   
   return pinecone.index(pineconeConfig.indexName);
@@ -83,20 +85,22 @@ async function getPineconeIndex(config: Partial<PineconeConfig> = {}) {
  * 
  * @param embeddings - Array of embedding results to store
  * @param tenantId - Unique identifier for the tenant (used for namespace isolation)
+ * @param userId - Unique identifier for the user (for logging purposes)
  * @param config - Optional Pinecone configuration
  * @returns Upsert result with success/failure information
  */
 export async function storeEmbeddings(
   embeddings: EmbeddingResult[],
   tenantId: string,
-  config: Partial<PineconeConfig> = {}
+  userId: string,
+  config: Partial<PineconeConfig> = {namespace: `default-${tenantId}` }
 ): Promise<VectorUpsertResult> {
   // Create logger for this operation
-  const logger = createLogger(tenantId, '00000000-0000-0000-0000-000000000000');
+  const logger = createLogger(tenantId, userId);
   
   try {
     // Merge provided config with defaults
-    const pineconeConfig = { ...DEFAULT_CONFIG, ...config };
+    const pineconeConfig = _.merge({}, DEFAULT_CONFIG, config );
     
     // Get Pinecone index
     const index = await getPineconeIndex(pineconeConfig);
@@ -105,7 +109,7 @@ export async function storeEmbeddings(
     await logger.info(`Starting vector storage for ${embeddings.length} embeddings`, {
       embeddingCount: embeddings.length,
       indexName: pineconeConfig.indexName,
-      namespace: `${pineconeConfig.namespace}-${tenantId}`,
+      namespace: `${pineconeConfig.namespace}`,
     });
 
     // Prepare vectors for upsert
@@ -134,7 +138,7 @@ export async function storeEmbeddings(
       
       try {
         // Upsert batch to Pinecone
-        await index.namespace(`${pineconeConfig.namespace}-${tenantId}`).upsert(batch);
+        await index.namespace(`${pineconeConfig.namespace}`).upsert(batch);
         upsertedCount += batch.length;
         
         // Log batch progress
@@ -208,7 +212,7 @@ export async function searchSimilarVectors(
   
   try {
     // Merge provided config with defaults
-    const pineconeConfig = { ...DEFAULT_CONFIG, ...options.config };
+    const pineconeConfig = _.merge({}, DEFAULT_CONFIG, options?.config );
     
     // Get Pinecone index
     const index = await getPineconeIndex(pineconeConfig);
@@ -232,7 +236,7 @@ export async function searchSimilarVectors(
     });
 
     // Perform the search
-    const searchResponse = await index.namespace(`${pineconeConfig.namespace}-${tenantId}`).query(searchOptions);
+    const searchResponse = await index.namespace(`${pineconeConfig.namespace}`).query(searchOptions);
 
     // Transform results to our interface
     const results: VectorSearchResult[] = searchResponse.matches?.map(match => ({
@@ -275,50 +279,62 @@ export async function searchSimilarVectors(
  * 
  * @param ids - Array of vector IDs to delete
  * @param tenantId - Unique identifier for the tenant (used for namespace filtering)
+ * @param userId - Unique identifier for the user (for logging purposes)
  * @param config - Optional Pinecone configuration
  * @returns Deletion result
  */
 export async function deleteVectors(
   ids: string[],
   tenantId: string,
-  config: Partial<PineconeConfig> = {}
+  userId: string,
+  config: Partial<PineconeConfig> = {namespace: `default-${tenantId}` }
 ): Promise<{ success: boolean; deletedCount: number; errors: string[] }> {
-  // Create logger for this operation
-  const logger = createLogger(tenantId, '00000000-0000-0000-0000-000000000000');
+  const logger = createLogger(tenantId, userId);
   
   try {
-    // Merge provided config with defaults
-    const pineconeConfig = { ...DEFAULT_CONFIG, ...config };
-    
-    // Get Pinecone index
+    const pineconeConfig = _.merge({}, DEFAULT_CONFIG, config);
     const index = await getPineconeIndex(pineconeConfig);
     
-    // Log the deletion operation
-    await logger.info(`Starting vector deletion for ${ids.length} vectors`, {
+    await logger.info(`Starting individual vector deletion for ${ids.length} vectors`, {
       vectorCount: ids.length,
-      namespace: `${pineconeConfig.namespace}-${tenantId}`,
+      namespace: pineconeConfig.namespace,
     });
 
-    // Delete vectors from Pinecone
-    await index.namespace(`${pineconeConfig.namespace}-${tenantId}`).deleteMany(ids);
+    let deletedCount = 0;
+    const errors: string[] = [];
 
-    // Log successful deletion
-    await logger.info(`Successfully deleted ${ids.length} vectors`, {
-      deletedCount: ids.length,
+    // Delete each vector individually
+    for (const vectorId of ids) {
+      try {
+        await index.namespace(`${pineconeConfig.namespace}`).deleteOne(vectorId);
+        deletedCount++;
+      } catch (error) {
+        const errorMessage = `Failed to delete vector ${vectorId}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+        errors.push(errorMessage);
+        
+        await logger.warn(`Individual vector deletion failed`, {
+          vectorId,
+          error: errorMessage,
+        });
+      }
+    }
+
+    await logger.info(`Completed individual deletions: ${deletedCount}/${ids.length} successful`, {
+      totalVectors: ids.length,
+      deletedCount,
+      errorCount: errors.length,
     });
 
     return {
-      success: true,
-      deletedCount: ids.length,
-      errors: [],
+      success: deletedCount > 0,
+      deletedCount,
+      errors,
     };
 
   } catch (error) {
-    // Log the error and re-throw for upstream handling
     await logger.error(`Vector deletion failed`, {
       vectorCount: ids.length,
       error: error instanceof Error ? error.message : 'Unknown deletion error',
-      stack: error instanceof Error ? error.stack : undefined,
     });
     
     throw new Error(`Failed to delete vectors from Pinecone: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -335,7 +351,7 @@ export async function deleteVectors(
  */
 export async function getVectorStats(
   tenantId: string,
-  config: Partial<PineconeConfig> = {}
+  config: Partial<PineconeConfig> = {namespace: `default-${tenantId}` }
 ): Promise<{
   totalVectors: number;
   namespace: string;
@@ -343,7 +359,7 @@ export async function getVectorStats(
 }> {
   try {
     // Merge provided config with defaults
-    const pineconeConfig = { ...DEFAULT_CONFIG, ...config };
+    const pineconeConfig = _.merge({}, DEFAULT_CONFIG, config );
     
     // Get Pinecone index
     const index = await getPineconeIndex(pineconeConfig);
@@ -370,7 +386,7 @@ export async function getVectorStats(
  * @returns True if valid, throws error if invalid
  */
 export function validatePineconeConfig(config: Partial<PineconeConfig>): boolean {
-  const pineconeConfig = { ...DEFAULT_CONFIG, ...config };
+  const pineconeConfig = _.merge({}, DEFAULT_CONFIG, config );
   
   if (!pineconeConfig.apiKey) {
     throw new Error('Pinecone API key is required');
