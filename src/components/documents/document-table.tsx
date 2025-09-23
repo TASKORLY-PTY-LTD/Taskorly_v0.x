@@ -190,13 +190,6 @@ export function DocumentTable() {
                       View
                     </DropdownMenuItem>
                     <DropdownMenuItem 
-                      className='cursor-pointer hover:bg-accent hover:text-accent-foreground'
-                    >
-                      <Download className='mr-2 h-4 w-4' />
-                      Download
-                    </DropdownMenuItem>
-                    {/* Delete function temporarily disabled */}
-                    <DropdownMenuItem 
                       onClick={() => {handleDeleteDocument(document)}}
                       className='text-destructive cursor-pointer hover:bg-destructive hover:text-destructive-foreground'
                     >
