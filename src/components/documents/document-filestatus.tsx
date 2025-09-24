@@ -6,30 +6,18 @@ import { trpc } from '@/utils/trpc';
 const DocumentStatus = ({ 
   processingStatus, 
   chunkCount, 
-  documentId 
 }: {
   processingStatus: string;
   chunkCount: number;
-  documentId: string;
 }) => {
   const utils = trpc.useUtils();
   
   // Auto-refresh for processing documents
   useEffect(() => {
-  let interval: NodeJS.Timeout | null = null;
-  
   if (processingStatus === 'processing' || processingStatus === 'pending') {
-    interval = setInterval(() => {
       utils.documents.list.invalidate();
-    }, 3000);
-  }
-  
-  return () => {
-    if (interval) {
-      clearInterval(interval);
-    }
-  };
-}, [processingStatus, utils]);
+    };
+  }, [processingStatus, utils]);
   
   const getStatusIcon = () => {
     if (processingStatus === 'completed' && chunkCount > 0) {
