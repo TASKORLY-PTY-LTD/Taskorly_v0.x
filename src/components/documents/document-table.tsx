@@ -33,6 +33,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { DocumentDeleteDialog } from './document-delete-dialog';
+import DocumentStatus from './document-filestatus';
 
 export function DocumentTable() {
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -52,60 +53,60 @@ export function DocumentTable() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const getStatusIcon = (processingStatus: string, chunkCount: number) => {
-    // If processing is completed and we have chunks, it's ready
-    if (processingStatus === 'completed' && chunkCount > 0) {
-      return <CheckCircle className='h-4 w-4 text-green-500' />;
-    }
-    // If processing is in progress or pending
-    if (processingStatus === 'processing' || processingStatus === 'pending') {
-      return <Clock className='h-4 w-4 text-yellow-500' />;
-    }
-    // If processing failed
-    if (processingStatus === 'failed') {
-      return <XCircle className='h-4 w-4 text-red-500' />;
-    }
-    // Default fallback
-    return <FileText className='h-4 w-4' />;
-  };
+  // const getStatusIcon = (processingStatus: string, chunkCount: number) => {
+  //   // If processing is completed and we have chunks, it's ready
+  //   if (processingStatus === 'completed' && chunkCount > 0) {
+  //     return <CheckCircle className='h-4 w-4 text-green-500' />;
+  //   }
+  //   // If processing is in progress or pending
+  //   if (processingStatus === 'processing' || processingStatus === 'pending') {
+  //     return <Clock className='h-4 w-4 text-yellow-500' />;
+  //   }
+  //   // If processing failed
+  //   if (processingStatus === 'failed') {
+  //     return <XCircle className='h-4 w-4 text-red-500' />;
+  //   }
+  //   // Default fallback
+  //   return <FileText className='h-4 w-4' />;
+  // };
 
-  const getStatusColor = (processingStatus: string, chunkCount: number) => {
-    // If processing is completed and we have chunks, it's ready
-    if (processingStatus === 'completed' && chunkCount > 0) {
-      return 'default';
-    }
-    // If processing is in progress or pending
-    if (processingStatus === 'processing' || processingStatus === 'pending') {
-      return 'secondary';
-    }
-    // If processing failed
-    if (processingStatus === 'failed') {
-      return 'destructive';
-    }
-    // Default fallback
-    return 'outline';
-  };
+  // const getStatusColor = (processingStatus: string, chunkCount: number) => {
+  //   // If processing is completed and we have chunks, it's ready
+  //   if (processingStatus === 'completed' && chunkCount > 0) {
+  //     return 'default';
+  //   }
+  //   // If processing is in progress or pending
+  //   if (processingStatus === 'processing' || processingStatus === 'pending') {
+  //     return 'secondary';
+  //   }
+  //   // If processing failed
+  //   if (processingStatus === 'failed') {
+  //     return 'destructive';
+  //   }
+  //   // Default fallback
+  //   return 'outline';
+  // };
 
-  const getStatusText = (processingStatus: string, chunkCount: number) => {
-    // If processing is completed and we have chunks, it's ready
-    if (processingStatus === 'completed' && chunkCount > 0) {
-      return `Ready (${chunkCount} chunks)`;
-    }
-    // If processing is in progress
-    if (processingStatus === 'processing') {
-      return 'Processing...';
-    }
-    // If processing is pending
-    if (processingStatus === 'pending') {
-      return 'Pending';
-    }
-    // If processing failed
-    if (processingStatus === 'failed') {
-      return 'Failed';
-    }
-    // Default fallback
-    return 'Unknown';
-  };
+  // const getStatusText = (processingStatus: string, chunkCount: number) => {
+  //   // If processing is completed and we have chunks, it's ready
+  //   if (processingStatus === 'completed' && chunkCount > 0) {
+  //     return `Ready (${chunkCount} chunks)`;
+  //   }
+  //   // If processing is in progress
+  //   if (processingStatus === 'processing') {
+  //     return 'Processing...';
+  //   }
+  //   // If processing is pending
+  //   if (processingStatus === 'pending') {
+  //     return 'Pending';
+  //   }
+  //   // If processing failed
+  //   if (processingStatus === 'failed') {
+  //     return 'Failed';
+  //   }
+  //   // Default fallback
+  //   return 'Unknown';
+  // };
 
   const handleViewDocument = (document: inferRouterOutputs<AppRouter>['documents']['list'][number]) => {
     setSelectedDocument(document);
@@ -158,7 +159,7 @@ export function DocumentTable() {
                 {formatFileSize(document.content.length)}
               </TableCell>
               <TableCell>
-                <div className='flex items-center space-x-2'>
+                {/* <div className='flex items-center space-x-2'>
                   {getStatusIcon(document.processing_status || 'pending', document.chunk_count || 0)}
                   <Badge
                     variant={getStatusColor(document.processing_status || 'pending', document.chunk_count || 0) as any}
@@ -166,7 +167,12 @@ export function DocumentTable() {
                   >
                     {getStatusText(document.processing_status || 'pending', document.chunk_count || 0)}
                   </Badge>
-                </div>
+                </div> */}
+                <DocumentStatus 
+                  processingStatus={document.processing_status || 'pending'}
+                  chunkCount={document.chunk_count || 0}
+                  documentId={document.id}
+                />
               </TableCell>
               <TableCell className='text-sm text-muted-foreground'>
                 {new Date(document.created_at).toLocaleDateString()}
