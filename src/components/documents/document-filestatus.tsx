@@ -16,15 +16,20 @@ const DocumentStatus = ({
   
   // Auto-refresh for processing documents
   useEffect(() => {
-    if (processingStatus === 'processing' || processingStatus === 'pending') {
-      const interval = setInterval(() => {
-        utils.documents.list.invalidate();
-      }, 3000);
-      
-      return () => clearInterval(interval);
+  let interval: NodeJS.Timeout | null = null;
+  
+  if (processingStatus === 'processing' || processingStatus === 'pending') {
+    interval = setInterval(() => {
+      utils.documents.list.invalidate();
+    }, 3000);
+  }
+  
+  return () => {
+    if (interval) {
+      clearInterval(interval);
     }
-    return undefined
-  }, [processingStatus, utils]);
+  };
+}, [processingStatus, utils]);
   
   const getStatusIcon = () => {
     if (processingStatus === 'completed' && chunkCount > 0) {
