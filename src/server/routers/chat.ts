@@ -36,10 +36,12 @@ export const chatRouter = createTRPCRouter({
           
           const searchResults = await searchSimilarVectors(
             queryEmbedding,
-            ctx.tenant?.id || 'public-tenant',
+            ctx.user.tenant_id || 'public-tenant',
+            ctx.user.id,
             {
               topK: 5,
               includeMetadata: true,
+              config: { namespace: `default-${ctx.user.tenant_id}` }
             }
           );
 
@@ -100,7 +102,7 @@ export const chatRouter = createTRPCRouter({
             index_name: process.env.PINECONE_INDEX_NAME,
             dimensions: 768, // Match text-embedding-004 dimensions
           },
-          tenant_id: ctx.tenant?.id || 'public-tenant',
+          tenant_id: ctx.user.tenant_id || 'public-tenant',
         };
 
         // Step 6: Process message with RAG pipeline
@@ -174,9 +176,11 @@ export const chatRouter = createTRPCRouter({
         const searchResults = await searchSimilarVectors(
           queryEmbedding,
           ctx.tenant?.id || 'public-tenant',
+          ctx.user.id,
           {
             topK: input.limit,
             includeMetadata: true,
+            config: { namespace: `default-${ctx.user.tenant_id}` }
           }
         );
 
@@ -219,6 +223,7 @@ export const chatRouter = createTRPCRouter({
         const results = await searchSimilarVectors(
           embedding,
           ctx.tenant?.id || 'public-tenant',
+          ctx.user.id,
           {
             topK: 3,
             includeMetadata: true,
