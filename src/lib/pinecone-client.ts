@@ -194,12 +194,14 @@ export async function storeEmbeddings(
  * 
  * @param queryEmbedding - Query vector for similarity search
  * @param tenantId - Unique identifier for the tenant (used for namespace filtering)
+ * @param userId - Unique identifier for the user (for logging purposes)
  * @param options - Search options
  * @returns Array of search results with similarity scores
  */
 export async function searchSimilarVectors(
   queryEmbedding: number[],
   tenantId: string,
+  userId: string,
   options: {
     topK?: number;
     filter?: Record<string, any>;
@@ -208,7 +210,7 @@ export async function searchSimilarVectors(
   } = {}
 ): Promise<VectorSearchResult[]> {
   // Create logger for this operation
-  const logger = createLogger(tenantId, '00000000-0000-0000-0000-000000000000');
+  const logger = createLogger(tenantId, userId);
   
   try {
     // Merge provided config with defaults
