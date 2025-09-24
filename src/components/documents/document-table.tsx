@@ -107,7 +107,6 @@ export function DocumentTable() {
                 <DocumentStatus 
                   processingStatus={document.processing_status || 'pending'}
                   chunkCount={document.chunk_count || 0}
-                  documentId={document.id}
                 />
               </TableCell>
               <TableCell className='text-sm text-muted-foreground'>

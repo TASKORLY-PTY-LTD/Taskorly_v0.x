@@ -51,7 +51,7 @@ function initializeGeminiClient(): ChatGoogleGenerativeAI {
 
   return new ChatGoogleGenerativeAI({
     apiKey: env.GOOGLE_API_KEY,
-    model: 'gemini-1.5-flash', // Using the faster model for chunking
+    model: 'gemini-2.5-flash-lite', // Using the faster model for chunking
   });
 }
 
