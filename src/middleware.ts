@@ -31,9 +31,8 @@ export async function middleware(req: NextRequest) {
   const protectedRoutes = [
     '/api/trpc',
     '/dashboard',
-    '/chat',
-    // '/customer',
-    // '/documents',
+    '/customer', // focus on this route
+    '/documents', // focus on this route
     '/settings',
   ];
   const isProtectedRoute = protectedRoutes.some(route =>
