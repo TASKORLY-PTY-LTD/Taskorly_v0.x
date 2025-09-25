@@ -204,7 +204,6 @@ processDocument: tenantProcedure
       vectorOptions: z.object({
         embeddingModel: z.string().optional().default('text-embedding-004'),
         batchSize: z.number().optional().default(100),
-        dimensions: z.number().optional().default(768),
         namespace: z.string().optional(),
       }).optional().default({}),
     })
@@ -320,13 +319,12 @@ processDocument: tenantProcedure
           vectorProcessingResult = await processDocumentVectors(
             chunks,
             document.id,
-            ctx.user.id,
             ctx.tenant?.id!,
+            ctx.user.id,
             {
               embedding: {
                 model: input.vectorOptions.embeddingModel,
                 batchSize: input.vectorOptions.batchSize,
-                dimensions: input.vectorOptions.dimensions,
               },
               pinecone: {
                 namespace: namespace,
@@ -588,13 +586,12 @@ processDocument: tenantProcedure
                 vectorProcessingResult = await processDocumentVectors(
                   chunks,
                   document.id,
-                  ctx.user.id,
                   ctx.tenant?.id!,
+                  ctx.user.id,
                   {
                     embedding: {
                       model: 'text-embedding-004',
                       batchSize: 100,
-                      dimensions: 768,
                     },
                     pinecone: {
                       namespace: 'default',

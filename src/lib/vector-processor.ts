@@ -18,7 +18,6 @@ export interface VectorProcessingConfig {
   embedding: {
     model: string;
     batchSize: number;
-    dimensions?: number;
   };
   pinecone: {
     namespace?: string;
@@ -43,7 +42,6 @@ const DEFAULT_CONFIG: VectorProcessingConfig = {
   embedding: {
     model: 'text-embedding-004',
     batchSize: 100,
-    dimensions: 768,
   },
   pinecone: {
     namespace: 'default',
@@ -358,10 +356,6 @@ export function validateVectorProcessingConfig(config: Partial<VectorProcessingC
   // Validate embedding configuration
   if (processingConfig.embedding.batchSize < 1 || processingConfig.embedding.batchSize > 1000) {
     throw new Error('Embedding batch size must be between 1 and 1000');
-  }
-  
-  if (processingConfig.embedding.dimensions && (processingConfig.embedding.dimensions < 1 || processingConfig.embedding.dimensions > 2048)) {
-    throw new Error('Embedding dimensions must be between 1 and 2048');
   }
   
   return true;

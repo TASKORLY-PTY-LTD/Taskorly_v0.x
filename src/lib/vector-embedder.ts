@@ -12,7 +12,6 @@ import { createLogger } from './logger';
 export interface EmbeddingConfig {
   model: string;
   batchSize: number;
-  dimensions?: number;
 }
 
 // Interface for embedding result
@@ -36,7 +35,6 @@ export interface EmbeddingResult {
 const DEFAULT_CONFIG: EmbeddingConfig = {
   model: 'text-embedding-004', // Google's latest embedding model
   batchSize: 100, // Process up to 100 chunks at once
-  dimensions: 768, // Standard embedding dimensions for text-embedding-004
 };
 
 /**
@@ -179,10 +177,6 @@ async function processBatch(
         // Extract the embedding vector from the response
         const embeddingVector = embedding.embedding.values;
         
-        // Validate embedding dimensions
-        if (config.dimensions && embeddingVector.length !== config.dimensions) {
-          throw new Error(`Unexpected embedding dimensions: expected ${config.dimensions}, got ${embeddingVector.length}`);
-        }
         
         // Create the embedding result with metadata
         results.push({
@@ -263,10 +257,6 @@ export function validateEmbeddingConfig(config: Partial<EmbeddingConfig>): boole
     throw new Error('Batch size must be between 1 and 1000');
   }
   
-  if (config.dimensions && (config.dimensions < 1 || config.dimensions > 2048)) {
-    throw new Error('Embedding dimensions must be between 1 and 2048');
-  }
-  
   return true;
 }
 
@@ -279,7 +269,6 @@ export function validateEmbeddingConfig(config: Partial<EmbeddingConfig>): boole
  */
 export function getEmbeddingModelInfo(config: Partial<EmbeddingConfig> = {}): {
   model: string;
-  dimensions: number;
   maxTokens: number;
   costPerToken: number;
 } {
@@ -287,7 +276,6 @@ export function getEmbeddingModelInfo(config: Partial<EmbeddingConfig> = {}): {
   
   return {
     model: embeddingConfig.model,
-    dimensions: embeddingConfig.dimensions || 768,
     maxTokens: 2048, // Standard limit for text-embedding-004
     costPerToken: 0.0000001, // Rough cost estimate per token
   };
