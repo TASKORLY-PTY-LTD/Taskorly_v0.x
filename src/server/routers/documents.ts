@@ -205,12 +205,13 @@ processDocument: tenantProcedure
         embeddingModel: z.string().optional().default('text-embedding-004'),
         batchSize: z.number().optional().default(100),
         dimensions: z.number().optional().default(768),
-        namespace: z.string().optional().default('default'),
+        namespace: z.string().optional(),
       }).optional().default({}),
     })
   )
   .mutation(async ({ ctx, input }) => {
     const logger = createLogger(ctx.tenant?.id, ctx.user.id);
+    const namespace = input.vectorOptions.namespace || `default-${ctx.tenant?.id}`;
     
     try {
       // Validate that either documentId or documentName is provided
@@ -328,7 +329,7 @@ processDocument: tenantProcedure
                 dimensions: input.vectorOptions.dimensions,
               },
               pinecone: {
-                namespace: input.vectorOptions.namespace,
+                namespace: namespace,
               },
             }
           );
