@@ -32,7 +32,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { trpc } from '@/utils/trpc';
-import { processFile, isSupportedFileType, getUnsupportedFileMessage, preparePDFForServer } from '@/lib/file-processor';
+import { processFile, isSupportedFileType, getUnsupportedFileMessage, preparePDFForServer, processPDFFile } from '@/lib/file-processor';
 
 // Helper function to get file type from extension (copied from file-processor.ts)
 function getFileTypeFromExtension(fileName: string): string {
@@ -66,7 +66,6 @@ export function UploadDialog({ children }: UploadDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [fileErrors, setFileErrors] = useState<string[]>([]);
   const [fileSuccesses, setFileSuccesses] = useState<string[]>([]);
   const [processingFile, setProcessingFile] = useState<string | null>(null);
@@ -78,12 +77,6 @@ export function UploadDialog({ children }: UploadDialogProps) {
   }, []);
   
   const utils = trpc.useContext();
-  const { mutate: uploadDocument } = trpc.documents.upload.useMutation({
-    onSuccess: () => {
-      // Refresh the documents list when upload is successful
-      utils.documents.list.invalidate();
-    },
-  });
   
   // PDF upload mutation for server-side processing
   // This mutation handles PDF files differently from text files:
@@ -92,6 +85,14 @@ export function UploadDialog({ children }: UploadDialogProps) {
   // 3. Server extracts text and creates chunks using Gemini AI
   // 4. Server stores the document and chunks in the database
   const { mutate: uploadPDF } = trpc.documents.uploadPDF.useMutation({
+    onSuccess: () => {
+      // Refresh the documents list when PDF upload is successful
+      // This ensures the new PDF document appears in the UI
+      utils.documents.list.invalidate();
+    },
+  });
+
+  const { mutate: processDocument } = trpc.documents.processDocument.useMutation({
     onSuccess: () => {
       // Refresh the documents list when PDF upload is successful
       // This ensures the new PDF document appears in the UI
@@ -134,141 +135,115 @@ export function UploadDialog({ children }: UploadDialogProps) {
       setFileErrors([]);
       setFileSuccesses([]);
       setProcessingFile(null);
-      setUploadProgress(0);
     }
   };
 
   const handleUpload = async () => {
-    if (selectedFiles.length === 0) return;
-    
-    // Ensure we're on the client side before processing
-    if (!isClient) {
-      setFileErrors(['Please wait for the page to fully load before uploading files.']);
-      return;
-    }
+  if (selectedFiles.length === 0) return;
+  
+  if (!isClient) {
+    setFileErrors(['Please wait for the page to fully load before uploading files.']);
+    return;
+  }
 
-    setIsUploading(true);
-    setUploadProgress(0);
-    setFileErrors([]);
-    setFileSuccesses([]);
+  setIsUploading(true);
+  setFileErrors([]);
+  setFileSuccesses([]);
 
-    try {
-      for (let i = 0; i < selectedFiles.length; i++) {
-        const file = selectedFiles[i];
-        if (file) {
-          try {
-            // Show which file we're processing
-            setProcessingFile(file.name);
-            
-            // Check if this is a PDF file by examining the MIME type
-            const fileType = file.type || getFileTypeFromExtension(file.name);
-            
-            if (fileType === 'application/pdf') {
-              // ===== PDF FILE PROCESSING PATH =====
-              // PDFs require special handling because they need server-side parsing
-              
-              // Step 1: Prepare PDF for server transmission
-              // This converts the PDF file to base64 format so it can be sent via JSON
-              const pdfData = await preparePDFForServer(file);
-              
-              // Step 2: Send PDF to server for processing
-              // The server will:
-              // - Parse the PDF using pdf2json library
-              // - Extract text content from all pages
-              // - Create intelligent chunks using Gemini AI
-              // - Store document and chunks in the database
-              await uploadPDF({
+  // Track errors locally to check at the end
+  const errorsList: string[] = [];
+
+  try {
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const file = selectedFiles[i];
+      if (file) {
+        try {
+          setProcessingFile(file.name);
+          
+          const fileType = file.type || getFileTypeFromExtension(file.name);
+          
+          if (fileType === 'application/pdf') {
+            const pdfData = await preparePDFForServer(file);
+                          
+            // Upload PDF
+            const uploadedDoc = await new Promise<any>((resolve, reject) => {
+              uploadPDF({
                 title: pdfData.fileName,
-                fileData: pdfData.fileData, // Base64 encoded PDF data
+                fileData: pdfData.fileData,
                 fileName: pdfData.fileName,
                 fileSize: pdfData.fileSize,
-                sourceUrl: undefined, // No URL for uploaded files
+                sourceUrl: undefined,
                 metadata: {
                   originalFileName: pdfData.fileName,
                   uploadedAt: new Date().toISOString(),
                   fileSize: pdfData.fileSize,
                   fileType: pdfData.fileType,
                 },
+              }, {
+                onSuccess: (data) => resolve(data),
+                onError: (error) => reject(error),
               });
-              
-              // Step 3: Show success message
-              // The actual processing happens on the server, so we show a different message
-              setFileSuccesses(prev => [...prev, `Successfully uploaded "${file.name}" for server-side PDF processing...`]);
-              
-            } else {
-              // ===== TEXT FILE PROCESSING PATH =====
-              // Text files (TXT, MD, JSON) can be processed client-side
-              
-              // Step 1: Process the text file client-side
-              // This extracts the text content and calculates metadata
-              const processedFile = await processFile(file);
-              
-              // Step 2: Prepare metadata for server storage
-              const enhancedMetadata = {
-                ...processedFile.metadata,
-                originalFileName: processedFile.metadata.fileName,
-                uploadedAt: new Date().toISOString(),
-              };
-              
-              // Step 3: Send to server for chunking and storage
-              // The server will create chunks using Gemini AI and store everything
-              await uploadDocument({
-                title: processedFile.metadata.fileName,
-                content: processedFile.content, // Already extracted text content
-                metadata: enhancedMetadata,
-                contentType: processedFile.metadata.fileType,
-                sourceUrl: undefined, // No URL for uploaded files
-              });
-              
-              // Step 4: Show success message with word count
-              // We can show word count because we processed it client-side
-              setFileSuccesses(prev => [...prev, `Successfully processed "${file.name}" - ${processedFile.metadata.wordCount} words (chunking in progress...)`]);
-            }
-            
-          } catch (fileError) {
-            console.error(`Failed to process file ${file.name}:`, fileError);
-            
-            let errorMessage = `Failed to process "${file.name}": `;
-            if (fileError instanceof Error) {
-              if (fileError.message.includes('No text content could be extracted')) {
-                errorMessage += 'This PDF appears to be image-based or corrupted. Please try converting it to text format.';
-              } else if (fileError.message.includes('PDF extraction failed')) {
-                errorMessage += 'PDF processing failed. The file might be corrupted or in an unsupported format.';
-              } else if (fileError.message.includes('PDF processing must be handled by the upload dialog')) {
-                // This is expected for PDF files, we handle them differently
-                continue;
-              } else {
-                errorMessage += fileError.message;
-              }
-            } else {
-              errorMessage += 'Unknown error occurred.';
-            }
-            
-            setFileErrors(prev => [...prev, errorMessage]);
-          }
-        }
-        
-        // Update progress
-        setUploadProgress(((i + 1) / selectedFiles.length) * 100);
-      }
+            });
 
-      // If no errors, close dialog and clear files
-      if (fileErrors.length === 0) {
-        setTimeout(() => {
-          setSelectedFiles([]);
-          setIsOpen(false);
-        }, 2000); // Show success messages for 2 seconds
+            // Wait for table refresh
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Close dialog immediately
+            setSelectedFiles([]);
+            setIsOpen(false);
+            setIsUploading(false);
+            setProcessingFile(null);
+
+            // Continue processing in background (fire and forget)
+            processDocument({
+              documentId: uploadedDoc.id,
+            }, {
+              onSuccess: () => {
+                console.log(`Successfully processed ${file.name} in background`);
+              },
+              onError: (error) => {
+                console.error(`Background processing failed for ${file.name}:`, error);
+              },
+            });
+          }
+          
+        } catch (fileError) {
+          console.error(`Failed to process file ${file.name}:`, fileError);
+          
+          let errorMessage = `Failed to process "${file.name}": `;
+          if (fileError instanceof Error) {
+            if (fileError.message.includes('No text content could be extracted')) {
+              errorMessage += 'This PDF appears to be image-based or corrupted.';
+            } else if (fileError.message.includes('PDF extraction failed')) {
+              errorMessage += 'PDF processing failed. The file might be corrupted.';
+            } else if (fileError.message.includes('PDF processing must be handled by the upload dialog')) {
+              continue;
+            } else {
+              errorMessage += fileError.message;
+            }
+          } else {
+            errorMessage += 'Unknown error occurred.';
+          }
+          
+          errorsList.push(errorMessage);
+          setFileErrors(prev => [...prev, errorMessage]);
+        }
       }
-      
-    } catch (error) {
-      console.error('Upload failed:', error);
-      setFileErrors(prev => [...prev, 'Upload failed. Please try again.']);
-    } finally {
+    }
+
+    // Only run this if there were errors (dialog already closed on success)
+    if (errorsList.length > 0) {
       setIsUploading(false);
-      setUploadProgress(0);
       setProcessingFile(null);
     }
-  };
+    
+  } catch (error) {
+    console.error('Upload failed:', error);
+    setFileErrors(prev => [...prev, 'Upload failed. Please try again.']);
+    setIsUploading(false);
+    setProcessingFile(null);
+  }
+};
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 B';
@@ -364,27 +339,6 @@ export function UploadDialog({ children }: UploadDialogProps) {
                   </Button>
                 </div>
               ))}
-            </div>
-          )}
-
-          {/* Upload Progress */}
-          {isUploading && (
-            <div className='space-y-2'>
-              <div className='flex items-center justify-between text-sm'>
-                <span>
-                  {processingFile ? `Processing ${processingFile}...` : 'Uploading files...'}
-                </span>
-                <span>{Math.round(uploadProgress)}%</span>
-              </div>
-              <Progress value={uploadProgress} className='w-full' />
-              {processingFile && (
-                <p className='text-xs text-muted-foreground'>
-                  {getFileTypeFromExtension(processingFile) === 'application/pdf' 
-                    ? 'Parsing PDF content on server, extracting text, and creating intelligent chunks with Gemini AI...'
-                    : 'Extracting text content, analyzing document structure, and creating intelligent chunks with Gemini AI...'
-                  }
-                </p>
-              )}
             </div>
           )}
 

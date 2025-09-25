@@ -7,709 +7,475 @@ import { createLogger } from '@/lib/logger';
 
 export const documentsRouter = createTRPCRouter({
 
-  // Upload and process document for RAG with Gemini chunking
-  upload: tenantProcedure
-    .input(
-      z.object({
-        title: z.string().min(1).max(255),
-        content: z.string().min(1),
-        contentType: z.string().optional().default('text/plain'),
-        sourceUrl: z.string().url().optional(),
-        metadata: z.record(z.any()).optional().default({}),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      // Create logger with tenant and user context for better traceability
-      const logger = createLogger(ctx.tenant?.id, ctx.user.id);
+// This procedure parses the PDF and creates the document record without processing
+uploadPDF: tenantProcedure
+  .input(
+    z.object({
+      title: z.string().min(1).max(255),
+      fileData: z.string(), // Base64 encoded PDF data from client
+      fileName: z.string(),
+      fileSize: z.number(),
+      sourceUrl: z.string().url().optional(),
+      metadata: z.record(z.any()).optional().default({}),
+      autoProcess: z.boolean().optional().default(false), // Option to automatically trigger processing
+    })
+  )
+  .mutation(async ({ ctx, input }) => {
+    const logger = createLogger(ctx.tenant?.id, ctx.user.id);
+    
+    try {
+      // ===== STEP 1: CONVERT BASE64 TO BINARY PDF DATA =====
+      const pdfBuffer = Buffer.from(input.fileData, 'base64');
       
+      await logger.info(`Starting PDF parsing for document: ${input.title}`, {
+        fileName: input.fileName,
+        fileSize: input.fileSize,
+      });
+
+      // ===== STEP 2: LOAD PDF PARSING LIBRARY =====
+      let PDFParser;
       try {
-        // Create document record with processing status
-        const { data: document, error: docError } = await ctx.supabaseAdmin
-          .from('documents')
-          .insert({
-            tenant_id: ctx.tenant?.id!,
-            title: input.title,
-            content: input.content,
-            content_type: input.contentType,
-            source_url: input.sourceUrl,
-            metadata: input.metadata,
-            processing_status: 'processing',
-            chunk_count: 0, // Will be updated after chunking
-          })
-          .select()
-          .single();
-
-        if (docError || !document) {
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: 'Failed to create document',
-          });
-        }
-
-        // Log the start of document processing for better monitoring
-        await logger.info(`Starting Gemini chunking for document: ${input.title}`, {
-          documentId: document.id,
-          contentType: input.contentType,
-          contentLength: input.content.length,
-        });
-
-        try {
-          // Use Gemini to chunk the document intelligently
-          // This AI-powered chunking creates semantically meaningful chunks rather than simple text splitting
-          const chunks = await chunkDocumentWithGemini(
-            input.content,
-            document.id,
-            input.title,
-            input.contentType,
-            {
-              // Increased chunk size for better context preservation and RAG performance
-              // 2000 characters provides optimal balance between context richness and retrieval precision
-              // This size allows for complete sentences, paragraphs, and logical thought units
-              maxChunkSize: 2000,
-              
-              // Increased overlap to maintain better context continuity between chunks
-              // 200 characters ensures smooth transitions and prevents information loss at boundaries
-              overlapSize: 200,
-              
-              // Preserve document structure like headings, paragraphs, and lists
-              // This maintains the logical flow of information for better RAG performance
-              preserveStructure: true,
-              
-              // Extract metadata like headings, bullet points, and key phrases from each chunk
-              // This metadata enhances search and retrieval accuracy in the RAG system
-              extractMetadata: true,
-            }
-          );
-
-          // Log successful chunking with detailed metrics for monitoring and optimization
-          await logger.info(`Generated ${chunks.length} chunks for document: ${input.title}`, {
-            documentId: document.id,
-            chunkCount: chunks.length,
-            averageChunkSize: Math.round(chunks.reduce((sum, chunk) => sum + chunk.content.length, 0) / chunks.length),
-            totalContentLength: input.content.length,
-            chunkingEfficiency: Math.round((chunks.length / Math.ceil(input.content.length / 1000)) * 100),
-          });
-
-          // Store chunks in the database for RAG retrieval
-          const chunkInserts = chunks.map((chunk: DocumentChunk) => ({
-            document_id: document.id,
-            content: chunk.content,
-            chunk_index: chunk.chunkIndex,
-            metadata: chunk.metadata,
-          }));
-
-          const { error: chunksError } = await ctx.supabaseAdmin
-            .from('document_chunks')
-            .insert(chunkInserts);
-
-          if (chunksError) {
-            throw new TRPCError({
-              code: 'INTERNAL_SERVER_ERROR',
-              message: `Failed to store document chunks: ${chunksError.message}`,
-            });
-          }
-
-          // ===== STEP 3: GENERATE VECTOR EMBEDDINGS AND STORE IN PINECONE =====
-          // After successful chunking, we now generate vector embeddings using Gemini AI
-          // and store them in Pinecone for semantic search and retrieval
-          let vectorProcessingResult = null;
-          const vectorProcessingErrors: string[] = [];
-          
-          try {
-            // Process document chunks through the complete vector pipeline
-            // This includes: embedding generation with Gemini AI + storage in Pinecone
-            vectorProcessingResult = await processDocumentVectors(
-              chunks,
-              document.id,
-              ctx.user.id,
-              ctx.tenant?.id!,
-              {
-                embedding: {
-                  model: 'text-embedding-004', // Google's latest embedding model
-                  batchSize: 100, // Process up to 100 chunks at once
-                  dimensions: 768, // Standard dimensions for text-embedding-004
-                },
-                pinecone: {
-                  namespace: 'default', // Use default namespace with tenant isolation
-                },
-              }
-            );
-
-            // Log vector processing results
-            if (vectorProcessingResult.success) {
-              await logger.info(`Successfully processed vectors for document: ${input.title}`, {
-                documentId: document.id,
-                totalChunks: vectorProcessingResult.totalChunks,
-                successfulEmbeddings: vectorProcessingResult.successfulEmbeddings,
-                successfulStorages: vectorProcessingResult.successfulStorages,
-                totalTokens: vectorProcessingResult.totalTokens,
-                processingTime: vectorProcessingResult.processingTime,
-              });
-            } else {
-              // Log partial success or failure
-              await logger.warn(`Vector processing completed with issues for document: ${input.title}`, {
-                documentId: document.id,
-                success: vectorProcessingResult.success,
-                totalChunks: vectorProcessingResult.totalChunks,
-                successfulEmbeddings: vectorProcessingResult.successfulEmbeddings,
-                successfulStorages: vectorProcessingResult.successfulStorages,
-                failedEmbeddings: vectorProcessingResult.failedEmbeddings,
-                failedStorages: vectorProcessingResult.failedStorages,
-                errorCount: vectorProcessingResult.errors.length,
-              });
-              
-              // Collect errors for later reporting
-              vectorProcessingErrors.push(...vectorProcessingResult.errors);
-            }
-
-          } catch (vectorError) {
-            // Log vector processing error but don't fail the entire upload
-            const errorMessage = `Vector processing failed: ${vectorError instanceof Error ? vectorError.message : 'Unknown error'}`;
-            vectorProcessingErrors.push(errorMessage);
-            
-            await logger.error(`Vector processing failed for document: ${input.title}`, {
-              documentId: document.id,
-              chunkCount: chunks.length,
-              error: errorMessage,
-              stack: vectorError instanceof Error ? vectorError.stack : undefined,
-            });
-          }
-
-          // Update document with chunk count and mark as completed
-          // Note: We mark as completed even if vector processing had issues
-          // because the document and chunks are successfully stored in Supabase
-          await ctx.supabaseAdmin
-            .from('documents')
-            .update({
-              chunk_count: chunks.length,
-              processing_status: 'completed',
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', document.id);
-
-          // Log usage with comprehensive token count for cost tracking
-          // Include both chunking and embedding token usage
-          const chunkingTokens = chunks.reduce((sum: number, chunk: DocumentChunk) => sum + Math.ceil(chunk.content.length / 4), 0);
-          const embeddingTokens = vectorProcessingResult?.totalTokens || 0;
-          const totalTokens = chunkingTokens + embeddingTokens;
-          
-          await ctx.supabaseAdmin.from('usage_logs').insert({
-            tenant_id: ctx.tenant?.id!,
-            user_id: ctx.user.id,
-            event_type: 'document_upload_with_chunking_and_vectors',
-            tokens_used: totalTokens,
-            cost_cents: Math.ceil(totalTokens * 0.0001), // Rough cost estimate
-            metadata: {
-              document_id: document.id,
-              content_type: input.contentType,
-              chunk_count: chunks.length,
-              content_length: input.content.length,
-              chunking_method: 'gemini',
-              embedding_method: 'gemini-text-embedding-004',
-              vector_processing_success: vectorProcessingResult?.success || false,
-              successful_embeddings: vectorProcessingResult?.successfulEmbeddings || 0,
-              successful_vector_storages: vectorProcessingResult?.successfulStorages || 0,
-              chunking_tokens: chunkingTokens,
-              embedding_tokens: embeddingTokens,
-              total_tokens: totalTokens,
-              average_chunk_size: Math.round(chunks.reduce((sum: number, chunk: DocumentChunk) => sum + chunk.content.length, 0) / chunks.length),
-              vector_processing_errors: vectorProcessingErrors,
-            },
-          });
-
-          // Log successful completion for monitoring and debugging
-          await logger.info(`Successfully processed document: ${input.title} with ${chunks.length} chunks and vector embeddings`, {
-            documentId: document.id,
-            totalTokens,
-            chunkingTokens,
-            embeddingTokens,
-            vectorProcessingSuccess: vectorProcessingResult?.success || false,
-            processingTime: Date.now(), // Could be enhanced with actual timing
-          });
-
-          return {
-            ...document,
-            chunk_count: chunks.length,
-            processing_status: 'completed',
-          };
-
-        } catch (chunkingError) {
-          // Update document status to failed
-          await ctx.supabaseAdmin
-            .from('documents')
-            .update({
-              processing_status: 'failed',
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', document.id);
-
-          // Log the chunking error with detailed context for debugging
-          await logger.error(`Document chunking failed for: ${input.title}`, {
-            documentId: document.id,
-            contentType: input.contentType,
-            contentLength: input.content.length,
-            error: chunkingError instanceof Error ? chunkingError.message : 'Unknown chunking error',
-            stack: chunkingError instanceof Error ? chunkingError.stack : undefined,
-          });
-
-          // Log the error for tracking purposes
-          await ctx.supabaseAdmin.from('usage_logs').insert({
-            tenant_id: ctx.tenant?.id!,
-            user_id: ctx.user.id,
-            event_type: 'document_upload_failed',
-            tokens_used: 0,
-            cost_cents: 0,
-            metadata: {
-              document_id: document.id,
-              content_type: input.contentType,
-              error: chunkingError instanceof Error ? chunkingError.message : 'Unknown chunking error',
-              content_length: input.content.length,
-            },
-          });
-
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: `Document upload succeeded but chunking failed: ${chunkingError instanceof Error ? chunkingError.message : 'Unknown error'}`,
-          });
-        }
-
-      } catch (error) {
-        // Log general errors for debugging and monitoring
-        await logger.error(`Document upload failed: ${input.title}`, {
-          error: error instanceof Error ? error.message : 'Unknown error',
-          stack: error instanceof Error ? error.stack : undefined,
-          contentType: input.contentType,
-          contentLength: input.content.length,
-        });
-
-        // If it's already a TRPCError, re-throw it
-        if (error instanceof TRPCError) {
-          throw error;
-        }
-        
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to upload document: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        });
+        PDFParser = (await import('pdf2json')).default;
+      } catch (importError) {
+        throw new Error(`Failed to load PDF parsing library: ${importError instanceof Error ? importError.message : 'Unknown error'}`);
       }
-    }),
-
-  // Upload and process PDF document with server-side parsing
-  // 
-  // This mutation handles the complete PDF processing pipeline:
-  // 1. Receives base64-encoded PDF data from the client
-  // 2. Converts base64 back to binary PDF data
-  // 3. Parses PDF using pdf2json library to extract text
-  // 4. Creates intelligent chunks using Gemini AI
-  // 5. Stores document and chunks in the database
-  // 
-  // Why server-side? PDF parsing libraries are heavy and not suitable for browsers.
-  // Server-side processing provides better security, performance, and reliability.
-  uploadPDF: tenantProcedure
-    .input(
-      z.object({
-        title: z.string().min(1).max(255),
-        fileData: z.string(), // Base64 encoded PDF data from client
-        fileName: z.string(),
-        fileSize: z.number(),
-        sourceUrl: z.string().url().optional(),
-        metadata: z.record(z.any()).optional().default({}),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      // Create logger with tenant and user context for better traceability
-      const logger = createLogger(ctx.tenant?.id, ctx.user.id);
       
-      try {
-        // ===== STEP 1: CONVERT BASE64 TO BINARY PDF DATA =====
-        // The client sent us the PDF as a base64 string, so we need to convert it back
-        // to binary data that the PDF parsing library can understand
-        const pdfBuffer = Buffer.from(input.fileData, 'base64');
-        
-        // Log the start of PDF processing for better monitoring and debugging
-        await logger.info(`Starting PDF parsing for document: ${input.title}`, {
-          fileName: input.fileName,
-          fileSize: input.fileSize,
+      // ===== STEP 3: PARSE PDF AND EXTRACT TEXT =====
+      const pdfParser = new PDFParser();
+      
+      const pdfData = await new Promise<any>((resolve, reject) => {
+        pdfParser.on('pdfParser_dataError', (errData: any) => {
+          reject(new Error(`PDF parsing error: ${errData.parserError}`));
         });
-
-        // ===== STEP 2: LOAD PDF PARSING LIBRARY =====
-        // We use dynamic import to avoid startup issues that can occur with some PDF libraries
-        // This ensures the library only loads when we actually need to parse a PDF
-        let PDFParser;
-        try {
-          PDFParser = (await import('pdf2json')).default;
-        } catch (importError) {
-          throw new Error(`Failed to load PDF parsing library: ${importError instanceof Error ? importError.message : 'Unknown error'}`);
-        }
         
-        // ===== STEP 3: PARSE PDF AND EXTRACT TEXT =====
-        // pdf2json is an event-driven library, so we need to set up event listeners
-        // and use a Promise to handle the asynchronous parsing
-        const pdfParser = new PDFParser();
-        
-        const pdfData = await new Promise<any>((resolve, reject) => {
-          // Handle parsing errors (corrupted PDFs, unsupported formats, etc.)
-          pdfParser.on('pdfParser_dataError', (errData: any) => {
-            reject(new Error(`PDF parsing error: ${errData.parserError}`));
-          });
-          
-          // Handle successful parsing - this event fires when the PDF is fully parsed
-          pdfParser.on('pdfParser_dataReady', (pdfData: any) => {
-            resolve(pdfData);
-          });
-          
-          // Start the parsing process with our binary PDF data
-          pdfParser.parseBuffer(pdfBuffer);
+        pdfParser.on('pdfParser_dataReady', (pdfData: any) => {
+          resolve(pdfData);
         });
+        
+        pdfParser.parseBuffer(pdfBuffer);
+      });
 
-        // ===== STEP 4: EXTRACT TEXT FROM PARSED PDF DATA =====
-        // pdf2json returns a complex data structure with text organized by pages and text runs
-        // We need to traverse this structure to extract all the readable text
-        let content = '';
-        if (pdfData.Pages) {
-          // Iterate through all pages in the PDF
-          for (const page of pdfData.Pages) {
-            if (page.Texts) {
-              // Each page contains an array of text objects
-              for (const text of page.Texts) {
-                if (text.R) {
-                  // Each text object contains an array of text runs (R)
-                  for (const run of text.R) {
-                    if (run.T) {
-                      // Each run contains the actual text (T) which is URL-encoded
-                      // We need to decode it to get the readable text
-                      content += decodeURIComponent(run.T) + ' ';
-                    }
+      // ===== STEP 4: EXTRACT TEXT FROM PARSED PDF DATA =====
+      let content = '';
+      if (pdfData.Pages) {
+        for (const page of pdfData.Pages) {
+          if (page.Texts) {
+            for (const text of page.Texts) {
+              if (text.R) {
+                for (const run of text.R) {
+                  if (run.T) {
+                    content += decodeURIComponent(run.T) + ' ';
                   }
                 }
               }
             }
           }
         }
-        
-        // Clean up the extracted text by removing extra whitespace
-        content = content.trim();
-        
-        // ===== STEP 5: VALIDATE EXTRACTED CONTENT =====
-        // Check if we successfully extracted meaningful text content
-        // This catches cases where the PDF is image-based or corrupted
-        if (!content || content.length < 10) {
-          throw new Error('No text content could be extracted from this PDF. The PDF might be image-based or corrupted.');
-        }
+      }
+      
+      content = content.trim();
+      
+      // ===== STEP 5: VALIDATE EXTRACTED CONTENT =====
+      if (!content || content.length < 10) {
+        throw new Error('No text content could be extracted from this PDF. The PDF might be image-based or corrupted.');
+      }
 
-        // ===== STEP 6: CALCULATE METADATA =====
-        // Calculate useful metadata about the extracted content
-        const wordCount = content.split(/\s+/).filter((word: string) => word.length > 0).length;
-        const charCount = content.length;
-        const pageCount = pdfData.Pages ? pdfData.Pages.length : 1;
+      // ===== STEP 6: CALCULATE METADATA =====
+      const wordCount = content.split(/\s+/).filter((word: string) => word.length > 0).length;
+      const charCount = content.length;
+      const pageCount = pdfData.Pages ? pdfData.Pages.length : 1;
 
-        // ===== STEP 7: PREPARE ENHANCED METADATA =====
-        // Create comprehensive metadata that includes both our calculated values
-        // and information extracted from the PDF itself
-        const enhancedMetadata = {
-          ...input.metadata,
-          originalFileName: input.fileName,
-          uploadedAt: new Date().toISOString(),
-          fileSize: input.fileSize,
-          pageCount: pageCount,
-          extractionMethod: 'pdf2json', // Track which library we used for extraction
-          pdfInfo: {
-            pages: pageCount,
-            info: pdfData.Info || {}, // PDF metadata from the file itself
-            creator: pdfData.Info?.Creator || '', // Software that created the PDF
-            producer: pdfData.Info?.Producer || '', // Software that produced the PDF
-            title: pdfData.Info?.Title || '', // Title from PDF metadata
-            author: pdfData.Info?.Author || '', // Author from PDF metadata
-          },
-        };
+      // ===== STEP 7: PREPARE ENHANCED METADATA =====
+      const enhancedMetadata = {
+        ...input.metadata,
+        originalFileName: input.fileName,
+        uploadedAt: new Date().toISOString(),
+        fileSize: input.fileSize,
+        pageCount: pageCount,
+        wordCount: wordCount,
+        charCount: charCount,
+        extractionMethod: 'pdf2json',
+        pdfInfo: {
+          pages: pageCount,
+          info: pdfData.Info || {},
+          creator: pdfData.Info?.Creator || '',
+          producer: pdfData.Info?.Producer || '',
+          title: pdfData.Info?.Title || '',
+          author: pdfData.Info?.Author || '',
+        },
+      };
 
-        // Log successful PDF parsing with detailed metrics
-        await logger.info(`Successfully parsed PDF: ${input.title}`, {
-          fileName: input.fileName,
-          pageCount: pageCount,
-          wordCount: wordCount,
-          charCount: charCount,
-          extractionMethod: 'pdf2json',
+      await logger.info(`Successfully parsed PDF: ${input.title}`, {
+        fileName: input.fileName,
+        pageCount: pageCount,
+        wordCount: wordCount,
+        charCount: charCount,
+        extractionMethod: 'pdf2json',
+      });
+
+      // ===== STEP 8: CREATE DOCUMENT RECORD =====
+      const { data: document, error: docError } = await ctx.supabaseAdmin
+        .from('documents')
+        .insert({
+          tenant_id: ctx.tenant?.id!,
+          title: input.title,
+          content: content,
+          content_type: 'application/pdf',
+          source_url: input.sourceUrl,
+          metadata: enhancedMetadata,
+          processing_status: 'pending', // Start as pending, not processing
+          chunk_count: 0,
+        })
+        .select()
+        .single();
+
+      if (docError || !document) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to create document record',
+        });
+      }
+
+      // Log the PDF upload event
+      await ctx.supabaseAdmin.from('usage_logs').insert({
+        tenant_id: ctx.tenant?.id!,
+        user_id: ctx.user.id,
+        event_type: 'pdf_upload',
+        tokens_used: 0,
+        cost_cents: 0,
+        metadata: {
+          document_id: document.id,
+          content_type: 'application/pdf',
+          file_name: input.fileName,
+          file_size: input.fileSize,
+          page_count: pageCount,
+          word_count: wordCount,
+          char_count: charCount,
+          extraction_method: 'pdf2json',
+        },
+      });
+
+      await logger.info(`PDF uploaded successfully: ${input.title}`, {
+        documentId: document.id,
+        pageCount: pageCount,
+        contentLength: content.length,
+        autoProcess: input.autoProcess,
+      });
+
+      return {
+        ...document,
+        message: input.autoProcess 
+          ? 'PDF uploaded and parsed. Processing will begin automatically.' 
+          : 'PDF uploaded and parsed successfully. Call processDocument to chunk and vectorize.',
+      };
+
+    } catch (error) {
+      await logger.error(`PDF upload failed: ${input.title}`, {
+        fileName: input.fileName,
+        fileSize: input.fileSize,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+
+      if (error instanceof TRPCError) {
+        throw error;
+      }
+      
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: `Failed to upload PDF: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+    }
+  }),
+
+// This procedure handles chunking and vector generation for an existing document
+// Can be used for both PDF and regular text documents
+processDocument: tenantProcedure
+  .input(
+    z.object({
+      documentId: z.string().uuid().optional(),
+      documentName: z.string().optional(),
+      chunkingOptions: z.object({
+        maxChunkSize: z.number().optional().default(2000),
+        overlapSize: z.number().optional().default(200),
+        preserveStructure: z.boolean().optional().default(true),
+        extractMetadata: z.boolean().optional().default(true),
+      }).optional().default({}),
+      vectorOptions: z.object({
+        embeddingModel: z.string().optional().default('text-embedding-004'),
+        batchSize: z.number().optional().default(100),
+        dimensions: z.number().optional().default(768),
+        namespace: z.string().optional().default('default'),
+      }).optional().default({}),
+    })
+  )
+  .mutation(async ({ ctx, input }) => {
+    const logger = createLogger(ctx.tenant?.id, ctx.user.id);
+    
+    try {
+      // Validate that either documentId or documentName is provided
+      if (!input.documentId && !input.documentName) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Either documentId or documentName must be provided',
+        });
+      }
+
+      // Build query based on what's provided
+      let query = ctx.supabaseAdmin
+        .from('documents')
+        .select('*')
+        .eq('tenant_id', ctx.tenant?.id!); // Ensure tenant isolation
+
+      if (input.documentId) {
+        query = query.eq('id', input.documentId);
+      } else if (input.documentName) {
+        query = query.eq('title', input.documentName);
+      }
+
+      // Fetch the document
+      const { data: document, error: fetchError } = await query.single();
+
+      if (fetchError || !document) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Document not found',
+        });
+      }
+
+      // Check if document is already processed or processing
+      if (document.processing_status === 'processing') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Document is already being processed',
+        });
+      }
+
+      if (document.processing_status === 'completed' && document.chunk_count > 0) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Document has already been processed. Delete existing chunks first to reprocess.',
+        });
+      }
+
+      // Update status to processing
+      await ctx.supabaseAdmin
+        .from('documents')
+        .update({ processing_status: 'processing' })
+        .eq('id', document.id);
+
+      const isPDF = document.content_type === 'application/pdf';
+      const pageCount = isPDF ? ((document.metadata as any)?.pageCount || 0) : null;
+
+      await logger.info(`Starting processing for document: ${document.title}`, {
+        documentId: document.id,
+        contentType: document.content_type,
+        contentLength: document.content.length,
+        isPDF,
+        pageCount,
+      });
+
+      try {
+        // STEP 1: Chunk the document with Gemini
+        const chunks = await chunkDocumentWithGemini(
+          document.content,
+          document.id,
+          document.title,
+          document.content_type,
+          input.chunkingOptions
+        );
+
+        await logger.info(`Generated ${chunks.length} chunks for document: ${document.title}`, {
+          documentId: document.id,
+          chunkCount: chunks.length,
+          averageChunkSize: Math.round(chunks.reduce((sum, chunk) => sum + chunk.content.length, 0) / chunks.length),
+          isPDF,
         });
 
-        // Create document record with processing status
-        const { data: document, error: docError } = await ctx.supabaseAdmin
-          .from('documents')
-          .insert({
-            tenant_id: ctx.tenant?.id!,
-            title: input.title,
-            content: content,
-            content_type: 'application/pdf',
-            source_url: input.sourceUrl,
-            metadata: enhancedMetadata,
-            processing_status: 'processing',
-            chunk_count: 0, // Will be updated after chunking
-          })
-          .select()
-          .single();
+        // STEP 2: Store chunks in database
+        const chunkInserts = chunks.map((chunk: DocumentChunk) => ({
+          document_id: document.id,
+          content: chunk.content,
+          chunk_index: chunk.chunkIndex,
+          metadata: chunk.metadata,
+        }));
 
-        if (docError || !document) {
+        const { error: chunksError } = await ctx.supabaseAdmin
+          .from('document_chunks')
+          .insert(chunkInserts);
+
+        if (chunksError) {
           throw new TRPCError({
             code: 'INTERNAL_SERVER_ERROR',
-            message: 'Failed to create document record',
+            message: `Failed to store document chunks: ${chunksError.message}`,
           });
         }
 
+        // STEP 3: Generate and store vector embeddings
+        let vectorProcessingResult = null;
+        const vectorProcessingErrors: string[] = [];
+        
         try {
-          // ===== STEP 9: CREATE INTELLIGENT CHUNKS USING GEMINI AI =====
-          // Instead of simple text splitting, we use Gemini AI to create semantically meaningful chunks
-          // This is crucial for RAG (Retrieval-Augmented Generation) performance because:
-          // 1. AI understands context and meaning, not just character counts
-          // 2. Chunks maintain logical coherence and complete thoughts
-          // 3. Better search and retrieval accuracy in the knowledge base
-          // 4. Preserves document structure and relationships between concepts
-          const chunks = await chunkDocumentWithGemini(
-            content,
+          vectorProcessingResult = await processDocumentVectors(
+            chunks,
             document.id,
-            input.title,
-            'application/pdf',
+            ctx.user.id,
+            ctx.tenant?.id!,
             {
-              // Chunk size: 2000 characters provides optimal balance between:
-              // - Context richness (enough content for meaningful retrieval)
-              // - Retrieval precision (not too large to be irrelevant)
-              // - Complete sentences and paragraphs (maintains logical units)
-              maxChunkSize: 1200,
-              
-              // Overlap: 200 characters ensures smooth transitions between chunks
-              // This prevents information loss at chunk boundaries and maintains context flow
-              overlapSize: 100,
-              
-              // Structure preservation: Maintains headings, paragraphs, lists, etc.
-              // This helps the RAG system understand document hierarchy and organization
-              preserveStructure: true,
-              
-              // Metadata extraction: AI identifies key concepts, headings, and important phrases
-              // This metadata enhances search accuracy and helps users find relevant information
-              extractMetadata: true,
+              embedding: {
+                model: input.vectorOptions.embeddingModel,
+                batchSize: input.vectorOptions.batchSize,
+                dimensions: input.vectorOptions.dimensions,
+              },
+              pinecone: {
+                namespace: input.vectorOptions.namespace,
+              },
             }
           );
 
-          // Log successful chunking with detailed metrics for monitoring and optimization
-          await logger.info(`Generated ${chunks.length} chunks for PDF: ${input.title}`, {
-            documentId: document.id,
-            chunkCount: chunks.length,
-            averageChunkSize: Math.round(chunks.reduce((sum, chunk) => sum + chunk.content.length, 0) / chunks.length),
-            totalContentLength: content.length,
-            chunkingEfficiency: Math.round((chunks.length / Math.ceil(content.length / 1000)) * 100),
-          });
-
-          // Store chunks in the database for RAG retrieval
-          const chunkInserts = chunks.map((chunk: DocumentChunk) => ({
-            document_id: document.id,
-            content: chunk.content,
-            chunk_index: chunk.chunkIndex,
-            metadata: chunk.metadata,
-          }));
-
-          const { error: chunksError } = await ctx.supabaseAdmin
-            .from('document_chunks')
-            .insert(chunkInserts);
-
-          if (chunksError) {
-            throw new TRPCError({
-              code: 'INTERNAL_SERVER_ERROR',
-              message: `Failed to store document chunks: ${chunksError.message}`,
-            });
-          }
-
-          // ===== STEP 10: GENERATE VECTOR EMBEDDINGS AND STORE IN PINECONE =====
-          // After successful PDF parsing and chunking, we now generate vector embeddings
-          // using Gemini AI and store them in Pinecone for semantic search and retrieval
-          let vectorProcessingResult = null;
-          const vectorProcessingErrors: string[] = [];
-          
-          try {
-            // Process PDF chunks through the complete vector pipeline
-            // This includes: embedding generation with Gemini AI + storage in Pinecone
-            vectorProcessingResult = await processDocumentVectors(
-              chunks,
-              document.id,
-              ctx.user.tenant_id,
-              ctx.user.id,
-              {
-                embedding: {
-                  model: 'text-embedding-004', // Google's latest embedding model
-                  batchSize: 100, // Process up to 100 chunks at once
-                  dimensions: 768, // Standard dimensions for text-embedding-004
-                },
-                pinecone: {
-                  namespace: `default-${ctx.user.tenant_id}`, // Use default namespace with tenant isolation
-                },
-              }
-            );
-
-            // Log vector processing results
-            if (vectorProcessingResult.success) {
-              await logger.info(`Successfully processed vectors for PDF: ${input.title}`, {
-                documentId: document.id,
-                pageCount: pageCount,
-                totalChunks: vectorProcessingResult.totalChunks,
-                successfulEmbeddings: vectorProcessingResult.successfulEmbeddings,
-                successfulStorages: vectorProcessingResult.successfulStorages,
-                totalTokens: vectorProcessingResult.totalTokens,
-                processingTime: vectorProcessingResult.processingTime,
-              });
-            } else {
-              // Log partial success or failure
-              await logger.warn(`Vector processing completed with issues for PDF: ${input.title}`, {
-                documentId: document.id,
-                pageCount: pageCount,
-                success: vectorProcessingResult.success,
-                totalChunks: vectorProcessingResult.totalChunks,
-                successfulEmbeddings: vectorProcessingResult.successfulEmbeddings,
-                successfulStorages: vectorProcessingResult.successfulStorages,
-                failedEmbeddings: vectorProcessingResult.failedEmbeddings,
-                failedStorages: vectorProcessingResult.failedStorages,
-                errorCount: vectorProcessingResult.errors.length,
-              });
-              
-              // Collect errors for later reporting
-              vectorProcessingErrors.push(...vectorProcessingResult.errors);
-            }
-
-          } catch (vectorError) {
-            // Log vector processing error but don't fail the entire upload
-            const errorMessage = `Vector processing failed: ${vectorError instanceof Error ? vectorError.message : 'Unknown error'}`;
-            vectorProcessingErrors.push(errorMessage);
-            
-            await logger.error(`Vector processing failed for PDF: ${input.title}`, {
+          if (vectorProcessingResult.success) {
+            await logger.info(`Successfully processed vectors for document: ${document.title}`, {
               documentId: document.id,
-              pageCount: pageCount,
-              chunkCount: chunks.length,
-              error: errorMessage,
-              stack: vectorError instanceof Error ? vectorError.stack : undefined,
+              totalChunks: vectorProcessingResult.totalChunks,
+              successfulEmbeddings: vectorProcessingResult.successfulEmbeddings,
+              successfulStorages: vectorProcessingResult.successfulStorages,
+              totalTokens: vectorProcessingResult.totalTokens,
             });
+          } else {
+            await logger.warn(`Vector processing completed with issues for document: ${document.title}`, {
+              documentId: document.id,
+              ...vectorProcessingResult,
+            });
+            vectorProcessingErrors.push(...vectorProcessingResult.errors);
           }
 
-          // Update document with chunk count and mark as completed
-          // Note: We mark as completed even if vector processing had issues
-          // because the document and chunks are successfully stored in Supabase
-          await ctx.supabaseAdmin
-            .from('documents')
-            .update({
-              chunk_count: chunks.length,
-              processing_status: 'completed',
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', document.id);
-
-          // Log usage with comprehensive token count for cost tracking
-          // Include both chunking and embedding token usage
-          const chunkingTokens = chunks.reduce((sum: number, chunk: DocumentChunk) => sum + Math.ceil(chunk.content.length / 4), 0);
-          const embeddingTokens = vectorProcessingResult?.totalTokens || 0;
-          const totalTokens = chunkingTokens + embeddingTokens;
+        } catch (vectorError) {
+          const errorMessage = `Vector processing failed: ${vectorError instanceof Error ? vectorError.message : 'Unknown error'}`;
+          vectorProcessingErrors.push(errorMessage);
           
-          await ctx.supabaseAdmin.from('usage_logs').insert({
-            tenant_id: ctx.user.tenant_id,
-            user_id: ctx.user.id,
-            event_type: 'pdf_upload_with_chunking_and_vectors',
-            tokens_used: totalTokens,
-            cost_cents: Math.ceil(totalTokens * 0.0001), // Rough cost estimate
-            metadata: {
-              document_id: document.id,
-              content_type: 'application/pdf',
-              chunk_count: chunks.length,
-              content_length: content.length,
-              page_count: pageCount,
-              chunking_method: 'gemini',
-              embedding_method: 'gemini-text-embedding-004',
-              extraction_method: 'pdf2json',
-              vector_processing_success: vectorProcessingResult?.success || false,
-              successful_embeddings: vectorProcessingResult?.successfulEmbeddings || 0,
-              successful_vector_storages: vectorProcessingResult?.successfulStorages || 0,
-              chunking_tokens: chunkingTokens,
-              embedding_tokens: embeddingTokens,
-              total_tokens: totalTokens,
-              average_chunk_size: Math.round(chunks.reduce((sum: number, chunk: DocumentChunk) => sum + chunk.content.length, 0) / chunks.length),
-              vector_processing_errors: vectorProcessingErrors,
-            },
-          });
-
-          // Log successful completion for monitoring and debugging
-          await logger.info(`Successfully processed PDF: ${input.title} with ${chunks.length} chunks and vector embeddings`, {
+          await logger.error(`Vector processing failed for document: ${document.title}`, {
             documentId: document.id,
-            totalTokens,
-            chunkingTokens,
-            embeddingTokens,
-            pageCount: pageCount,
-            vectorProcessingSuccess: vectorProcessingResult?.success || false,
-            processingTime: Date.now(), // Could be enhanced with actual timing
+            error: errorMessage,
           });
+        }
 
-          return {
-            ...document,
+        // STEP 4: Update document with final status
+        await ctx.supabaseAdmin
+          .from('documents')
+          .update({
             chunk_count: chunks.length,
             processing_status: 'completed',
-          };
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', document.id);
 
-        } catch (chunkingError) {
-          // Update document status to failed
-          await ctx.supabaseAdmin
-            .from('documents')
-            .update({
-              processing_status: 'failed',
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', document.id);
+        // STEP 5: Log usage
+        const chunkingTokens = chunks.reduce((sum: number, chunk: DocumentChunk) => 
+          sum + Math.ceil(chunk.content.length / 4), 0);
+        const embeddingTokens = vectorProcessingResult?.totalTokens || 0;
+        const totalTokens = chunkingTokens + embeddingTokens;
+        
+        const eventType = isPDF ? 'pdf_processing' : 'document_processing';
+        const usageMetadata: any = {
+          document_id: document.id,
+          content_type: document.content_type,
+          chunk_count: chunks.length,
+          chunking_tokens: chunkingTokens,
+          embedding_tokens: embeddingTokens,
+          total_tokens: totalTokens,
+          chunking_method: 'gemini',
+          embedding_method: input.vectorOptions.embeddingModel,
+          vector_processing_success: vectorProcessingResult?.success || false,
+          vector_processing_errors: vectorProcessingErrors,
+          average_chunk_size: Math.round(chunks.reduce((sum: number, chunk: DocumentChunk) => sum + chunk.content.length, 0) / chunks.length),
+        };
 
-          // Log the chunking error with detailed context for debugging
-          await logger.error(`PDF chunking failed for: ${input.title}`, {
-            documentId: document.id,
-            fileName: input.fileName,
-            pageCount: pageCount,
-            contentLength: content.length,
-            error: chunkingError instanceof Error ? chunkingError.message : 'Unknown chunking error',
-            stack: chunkingError instanceof Error ? chunkingError.stack : undefined,
-          });
-
-          // Log the error for tracking purposes
-          await ctx.supabaseAdmin.from('usage_logs').insert({
-            tenant_id: ctx.user.tenant_id,
-            user_id: ctx.user.id,
-            event_type: 'pdf_upload_failed',
-            tokens_used: 0,
-            cost_cents: 0,
-            metadata: {
-              document_id: document.id,
-              content_type: 'application/pdf',
-              error: chunkingError instanceof Error ? chunkingError.message : 'Unknown chunking error',
-              content_length: content.length,
-              page_count: pageCount,
-              extraction_method: 'pdf2json',
-            },
-          });
-
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: `PDF upload succeeded but chunking failed: ${chunkingError instanceof Error ? chunkingError.message : 'Unknown error'}`,
-          });
-        }
-
-      } catch (error) {
-        // Log general errors for debugging and monitoring
-        await logger.error(`PDF upload failed: ${input.title}`, {
-          fileName: input.fileName,
-          fileSize: input.fileSize,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          stack: error instanceof Error ? error.stack : undefined,
-        });
-
-        // If it's already a TRPCError, re-throw it
-        if (error instanceof TRPCError) {
-          throw error;
+        if (isPDF && pageCount) {
+          usageMetadata.page_count = pageCount;
+          usageMetadata.extraction_method = 'pdf2json';
         }
         
+        await ctx.supabaseAdmin.from('usage_logs').insert({
+          tenant_id: ctx.tenant?.id!,
+          user_id: ctx.user.id,
+          event_type: eventType,
+          tokens_used: totalTokens,
+          cost_cents: Math.ceil(totalTokens * 0.0001),
+          metadata: usageMetadata,
+        });
+
+        await logger.info(`Successfully processed document: ${document.title}`, {
+          documentId: document.id,
+          chunkCount: chunks.length,
+          totalTokens,
+          isPDF,
+        });
+
+        return {
+          documentId: document.id,
+          title: document.title,
+          contentType: document.content_type,
+          chunkCount: chunks.length,
+          processingStatus: 'completed',
+          vectorProcessingSuccess: vectorProcessingResult?.success || false,
+          totalTokens,
+          pageCount: isPDF ? pageCount : undefined,
+          errors: vectorProcessingErrors.length > 0 ? vectorProcessingErrors : undefined,
+        };
+
+      } catch (processingError) {
+        // Update document status to failed
+        await ctx.supabaseAdmin
+          .from('documents')
+          .update({
+            processing_status: 'failed',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', document.id);
+
+        await logger.error(`Document processing failed for: ${document.title}`, {
+          documentId: document.id,
+          isPDF,
+          error: processingError instanceof Error ? processingError.message : 'Unknown error',
+        });
+
+        const failedEventType = isPDF ? 'pdf_processing_failed' : 'document_processing_failed';
+        await ctx.supabaseAdmin.from('usage_logs').insert({
+          tenant_id: ctx.tenant?.id!,
+          user_id: ctx.user.id,
+          event_type: failedEventType,
+          tokens_used: 0,
+          cost_cents: 0,
+          metadata: {
+            document_id: document.id,
+            content_type: document.content_type,
+            error: processingError instanceof Error ? processingError.message : 'Unknown error',
+          },
+        });
+
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to upload PDF: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          message: `Document processing failed: ${processingError instanceof Error ? processingError.message : 'Unknown error'}`,
         });
       }
-    }),
+
+    } catch (error) {
+      await logger.error(`Document processing failed`, {
+        documentId: input.documentId,
+        documentName: input.documentName,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+
+      if (error instanceof TRPCError) {
+        throw error;
+      }
+      
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: `Failed to process document: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+    }
+  }),
 
   // Bulk upload documents with Gemini chunking
   bulkUpload: tenantProcedure
