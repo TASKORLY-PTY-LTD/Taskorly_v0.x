@@ -27,11 +27,11 @@ export const chatRouter = createTRPCRouter({
           console.log('Generating embedding for query:', input.message);
           
           const queryEmbedding = await generateSingleEmbedding(input.message, {
-            model: 'text-embedding-004' // Use the same model as vector-embedder
+            model: 'text-embedding-004', // Use the same model as vector-embedder
           });
 
           // Step 2: Search Pinecone for relevant documents
-          console.log('Searching Pinecone for relevant documents...');
+          console.log(`Searching Pinecone for relevant documents... default-${ctx.user.tenant_id}`);
           
           
           const searchResults = await searchSimilarVectors(
@@ -100,7 +100,7 @@ export const chatRouter = createTRPCRouter({
             api_key: process.env.PINECONE_API_KEY,
             environment: process.env.PINECONE_ENVIRONMENT,
             index_name: process.env.PINECONE_INDEX_NAME,
-            dimensions: 768, // Match text-embedding-004 dimensions
+            namespace: `default-${ctx.user.tenant_id}`
           },
           tenant_id: ctx.user.tenant_id || 'public-tenant',
         };

@@ -234,7 +234,7 @@ export async function searchSimilarVectors(
     await logger.info(`Starting vector search`, {
       topK: searchOptions.topK,
       hasFilter: !!options.filter,
-      namespace: `${pineconeConfig.namespace}-${tenantId}`,
+      namespace: `${pineconeConfig.namespace}`,
     });
 
     // Perform the search
