@@ -131,10 +131,10 @@ export const chatRouter = createTRPCRouter({
         }
 
         // Step 8: Add source citation if context was used
-        if (retrievedDocs.length > 0 && assistantContent) {
-          assistantContent += '\n\n---\n**Sources:**\n' + 
-            retrievedDocs.map(doc => `• ${doc.title} (${Math.round(doc.similarity * 100)}% relevance)`).join('\n');
-        }
+        // if (retrievedDocs.length > 0 && assistantContent) {
+        //   assistantContent += '\n\n---\n**Sources:**\n' + 
+        //     retrievedDocs.map(doc => `• ${doc.title} (${Math.round(doc.similarity * 100)}% relevance)`).join('\n');
+        // }
 
         return {
           content: assistantContent,
