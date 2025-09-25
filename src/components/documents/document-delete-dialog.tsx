@@ -124,13 +124,6 @@ export function DocumentDeleteDialog({
               </div>
             )}
           </div>
-
-          {/* Confirmation Text */}
-          <div className="text-sm text-muted-foreground">
-            <p>
-              Type <strong>DELETE</strong> in the input below to confirm deletion:
-            </p>
-          </div>
         </div>
 
         <DialogFooter>
