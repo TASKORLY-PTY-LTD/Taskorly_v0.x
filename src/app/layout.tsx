@@ -32,9 +32,9 @@ export default function RootLayout({
       <body className={inter.className}>
         <TRPCProvider>
           <AuthProvider>
-            <DevModeProvider>
+            {/* <DevModeProvider> */}
               <MainLayout>{children}</MainLayout>
-            </DevModeProvider>
+            {/* </DevModeProvider> */}
           </AuthProvider>
         </TRPCProvider>
       </body>
