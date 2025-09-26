@@ -1,6 +1,5 @@
 'use client';
 
-
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { trpc } from '@/utils/trpc';
 import { POS_SYSTEM_PROMPT } from '../page';
+import CustomerChatBubble from '@/components/customer/customer-chat-bubble';
 
 import {
   Send,
@@ -28,8 +28,8 @@ import {
   Zap,
   Sparkles,
   Shield,
+  X,
 } from 'lucide-react';
-import CustomerChatBubble from '@/components/customer/customer-chat-bubble';
 
 // Updated Message interface to match CustomerChatBubble requirements
 interface Message {
@@ -65,17 +65,17 @@ interface Suggestion {
 
 const FEATURES = [
   {
-    icon: <MessageSquare className="w-4 h-4" />,
+    icon: <MessageSquare className='w-4 h-4' />,
     title: 'Smart Help',
     description: 'Get instant answers about your POS system',
   },
   {
-    icon: <Zap className="w-4 h-4" />,
+    icon: <Zap className='w-4 h-4' />,
     title: 'Quick Actions',
     description: 'Process refunds, add products, and more',
   },
   {
-    icon: <FileText className="w-4 h-4" />,
+    icon: <FileText className='w-4 h-4' />,
     title: 'Documentation',
     description: 'Access guides and troubleshooting tips',
   },
@@ -150,7 +150,7 @@ export default function CustomerChatPage() {
   // Generate contextual suggestions based on response
   const generateSuggestions = (content: string): string[] => {
     const suggestions = [];
-    
+
     if (content.toLowerCase().includes('refund')) {
       suggestions.push('Show me refund policies', 'Process another refund');
     }
@@ -160,7 +160,7 @@ export default function CustomerChatPage() {
     if (content.toLowerCase().includes('payment')) {
       suggestions.push('Test payment terminal', 'Check connection');
     }
-    
+
     return suggestions.slice(0, 3);
   };
 
@@ -213,12 +213,13 @@ export default function CustomerChatPage() {
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Failed to send message:', error);
-      
+
       // Add error message
       const errorMessage: Message = {
         id: `error-${Date.now()}`,
         role: 'assistant',
-        content: 'Sorry, I encountered an error processing your message. Please try again.',
+        content:
+          'Sorry, I encountered an error processing your message. Please try again.',
         timestamp: new Date(),
         error: true, // Boolean flag for error state
       };
@@ -233,7 +234,6 @@ export default function CustomerChatPage() {
     const text = typeof suggestion === 'string' ? suggestion : suggestion.text;
     handleSendMessage(text);
   };
-
 
   const captureScreen = () => {
     setScreenContext(prev => ({
@@ -257,24 +257,26 @@ export default function CustomerChatPage() {
         <div className='absolute -bottom-40 -left-40 w-80 h-80 bg-teal-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000'></div>
       </div>
 
-      <div className='relative z-10 min-h-screen flex flex-col'>
+      <div className='relative z-10 h-screen flex flex-col'>
         {/* Header */}
         <header className='flex items-center justify-between p-6'>
           <div className='flex items-center space-x-4'>
             <div className='w-10 h-10 rounded-xl flex items-center justify-center'>
               <Image
                 src='/logo.png'
-
                 alt='AI Assistant'
                 width={40}
                 height={40}
-                className='rounded-lg' />
+                className='rounded-lg'
+              />
             </div>
             <div>
               <h1 className='text-xl font-bold bg-gradient-to-r from-blue-400 to-teal-400 bg-clip-text text-transparent'>
                 AI POS Assistant
               </h1>
-              <p className='text-sm text-slate-400'>Smart help for your business</p>
+              <p className='text-sm text-slate-400'>
+                Smart help for your business
+              </p>
             </div>
           </div>
 
@@ -290,19 +292,22 @@ export default function CustomerChatPage() {
               </Badge>
             )} */}
             {isLoading && (
-              <Badge variant="outline" className="border-blue-400 text-blue-400">
-                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+              <Badge
+                variant='outline'
+                className='border-blue-400 text-blue-400'
+              >
+                <Loader2 className='w-3 h-3 mr-1 animate-spin' />
                 Thinking...
               </Badge>
             )}
 
-            <Button
+            {/* <Button
               variant='outline'
               className='border-teal-400 text-teal-400 bg-blue-800/50'
             >
               <Camera className='w-4 h-4 mr-2' />
               Capture Screen
-            </Button>
+            </Button> */}
 
             <Button
               variant='outline'
@@ -327,14 +332,18 @@ export default function CustomerChatPage() {
                   Welcome to your AI POS Assistant
                 </h2>
                 <p className='text-slate-300'>
-                  Get instant help with your POS system, from processing refunds to adding products
+                  Get instant help with your POS system, from processing refunds
+                  to adding products
                 </p>
               </div>
 
               {/* Features */}
               <div className='grid md:grid-cols-3 gap-4 mb-6'>
                 {FEATURES.map((feature, index) => (
-                  <div key={index} className='bg-white/5 rounded-xl p-4 text-center'>
+                  <div
+                    key={index}
+                    className='bg-white/5 rounded-xl p-4 text-center'
+                  >
                     <div className='w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center mx-auto mb-3'>
                       <div className='text-teal-300'>{feature.icon}</div>
                     </div>
@@ -371,16 +380,15 @@ export default function CustomerChatPage() {
         )}
 
         {/* Main chat area */}
-        <div className='flex-1 flex'>
+        <div className='flex-1 flex flex-col bg-gradient-to-br from-blue-900 via-slate-800 to-teal-900'>
           {/* Chat messages */}
           <div className='flex-1 flex flex-col'>
-            <ScrollArea className='flex-1 px-6 py-4'>
-              <div className='space-y-6 max-w-4xl mx-auto'>
-                {messages.length === 0 && !isWelcomeVisible ? (
-                  <div className='flex flex-col items-center justify-center h-64 text-center'>
+            <div className='px-6 py-2 overflow-y-auto'>
+              <div className='space-y-3 max-w-4xl mx-auto'>
+                {messages.length === 0 ? (
+                  <div className='flex flex-col items-center justify-center text-center py-20'>
                     <div className='w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mb-4'>
                       <Sparkles className='w-8 h-8 text-teal-300' />
-
                     </div>
                     <h3 className='text-lg font-semibold text-white mb-2'>
                       Ready to help with your POS system
@@ -396,10 +404,13 @@ export default function CustomerChatPage() {
                       message={message}
                       isStreaming={message.isStreaming || false}
                       useCustomLogo={true}
-                      logoSrc="/logo.png"
-                      logoAlt="Taskorly Logo"
-                      variant="fullscreen"
-                      onSuggestionClick={(suggestion) => handleSendMessage(suggestion)} />
+                      logoSrc='/logo.png'
+                      logoAlt='Taskorly Logo'
+                      variant='fullscreen'
+                      onSuggestionClick={suggestion =>
+                        handleSendMessage(suggestion)
+                      }
+                    />
                   ))
                 )}
                 {/* Loading with CustomerChatBubble */}
@@ -410,16 +421,17 @@ export default function CustomerChatPage() {
                       role: 'assistant',
                       content: '',
                       timestamp: new Date(),
-                      isStreaming: true
+                      isStreaming: true,
                     }}
                     isStreaming={true}
                     useCustomLogo={true}
-                    logoSrc="/logo.png"
-                    logoAlt="Taskorly Logo"
-                    variant="fullscreen" />
+                    logoSrc='/logo.png'
+                    logoAlt='Taskorly Logo'
+                    variant='fullscreen'
+                  />
                 )}
               </div>
-            </ScrollArea>
+            </div>
 
             {/* Input area */}
             <div className='p-6'>
@@ -460,7 +472,8 @@ export default function CustomerChatPage() {
                       }}
                       placeholder='Ask me anything about your POS system...'
                       className='flex-1 bg-transparent text-white placeholder-slate-400 focus:outline-none text-sm'
-                      disabled={isLoading} />
+                      disabled={isLoading}
+                    />
 
                     <Button
                       variant='ghost'
@@ -496,14 +509,26 @@ export default function CustomerChatPage() {
             </div>
           </div>
 
-          {/* Context sidebar - MOVED INSIDE the flex container */}
+          {/* Context sidebar - positioned in top right */}
           {showSidebar && (
-            <div className='w-80 p-4'>
+            <div className='fixed top-20 right-6 w-80 z-50'>
               <Card className='border-0 bg-white/10 backdrop-blur-sm'>
                 <div className='p-4'>
-                  <div className='flex items-center space-x-2 mb-4'>
-                    <Monitor className='w-5 h-5 text-blue-400' />
-                    <h3 className='font-semibold text-white'>Screen Context</h3>
+                  <div className='flex items-center justify-between mb-4'>
+                    <div className='flex items-center space-x-2'>
+                      <Monitor className='w-5 h-5 text-blue-400' />
+                      <h3 className='font-semibold text-white'>
+                        Screen Context
+                      </h3>
+                    </div>
+                    <Button
+                      variant='ghost'
+                      size='sm'
+                      onClick={() => setShowSidebar(false)}
+                      className='text-slate-400 hover:text-white p-1'
+                    >
+                      <X className='w-4 h-4' />
+                    </Button>
                   </div>
 
                   <div className='space-y-3 text-sm'>
@@ -562,7 +587,9 @@ export default function CustomerChatPage() {
                       <Button
                         variant='outline'
                         size='sm'
-                        onClick={() => handleSendMessage('How do I process a refund?')}
+                        onClick={() =>
+                          handleSendMessage('How do I process a refund?')
+                        }
                         className='w-full justify-start border-slate-600 hover:bg-slate-700/50 text-slate-300'
                       >
                         <Zap className='w-4 h-4 mr-2' />
@@ -571,7 +598,9 @@ export default function CustomerChatPage() {
                       <Button
                         variant='outline'
                         size='sm'
-                        onClick={() => handleSendMessage('How do I add a new product?')}
+                        onClick={() =>
+                          handleSendMessage('How do I add a new product?')
+                        }
                         className='w-full justify-start border-slate-600 hover:bg-slate-700/50 text-slate-300'
                       >
                         <Sparkles className='w-4 h-4 mr-2' />
@@ -580,7 +609,11 @@ export default function CustomerChatPage() {
                       <Button
                         variant='outline'
                         size='sm'
-                        onClick={() => handleSendMessage('My payment terminal is not working')}
+                        onClick={() =>
+                          handleSendMessage(
+                            'My payment terminal is not working'
+                          )
+                        }
                         className='w-full justify-start border-slate-600 hover:bg-slate-700/50 text-slate-300'
                       >
                         <Shield className='w-4 h-4 mr-2' />
@@ -593,7 +626,8 @@ export default function CustomerChatPage() {
             </div>
           )}
         </div>
-    </div><style jsx>{`
+      </div>
+      <style jsx>{`
         @keyframes blob {
           0% {
             transform: translate(0px, 0px) scale(1);
@@ -617,4 +651,7 @@ export default function CustomerChatPage() {
         .animation-delay-4000 {
           animation-delay: 4s;
         }
-      `}</style></div>)};
+      `}</style>
+    </div>
+  );
+}
