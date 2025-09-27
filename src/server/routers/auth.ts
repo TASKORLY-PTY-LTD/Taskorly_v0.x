@@ -255,9 +255,9 @@ export const authRouter = createTRPCRouter({
           )
           .eq('id', authData.user.id)
           .single();
-        
+
         if (dbError) {
-          console.error("DB Error:", dbError)
+          console.error('DB Error:', dbError);
           throw new TRPCError({
             code: 'NOT_FOUND',
             message: 'There has been a db Error!',
@@ -270,11 +270,6 @@ export const authRouter = createTRPCRouter({
             message: 'User profile not found',
           });
         }
-        
-        
-        
-
-        
 
         // Get user permissions
         // TODO: Re-enable after database migration

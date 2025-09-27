@@ -4,26 +4,30 @@ import { documentsRouter } from '../../routers/documents';
 
 // Mock the Gemini chunker
 vi.mock('@/lib/gemini-chunker', () => ({
-  chunkDocumentWithGemini: vi.fn().mockImplementation(async (content, documentId, title, contentType, options) => {
-    // Mock chunking - split content into chunks of maxChunkSize
-    const maxChunkSize = options.maxChunkSize || 1000;
-    const chunks = [];
-    
-    for (let i = 0; i < content.length; i += maxChunkSize) {
-      chunks.push({
-        content: content.slice(i, i + maxChunkSize),
-        chunkIndex: chunks.length,
-        metadata: {
-          document_id: documentId,
-          title,
-          content_type: contentType,
-          chunk_size: Math.min(maxChunkSize, content.length - i),
-        },
-      });
-    }
-    
-    return chunks;
-  }),
+  chunkDocumentWithGemini: vi
+    .fn()
+    .mockImplementation(
+      async (content, documentId, title, contentType, options) => {
+        // Mock chunking - split content into chunks of maxChunkSize
+        const maxChunkSize = options.maxChunkSize || 1000;
+        const chunks = [];
+
+        for (let i = 0; i < content.length; i += maxChunkSize) {
+          chunks.push({
+            content: content.slice(i, i + maxChunkSize),
+            chunkIndex: chunks.length,
+            metadata: {
+              document_id: documentId,
+              title,
+              content_type: contentType,
+              chunk_size: Math.min(maxChunkSize, content.length - i),
+            },
+          });
+        }
+
+        return chunks;
+      }
+    ),
 }));
 
 // Mock environment validation
@@ -179,10 +183,12 @@ describe('Documents Router', () => {
 
       // Verify that document was inserted
       expect(mockContext.supabaseAdmin.from).toHaveBeenCalledWith('documents');
-      
+
       // Verify that chunks were inserted
-      expect(mockContext.supabaseAdmin.from).toHaveBeenCalledWith('document_chunks');
-      
+      expect(mockContext.supabaseAdmin.from).toHaveBeenCalledWith(
+        'document_chunks'
+      );
+
       // Verify that document was updated with chunk count
       expect(mockContext.supabaseAdmin.from).toHaveBeenCalledWith('documents');
     });
@@ -213,7 +219,9 @@ describe('Documents Router', () => {
     it('should handle chunking errors gracefully', async () => {
       // Mock successful document creation but failed chunking
       const { chunkDocumentWithGemini } = await import('@/lib/gemini-chunker');
-      vi.mocked(chunkDocumentWithGemini).mockRejectedValueOnce(new Error('Chunking failed'));
+      vi.mocked(chunkDocumentWithGemini).mockRejectedValueOnce(
+        new Error('Chunking failed')
+      );
 
       const caller = documentsRouter.createCaller(mockContext);
 
@@ -356,7 +364,9 @@ describe('Documents Router', () => {
         // Chunk operations
         return {
           insert: vi.fn(() => ({ data: null, error: null })),
-          update: vi.fn(() => ({ eq: vi.fn(() => ({ data: null, error: null })) })),
+          update: vi.fn(() => ({
+            eq: vi.fn(() => ({ data: null, error: null })),
+          })),
         };
       });
 
@@ -395,9 +405,7 @@ describe('Documents Router', () => {
         content: `Content ${i + 1}`,
       }));
 
-      await expect(
-        caller.bulkUpload({ documents })
-      ).rejects.toThrow();
+      await expect(caller.bulkUpload({ documents })).rejects.toThrow();
     });
   });
 
@@ -468,9 +476,9 @@ describe('Documents Router', () => {
 
       const caller = documentsRouter.createCaller(mockContext);
 
-      await expect(
-        caller.list({})
-      ).rejects.toThrow('Failed to fetch documents');
+      await expect(caller.list({})).rejects.toThrow(
+        'Failed to fetch documents'
+      );
     });
   });
 
@@ -588,8 +596,10 @@ describe('Documents Router', () => {
       });
 
       // Verify that existing chunks were deleted
-      expect(mockContext.supabaseAdmin.from).toHaveBeenCalledWith('document_chunks');
-      
+      expect(mockContext.supabaseAdmin.from).toHaveBeenCalledWith(
+        'document_chunks'
+      );
+
       // Verify that document was updated
       expect(mockContext.supabaseAdmin.from).toHaveBeenCalledWith('documents');
     });

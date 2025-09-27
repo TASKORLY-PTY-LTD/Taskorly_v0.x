@@ -1,6 +1,7 @@
 # Taskorly - Multi-Tenant RAG Chat System
 
-A production-ready multi-tenant RAG (Retrieval Augmented Generation) chat system built with Next.js 15, featuring document processing, vector search, and MCP integrations.
+A production-ready multi-tenant RAG (Retrieval Augmented Generation) chat system built with Next.js
+15, featuring document processing, vector search, and MCP integrations.
 
 ## Features
 
@@ -25,21 +26,24 @@ A production-ready multi-tenant RAG (Retrieval Augmented Generation) chat system
 ### Setup Sequence
 
 1. **Clone and install dependencies**:
+
    ```bash
    npm install
    ```
 
 2. **Configure environment**:
+
    ```bash
    cp .env.example .env.local
    # Edit .env.local with your Supabase credentials
    ```
 
 3. **Set up database**:
+
    ```bash
    # Option A: Run the provided SQL setup
    # Copy setup-database.sql contents into Supabase SQL Editor and run
-   
+
    # Option B: Use Supabase CLI (if available)
    supabase db reset
    ```
@@ -49,7 +53,8 @@ A production-ready multi-tenant RAG (Retrieval Augmented Generation) chat system
    npm run dev
    ```
 
-> **For non-technical users**: See [SETUP_GUIDE.md](./SETUP_GUIDE.md) for detailed step-by-step instructions.
+> **For non-technical users**: See [SETUP_GUIDE.md](./SETUP_GUIDE.md) for detailed step-by-step
+> instructions.
 
 ### Required Environment Variables
 
@@ -83,7 +88,7 @@ GOOGLE_API_KEY=...
 
 - **Chat Router**: Message processing, conversation management, RAG context
 - **Documents Router**: Upload, processing, semantic search, chunking
-- **MCP Router**: Tool execution, server management, health monitoring  
+- **MCP Router**: Tool execution, server management, health monitoring
 - **Config Router**: Tenant settings, API key management, usage analytics
 
 ## Development Commands
@@ -109,36 +114,44 @@ npm run validate          # Full validation pipeline
 ## Troubleshooting
 
 ### PGRST106 Schema Error
+
 **Root Cause**: Database tables don't exist  
 **Solution**: Run `setup-database.sql` in Supabase SQL Editor
 
-### "Failed to create tenant" 
+### "Failed to create tenant"
+
 **Root Cause**: RLS policy blocking admin operations  
 **Solution**: Ensure service role permissions and RLS policies are correct
 
 ### tRPC Context Errors
+
 **Root Cause**: Provider hierarchy issues  
 **Solution**: Verify TRPCProvider wraps AuthProvider in `app/layout.tsx`
 
 ## Database Schema
 
 ### Multi-Tenant Tables
+
 - `tenants` - Workspace isolation
-- `users` - User management with tenant association  
+- `users` - User management with tenant association
 - `tenant_configurations` - LLM/RAG settings per tenant
 
 ### RAG Components
+
 - `documents` - Document metadata and content
 - `document_chunks` - Vector embeddings for semantic search
 - `conversations` + `messages` - Chat history
 
 ### Security & Monitoring
+
 - `api_keys` - Encrypted API key storage
 - `usage_logs` - Token consumption and cost tracking
 - `mcp_servers` - Model Context Protocol configurations
 
 ### Row Level Security
+
 All tables implement RLS policies for tenant isolation:
+
 - Users access only their tenant's data
 - Service role bypasses RLS for admin operations
 - Authenticated users verified through JWT claims
@@ -146,7 +159,7 @@ All tables implement RLS policies for tenant isolation:
 ## Security Features
 
 - **API Key Encryption**: AES-256-GCM for sensitive data
-- **Database Security**: RLS policies + JWT verification  
+- **Database Security**: RLS policies + JWT verification
 - **Request Validation**: Zod schemas on all inputs
 - **Type Safety**: End-to-end TypeScript with strict mode
 - **Environment Validation**: T3 Env for runtime checks

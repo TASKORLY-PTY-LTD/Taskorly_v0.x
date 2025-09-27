@@ -16,7 +16,7 @@ import { Upload, FileText, Database } from 'lucide-react';
 export default function DocumentsPage() {
   const { data: documents = [] } = trpc.documents.list.useQuery({
     limit: 50,
-    offset: 0
+    offset: 0,
   });
 
   const totalDocuments = documents.length;

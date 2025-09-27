@@ -5,8 +5,9 @@ Use this checklist to ensure safe and successful production deployments.
 ## Pre-Deployment Checklist
 
 ### Code Quality & Testing ✅
+
 - [ ] All unit tests passing (`npm run test`)
-- [ ] All E2E tests passing (`npm run test:e2e`)  
+- [ ] All E2E tests passing (`npm run test:e2e`)
 - [ ] TypeScript compilation successful (`npm run type-check`)
 - [ ] Linting passes with zero warnings (`npm run lint:strict`)
 - [ ] Code formatting validated (`npm run format:check`)
@@ -14,14 +15,16 @@ Use this checklist to ensure safe and successful production deployments.
 - [ ] No hardcoded secrets in codebase
 
 ### Database & Migrations 🗄️
+
 - [ ] Database migrations tested on staging environment
 - [ ] Migration scripts wrapped in transactions (BEGIN/COMMIT)
-- [ ] Rollback procedures documented and tested  
+- [ ] Rollback procedures documented and tested
 - [ ] No destructive operations without approval (DROP TABLE, ALTER COLUMN)
 - [ ] Database backup completed before deployment
 - [ ] RLS policies verified for new tables
 
 ### Environment Configuration 🔧
+
 - [ ] Production environment variables configured in Vercel
 - [ ] Supabase production project set up and configured
 - [ ] SSL certificates and custom domain configured
@@ -30,6 +33,7 @@ Use this checklist to ensure safe and successful production deployments.
 - [ ] Feature flags configured for gradual rollout
 
 ### Monitoring & Observability 📊
+
 - [ ] Health check endpoint responding (`/api/health`)
 - [ ] Error monitoring configured (Sentry/similar)
 - [ ] Performance monitoring enabled
@@ -37,6 +41,7 @@ Use this checklist to ensure safe and successful production deployments.
 - [ ] Alerting configured for critical metrics
 
 ### Security Review 🛡️
+
 - [ ] No API keys or secrets in source code
 - [ ] Environment variables properly secured
 - [ ] Authentication flows tested end-to-end
@@ -47,18 +52,21 @@ Use this checklist to ensure safe and successful production deployments.
 ## Deployment Process ⚡
 
 ### Pre-Deployment Actions
+
 - [ ] **Notify team** of upcoming deployment
 - [ ] **Create deployment branch** from main if needed
 - [ ] **Run final tests** on deployment branch
 - [ ] **Backup current production** database
 
 ### During Deployment
+
 - [ ] **Monitor CI/CD pipeline** for any failures
 - [ ] **Watch health checks** during deployment
 - [ ] **Monitor error rates** for immediate issues
 - [ ] **Verify database migrations** completed successfully
 
 ### Post-Deployment Validation
+
 - [ ] **Health check passes** (`curl -f https://your-domain.com/api/health`)
 - [ ] **Key user flows work**:
   - [ ] User registration and login
@@ -72,18 +80,21 @@ Use this checklist to ensure safe and successful production deployments.
 ## Post-Deployment Monitoring ⏰
 
 ### First 15 Minutes
+
 - [ ] Monitor health check endpoint every minute
 - [ ] Check error logs for new issues
 - [ ] Verify core functionality through manual testing
 - [ ] Monitor response times and availability
 
 ### First Hour
+
 - [ ] Check application performance metrics
 - [ ] Monitor database performance and connections
 - [ ] Review user activity and error reports
 - [ ] Validate all integrations working (AI providers, etc.)
 
-### First 24 Hours  
+### First 24 Hours
+
 - [ ] Monitor user feedback and support requests
 - [ ] Review comprehensive performance metrics
 - [ ] Analyze error patterns and trends
@@ -92,6 +103,7 @@ Use this checklist to ensure safe and successful production deployments.
 ## Rollback Procedures 🔄
 
 ### Immediate Rollback Triggers
+
 - [ ] Health check failures persisting > 2 minutes
 - [ ] Error rate increase > 10x baseline
 - [ ] Critical functionality completely broken
@@ -99,6 +111,7 @@ Use this checklist to ensure safe and successful production deployments.
 - [ ] Database corruption detected
 
 ### Rollback Steps
+
 1. **Stop traffic** to new deployment if possible
 2. **Revert application** to previous stable version:
    ```bash
@@ -115,11 +128,13 @@ Use this checklist to ensure safe and successful production deployments.
 ## Emergency Contacts 🆘
 
 ### Technical Contacts
+
 - **Primary Developer**: [contact info]
-- **DevOps Engineer**: [contact info]  
+- **DevOps Engineer**: [contact info]
 - **Database Administrator**: [contact info]
 
 ### Service Providers
+
 - **Vercel Support**: vercel.com/support
 - **Supabase Support**: supabase.com/support
 - **Domain/DNS Provider**: [provider support]
@@ -127,6 +142,7 @@ Use this checklist to ensure safe and successful production deployments.
 ## Post-Deployment Review 📋
 
 ### Success Metrics
+
 - [ ] Deployment completed within target time window
 - [ ] Zero critical issues in first 24 hours
 - [ ] Performance metrics maintained or improved
@@ -134,12 +150,14 @@ Use this checklist to ensure safe and successful production deployments.
 - [ ] All planned features working as expected
 
 ### Documentation Updates
+
 - [ ] Update CHANGELOG.md with new features/fixes
 - [ ] Update API documentation if needed
 - [ ] Document any configuration changes
 - [ ] Update deployment procedures based on learnings
 
 ### Team Communication
+
 - [ ] Send deployment success notification
 - [ ] Schedule post-mortem if any issues occurred
 - [ ] Update project status in team channels
@@ -176,6 +194,7 @@ vercel logs https://your-domain.com
 ## Environment Variables Checklist
 
 ### Required for Production
+
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://your-prod-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
@@ -187,6 +206,7 @@ NODE_ENV=production
 ```
 
 ### Optional (AI Providers)
+
 ```bash
 OPENAI_API_KEY=sk-...
 ANTHROPIC_API_KEY=...
@@ -195,4 +215,5 @@ GOOGLE_API_KEY=...
 
 ---
 
-**Remember**: When in doubt, don't deploy. It's better to delay deployment than to cause production issues. Always have a rollback plan ready.
+**Remember**: When in doubt, don't deploy. It's better to delay deployment than to cause production
+issues. Always have a rollback plan ready.

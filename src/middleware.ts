@@ -7,7 +7,10 @@ export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
 
   // In dev mode, disable auth middleware to avoid Supabase requirement
-  if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'production') {
+  if (
+    process.env.NODE_ENV === 'development' ||
+    process.env.NODE_ENV === 'production'
+  ) {
     // Add security headers but skip auth
     return NextResponse.next({
       headers: {

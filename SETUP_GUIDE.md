@@ -1,6 +1,8 @@
 # Non-Technical Setup Guide
 
-**Taskorly** is an intelligent chat system that lets you upload documents and have conversations with AI about your content. Perfect for businesses, researchers, or anyone who needs to quickly find information in their documents.
+**Taskorly** is an intelligent chat system that lets you upload documents and have conversations
+with AI about your content. Perfect for businesses, researchers, or anyone who needs to quickly find
+information in their documents.
 
 ## What Does This System Do?
 
@@ -18,11 +20,13 @@
 Supabase is like a smart database that stores your information securely in the cloud.
 
 #### 1.1 Create a Free Supabase Account
+
 1. Go to [supabase.com](https://supabase.com) and click "Start your project"
 2. Sign up with your email address
 3. Verify your email when prompted
 
 #### 1.2 Create a New Project
+
 1. Click "New Project" in your Supabase dashboard
 2. Choose your organization (or create one)
 3. Fill in project details:
@@ -32,6 +36,7 @@ Supabase is like a smart database that stores your information securely in the c
 4. Click "Create new project" and wait 2-3 minutes for setup
 
 #### 1.3 Set Up Your Database Tables
+
 1. In your Supabase project, click "SQL Editor" on the left sidebar
 2. Click "New Query"
 3. Copy the entire contents of the file `setup-database.sql` (in this project folder)
@@ -39,6 +44,7 @@ Supabase is like a smart database that stores your information securely in the c
 5. Click "Run" button (this creates all the tables your app needs)
 
 #### 1.4 Get Your Database Keys
+
 1. Click "Settings" → "API" in the left sidebar
 2. **Copy and save these two keys** (you'll need them in Step 2):
    - **Project URL**: Something like `https://abcdefgh.supabase.co`
@@ -50,12 +56,15 @@ Supabase is like a smart database that stores your information securely in the c
 ### Step 2: Set Up Your Environment
 
 #### 2.1 Install Node.js
+
 If you don't have Node.js installed:
+
 1. Go to [nodejs.org](https://nodejs.org)
 2. Download the LTS version (recommended for most users)
 3. Install it by following the installer instructions
 
 #### 2.2 Download and Set Up the Project
+
 1. Download this project folder to your computer
 2. Open your computer's terminal/command prompt
 3. Navigate to the project folder:
@@ -68,6 +77,7 @@ If you don't have Node.js installed:
    ```
 
 #### 2.3 Configure Your Environment
+
 1. Find the file named `.env.example` in the project folder
 2. Make a copy of it and rename the copy to `.env.local`
 3. Open `.env.local` in any text editor and fill in these values:
@@ -92,6 +102,7 @@ GOOGLE_API_KEY=your-google-ai-key-here
 ```
 
 **Important Notes:**
+
 - The `ENCRYPTION_KEY` must be exactly 32 characters long
 - Keep all keys starting with `sk-` or long strings secret
 - You can get AI provider keys from:
@@ -123,35 +134,40 @@ GOOGLE_API_KEY=your-google-ai-key-here
 ## Troubleshooting Common Issues
 
 ### "Failed to create tenant" Error
-**Problem**: Database tables weren't created properly
-**Solution**: 
+
+**Problem**: Database tables weren't created properly **Solution**:
+
 1. Go back to Supabase → SQL Editor
 2. Run the `setup-database.sql` file again
 3. Try creating your account again
 
 ### "PGRST106" or Schema Errors
-**Problem**: Your database is empty
-**Solution**:
+
+**Problem**: Your database is empty **Solution**:
+
 1. In Supabase, go to SQL Editor
 2. Copy and run the entire `setup-database.sql` file
 3. Restart your development server (`npm run dev`)
 
 ### "tRPC Context" Errors
-**Problem**: The app started in the wrong order
-**Solution**: 
+
+**Problem**: The app started in the wrong order **Solution**:
+
 1. Stop the server (Ctrl+C in terminal)
 2. Run `npm run dev` again
 
 ### Page Won't Load
-**Problem**: Port might be in use
-**Solution**:
+
+**Problem**: Port might be in use **Solution**:
+
 1. Stop the server (Ctrl+C)
 2. Try: `npm run dev -- --port 3001`
 3. Open `http://localhost:3001` instead
 
 ### Can't Install Packages
-**Problem**: Node.js or npm issues
-**Solution**:
+
+**Problem**: Node.js or npm issues **Solution**:
+
 1. Make sure Node.js is installed: `node --version`
 2. Try: `npm install --legacy-peer-deps`
 3. Or try: `npm cache clean --force` then `npm install`
@@ -159,6 +175,7 @@ GOOGLE_API_KEY=your-google-ai-key-here
 ## Using the System
 
 ### Adding Documents
+
 1. Go to the "Documents" page
 2. Click "Upload Document"
 3. Select your files (PDF, Word, text files, etc.)
@@ -166,12 +183,14 @@ GOOGLE_API_KEY=your-google-ai-key-here
 5. Your documents are now searchable!
 
 ### Chatting with Your Documents
+
 1. Go to the "Chat" page
 2. Type questions about your uploaded documents
 3. The AI will search through your documents and provide answers
 4. You can see which documents were used for each answer
 
 ### Managing Your Team
+
 1. Go to "Settings" → "Users"
 2. Click "Invite User"
 3. Enter their email and role
@@ -187,6 +206,7 @@ GOOGLE_API_KEY=your-google-ai-key-here
 ## Need Help?
 
 If you run into issues:
+
 1. Check the troubleshooting section above
 2. Look at the browser console for error messages (F12 → Console)
 3. Check the terminal where you ran `npm run dev` for server errors

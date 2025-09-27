@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Production Database Migration Script
- * 
+ *
  * Handles zero-downtime database migrations for production deployments.
  * Includes rollback capabilities and safety checks.
  */
@@ -33,16 +33,19 @@ const supabase = createClient(config.supabaseUrl, config.supabaseKey);
  * Migration tracking table setup
  */
 async function ensureMigrationsTable() {
-  const { error } = await supabase.rpc('create_migrations_table_if_not_exists', {
-    sql: `
+  const { error } = await supabase.rpc(
+    'create_migrations_table_if_not_exists',
+    {
+      sql: `
       CREATE TABLE IF NOT EXISTS _migrations (
         id SERIAL PRIMARY KEY,
         filename VARCHAR(255) NOT NULL UNIQUE,
         applied_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         checksum VARCHAR(64) NOT NULL
       );
-    `
-  });
+    `,
+    }
+  );
 
   if (error) {
     console.error('❌ Failed to create migrations table:', error);
@@ -67,7 +70,8 @@ async function getPendingMigrations() {
     return [];
   }
 
-  const migrationFiles = fs.readdirSync(config.migrationsDir)
+  const migrationFiles = fs
+    .readdirSync(config.migrationsDir)
     .filter(file => file.endsWith('.sql'))
     .sort();
 
@@ -87,15 +91,18 @@ async function getPendingMigrations() {
   }
 
   const appliedSet = new Set(appliedMigrations?.map(m => m.filename) || []);
-  
+
   const pendingMigrations = migrationFiles
     .filter(file => !appliedSet.has(file))
     .map(file => {
-      const content = fs.readFileSync(path.join(config.migrationsDir, file), 'utf8');
+      const content = fs.readFileSync(
+        path.join(config.migrationsDir, file),
+        'utf8'
+      );
       return {
         filename: file,
         content,
-        checksum: calculateChecksum(content)
+        checksum: calculateChecksum(content),
       };
     });
 
@@ -106,25 +113,18 @@ async function getPendingMigrations() {
  * Validate migration content for production safety
  */
 function validateMigration(migration) {
-  const dangerous = [
-    'DROP TABLE',
-    'DROP COLUMN',
-    'ALTER COLUMN',
-    'DROP INDEX'
-  ];
+  const dangerous = ['DROP TABLE', 'DROP COLUMN', 'ALTER COLUMN', 'DROP INDEX'];
 
-  const warnings = [
-    'CREATE INDEX',
-    'ALTER TABLE',
-    'UPDATE'
-  ];
+  const warnings = ['CREATE INDEX', 'ALTER TABLE', 'UPDATE'];
 
   const content = migration.content.toUpperCase();
-  
+
   // Check for dangerous operations
   for (const operation of dangerous) {
     if (content.includes(operation)) {
-      console.warn(`⚠️ Migration ${migration.filename} contains potentially dangerous operation: ${operation}`);
+      console.warn(
+        `⚠️ Migration ${migration.filename} contains potentially dangerous operation: ${operation}`
+      );
       // In strict mode, we would throw here
       // throw new Error(`Dangerous operation detected: ${operation}`);
     }
@@ -133,13 +133,17 @@ function validateMigration(migration) {
   // Check for operations that need attention
   for (const operation of warnings) {
     if (content.includes(operation)) {
-      console.log(`ℹ️ Migration ${migration.filename} contains operation requiring attention: ${operation}`);
+      console.log(
+        `ℹ️ Migration ${migration.filename} contains operation requiring attention: ${operation}`
+      );
     }
   }
 
   // Ensure transaction wrapping
   if (!content.includes('BEGIN') || !content.includes('COMMIT')) {
-    console.warn(`⚠️ Migration ${migration.filename} should be wrapped in a transaction`);
+    console.warn(
+      `⚠️ Migration ${migration.filename} should be wrapped in a transaction`
+    );
   }
 
   return true;
@@ -150,13 +154,13 @@ function validateMigration(migration) {
  */
 async function applyMigration(migration) {
   console.log(`🔄 Applying migration: ${migration.filename}`);
-  
+
   let retries = 0;
   while (retries < config.maxRetries) {
     try {
       // Execute the migration
       const { error: migrationError } = await supabase.rpc('exec_sql', {
-        sql: migration.content
+        sql: migration.content,
       });
 
       if (migrationError) {
@@ -164,12 +168,10 @@ async function applyMigration(migration) {
       }
 
       // Record the migration as applied
-      const { error: recordError } = await supabase
-        .from('_migrations')
-        .insert({
-          filename: migration.filename,
-          checksum: migration.checksum
-        });
+      const { error: recordError } = await supabase.from('_migrations').insert({
+        filename: migration.filename,
+        checksum: migration.checksum,
+      });
 
       if (recordError) {
         throw recordError;
@@ -177,16 +179,20 @@ async function applyMigration(migration) {
 
       console.log(`✅ Successfully applied migration: ${migration.filename}`);
       return true;
-
     } catch (error) {
       retries++;
-      console.error(`❌ Migration failed (attempt ${retries}/${config.maxRetries}):`, error.message);
-      
+      console.error(
+        `❌ Migration failed (attempt ${retries}/${config.maxRetries}):`,
+        error.message
+      );
+
       if (retries < config.maxRetries) {
         console.log(`⏳ Retrying in ${config.retryDelay / 1000} seconds...`);
         await new Promise(resolve => setTimeout(resolve, config.retryDelay));
       } else {
-        console.error(`💥 Migration ${migration.filename} failed after ${config.maxRetries} attempts`);
+        console.error(
+          `💥 Migration ${migration.filename} failed after ${config.maxRetries} attempts`
+        );
         throw error;
       }
     }
@@ -198,7 +204,7 @@ async function applyMigration(migration) {
  */
 async function performHealthCheck() {
   console.log('🏥 Performing pre-migration health check...');
-  
+
   try {
     // Test database connectivity
     const { data, error } = await supabase
@@ -212,12 +218,10 @@ async function performHealthCheck() {
 
     // Test write operations
     const testId = `test-${Date.now()}`;
-    const { error: writeError } = await supabase
-      .from('_migrations')
-      .upsert({ 
-        filename: `_health_check_${testId}`,
-        checksum: 'test'
-      });
+    const { error: writeError } = await supabase.from('_migrations').upsert({
+      filename: `_health_check_${testId}`,
+      checksum: 'test',
+    });
 
     if (!writeError) {
       // Clean up test record
@@ -229,7 +233,6 @@ async function performHealthCheck() {
 
     console.log('✅ Health check passed');
     return true;
-
   } catch (error) {
     console.error('❌ Health check failed:', error.message);
     throw error;
@@ -241,46 +244,45 @@ async function performHealthCheck() {
  */
 async function runMigrations() {
   console.log('🚀 Starting production database migration...');
-  
+
   try {
     // Health check
     await performHealthCheck();
-    
+
     // Set up migrations tracking
     await ensureMigrationsTable();
-    
+
     // Get pending migrations
     const pendingMigrations = await getPendingMigrations();
-    
+
     if (pendingMigrations.length === 0) {
       console.log('✅ No pending migrations found');
       return;
     }
-    
+
     console.log(`📋 Found ${pendingMigrations.length} pending migration(s):`);
     pendingMigrations.forEach(m => console.log(`  - ${m.filename}`));
-    
+
     // Validate migrations
     console.log('🔍 Validating migrations...');
     for (const migration of pendingMigrations) {
       validateMigration(migration);
     }
-    
+
     // Apply migrations
     console.log('⚡ Applying migrations...');
     for (const migration of pendingMigrations) {
       await applyMigration(migration);
     }
-    
+
     console.log('🎉 All migrations applied successfully!');
-    
   } catch (error) {
     console.error('💥 Migration process failed:', error.message);
     console.error('\n📋 Rollback may be required. Check the following:');
     console.error('1. Database state consistency');
     console.error('2. Application compatibility');
     console.error('3. Consider manual rollback if needed');
-    
+
     process.exit(1);
   }
 }
@@ -290,7 +292,7 @@ async function runMigrations() {
  */
 async function rollbackLastMigration() {
   console.log('🔄 Rolling back last migration...');
-  
+
   try {
     const { data: lastMigration, error } = await supabase
       .from('_migrations')
@@ -305,7 +307,7 @@ async function rollbackLastMigration() {
     }
 
     console.log(`⚠️ Rolling back: ${lastMigration.filename}`);
-    
+
     // Remove from migrations table
     const { error: deleteError } = await supabase
       .from('_migrations')
@@ -316,9 +318,10 @@ async function rollbackLastMigration() {
       throw deleteError;
     }
 
-    console.log('⚠️ Migration record removed. Manual database rollback may be required.');
+    console.log(
+      '⚠️ Migration record removed. Manual database rollback may be required.'
+    );
     console.log('📋 Check your migration file for rollback instructions.');
-    
   } catch (error) {
     console.error('❌ Rollback failed:', error.message);
     throw error;
@@ -342,5 +345,5 @@ if (command === 'rollback') {
 
 module.exports = {
   runMigrations,
-  rollbackLastMigration
+  rollbackLastMigration,
 };

@@ -25,15 +25,16 @@ export const chatRouter = createTRPCRouter({
         // Step 1: Generate embedding for the user's query
         if (input.includeContext) {
           console.log('Generating embedding for query:', input.message);
-          
+
           const queryEmbedding = await generateSingleEmbedding(input.message, {
             model: 'text-embedding-004', // Use the same model as vector-embedder
           });
 
           // Step 2: Search Pinecone for relevant documents
-          console.log(`Searching Pinecone for relevant documents... default-${ctx.user.tenant_id}`);
-          
-          
+          console.log(
+            `Searching Pinecone for relevant documents... default-${ctx.user.tenant_id}`
+          );
+
           const searchResults = await searchSimilarVectors(
             queryEmbedding,
             ctx.user.tenant_id || 'public-tenant',
@@ -41,17 +42,19 @@ export const chatRouter = createTRPCRouter({
             {
               topK: 5,
               includeMetadata: true,
-              config: { namespace: `default-${ctx.user.tenant_id}` }
+              config: { namespace: `default-${ctx.user.tenant_id}` },
             }
           );
 
           console.log('Search results from Pinecone:', {
             totalMatches: searchResults?.length || 0,
-            firstResult: searchResults?.[0] ? {
-              id: searchResults[0].id,
-              score: searchResults[0].score,
-              hasContent: !!searchResults[0].metadata?.content
-            } : null
+            firstResult: searchResults?.[0]
+              ? {
+                  id: searchResults[0].id,
+                  score: searchResults[0].score,
+                  hasContent: !!searchResults[0].metadata?.content,
+                }
+              : null,
           });
 
           // Step 3: Process search results
@@ -63,7 +66,7 @@ export const chatRouter = createTRPCRouter({
                 content: result.metadata.content || '',
                 title: result.metadata.documentId || 'Unknown Document',
                 similarity: result.score,
-                metadata: result.metadata
+                metadata: result.metadata,
               }));
 
             // Build context string for the LLM
@@ -76,7 +79,7 @@ export const chatRouter = createTRPCRouter({
         }
 
         // Step 4: Enhanced system prompt with context
-        const enhancedSystemPrompt = input.systemPrompt 
+        const enhancedSystemPrompt = input.systemPrompt
           ? `${input.systemPrompt}\n\n${contextString ? `\nRelevant Context:\n${contextString}\n\nPlease use this context to provide accurate, well-informed responses. If the context doesn't contain relevant information, rely on your general knowledge but mention that no specific documentation was found.` : ''}`
           : `You are a helpful AI assistant. ${contextString ? `\n\nRelevant Context:\n${contextString}\n\nUse this context to provide accurate responses.` : ''}`;
 
@@ -96,11 +99,11 @@ export const chatRouter = createTRPCRouter({
           max_context_length: 4096,
           system_prompt: enhancedSystemPrompt,
           vector_db_config: {
-            Provider: "Pinecone",
+            Provider: 'Pinecone',
             api_key: process.env.PINECONE_API_KEY,
             environment: process.env.PINECONE_ENVIRONMENT,
             index_name: process.env.PINECONE_INDEX_NAME,
-            namespace: `default-${ctx.user.tenant_id}`
+            namespace: `default-${ctx.user.tenant_id}`,
           },
           tenant_id: ctx.user.tenant_id || 'public-tenant',
         };
@@ -132,7 +135,7 @@ export const chatRouter = createTRPCRouter({
 
         // Step 8: Add source citation if context was used
         // if (retrievedDocs.length > 0 && assistantContent) {
-        //   assistantContent += '\n\n---\n**Sources:**\n' + 
+        //   assistantContent += '\n\n---\n**Sources:**\n' +
         //     retrievedDocs.map(doc => `• ${doc.title} (${Math.round(doc.similarity * 100)}% relevance)`).join('\n');
         // }
 
@@ -141,7 +144,7 @@ export const chatRouter = createTRPCRouter({
           retrievedDocs,
           toolCalls,
           tokenCount,
-          contextUsed: retrievedDocs.length > 0
+          contextUsed: retrievedDocs.length > 0,
         };
       } catch (error) {
         console.error('Chat error:', error);
@@ -165,14 +168,14 @@ export const chatRouter = createTRPCRouter({
       try {
         // Generate embedding for search query
         console.log('Generating embedding for search query:', input.query);
-        
+
         const queryEmbedding = await generateSingleEmbedding(input.query, {
-          model: 'text-embedding-004'
+          model: 'text-embedding-004',
         });
 
         // Search Pinecone
         console.log('Searching Pinecone...');
-        
+
         const searchResults = await searchSimilarVectors(
           queryEmbedding,
           ctx.tenant?.id || 'public-tenant',
@@ -180,7 +183,7 @@ export const chatRouter = createTRPCRouter({
           {
             topK: input.limit,
             includeMetadata: true,
-            config: { namespace: `default-${ctx.user.tenant_id}` }
+            config: { namespace: `default-${ctx.user.tenant_id}` },
           }
         );
 
@@ -198,7 +201,7 @@ export const chatRouter = createTRPCRouter({
         return {
           query: input.query,
           results,
-          totalResults: results.length
+          totalResults: results.length,
         };
       } catch (error) {
         console.error('Document search error:', error);
@@ -211,15 +214,17 @@ export const chatRouter = createTRPCRouter({
 
   // Test vector search connectivity
   testVectorSearch: tenantProcedure
-    .input(z.object({ 
-      testQuery: z.string().default("test query") 
-    }))
+    .input(
+      z.object({
+        testQuery: z.string().default('test query'),
+      })
+    )
     .query(async ({ input, ctx }) => {
       try {
         const embedding = await generateSingleEmbedding(input.testQuery, {
-          model: 'text-embedding-004'
+          model: 'text-embedding-004',
         });
-        
+
         const results = await searchSimilarVectors(
           embedding,
           ctx.tenant?.id || 'public-tenant',
@@ -237,13 +242,13 @@ export const chatRouter = createTRPCRouter({
           sampleResults: results.slice(0, 2).map(result => ({
             id: result.id,
             score: result.score,
-            hasMetadata: !!result.metadata
-          }))
+            hasMetadata: !!result.metadata,
+          })),
         };
       } catch (error) {
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error instanceof Error ? error.message : 'Unknown error',
         };
       }
     }),
