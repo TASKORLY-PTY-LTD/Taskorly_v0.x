@@ -29,6 +29,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   }
 
   if (!isAuthenticated) {
+    console.log("Login form triggered")
     return <LoginForm />;
   }
 
