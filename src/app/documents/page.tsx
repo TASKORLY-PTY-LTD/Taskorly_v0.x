@@ -10,20 +10,19 @@ import {
 } from '@/components/ui/card';
 import { DocumentTable } from '@/components/documents/document-table';
 import { UploadDialog } from '@/components/documents/upload-dialog';
-import { useDevMode } from '@/providers/dev-mode-provider';
+import { trpc } from '@/utils/trpc';
 import { Upload, FileText, Database } from 'lucide-react';
 
 export default function DocumentsPage() {
-  const { mockDocuments } = useDevMode();
+  const { data: documents = [] } = trpc.documents.list.useQuery({
+    limit: 50,
+    offset: 0,
+  });
 
-  const totalDocuments = mockDocuments.length;
-  const readyDocuments = mockDocuments.filter(
-    doc => doc.status === 'ready'
-  ).length;
-  const processingDocuments = mockDocuments.filter(
-    doc => doc.status === 'processing'
-  ).length;
-  const totalSize = mockDocuments.reduce((acc, doc) => acc + doc.size, 0);
+  const totalDocuments = documents.length;
+  const readyDocuments = documents.filter(doc => doc.chunk_count > 0).length;
+  const processingDocuments = documents.filter(doc => !doc.chunk_count).length;
+  const totalSize = documents.reduce((acc, doc) => acc + doc.content.length, 0);
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 B';

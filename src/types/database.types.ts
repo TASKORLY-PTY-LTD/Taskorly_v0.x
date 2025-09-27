@@ -108,7 +108,6 @@ export interface Database {
           embedding_id: string | null;
           id: string;
           metadata: Json;
-          tenant_id: string;
         };
         Insert: {
           chunk_index: number;
@@ -119,7 +118,6 @@ export interface Database {
           embedding_id?: string | null;
           id?: string;
           metadata?: Json;
-          tenant_id: string;
         };
         Update: {
           chunk_index?: number;
@@ -130,19 +128,12 @@ export interface Database {
           embedding_id?: string | null;
           id?: string;
           metadata?: Json;
-          tenant_id?: string;
         };
         Relationships: [
           {
             foreignKeyName: 'document_chunks_document_id_fkey';
             columns: ['document_id'];
             referencedRelation: 'documents';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'document_chunks_tenant_id_fkey';
-            columns: ['tenant_id'];
-            referencedRelation: 'tenants';
             referencedColumns: ['id'];
           },
         ];
@@ -156,6 +147,7 @@ export interface Database {
           embedding_id: string | null;
           id: string;
           metadata: Json;
+          processing_status: string;
           source_url: string | null;
           tenant_id: string;
           title: string;
@@ -169,6 +161,7 @@ export interface Database {
           embedding_id?: string | null;
           id?: string;
           metadata?: Json;
+          processing_status?: string;
           source_url?: string | null;
           tenant_id: string;
           title: string;
@@ -182,6 +175,7 @@ export interface Database {
           embedding_id?: string | null;
           id?: string;
           metadata?: Json;
+          processing_status?: string;
           source_url?: string | null;
           tenant_id?: string;
           title?: string;

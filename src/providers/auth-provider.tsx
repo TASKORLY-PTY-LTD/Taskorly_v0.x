@@ -70,14 +70,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (savedAuth) {
         try {
           const authData = JSON.parse(savedAuth);
-          setUser(authData.user);
-          setTenant(authData.tenant);
-          setAccessToken(authData.accessToken);
+
+          // If we have a token, we'll let the meQuery validate it
+          // If the token is expired, the meQuery will fail and we'll handle it
+          if (authData.accessToken) {
+            setAccessToken(authData.accessToken);
+            // Don't set user/tenant immediately - let meQuery validate the token first
+          } else {
+            // No token, so we can't be authenticated
+            setUser(null);
+            setTenant(null);
+          }
         } catch (error) {
           console.error('Error parsing saved auth data:', error);
           localStorage.removeItem('auth-data');
         }
       }
+      // Only set isLoading false after initializing auth
       setIsLoading(false);
     };
 
@@ -87,20 +96,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Auto-fetch user data when we have a token but no user
   useEffect(() => {
     if (meQuery.data) {
-      setUser({...meQuery.data.user, role: meQuery.data.user.role as 'owner' | 'admin' | 'manager' | 'user' | 'guest', permissions: [...meQuery.data.user.permissions]});
+      setUser({
+        ...meQuery.data.user,
+        role: meQuery.data.user.role as
+          | 'owner'
+          | 'admin'
+          | 'manager'
+          | 'user'
+          | 'guest',
+        permissions: [...meQuery.data.user.permissions],
+      });
       setTenant(meQuery.data.tenant);
     }
   }, [meQuery.data]);
 
+  // Handle meQuery errors (e.g., expired token)
+  useEffect(() => {
+    if (meQuery.error) {
+      console.log('🔒 Auth validation failed, clearing auth data');
+      // Clear auth data and reset state
+      setUser(null);
+      setTenant(null);
+      setAccessToken(null);
+      localStorage.removeItem('auth-data');
+    }
+  }, [meQuery.error]);
+
   const isAuthenticated = !!user;
   const isOwner = user?.role === 'owner';
   const isAdmin = user?.role === 'admin' || user?.role === 'owner';
-  const isManager = user?.role === 'manager' || user?.role === 'admin' || user?.role === 'owner';
+  const isManager =
+    user?.role === 'manager' ||
+    user?.role === 'admin' ||
+    user?.role === 'owner';
 
   const hasPermission = (permission: string): boolean => {
     if (!user) return false;
 
-    // Owner and Admin have all permissions  
+    // Owner and Admin have all permissions
     if (user.role === 'owner' || user.role === 'admin') return true;
 
     // Check specific permissions
@@ -115,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string): Promise<void> => {
     try {
       const result = await loginMutation.mutateAsync({ email, password });
-      
+
       const authData = {
         user: result.user,
         tenant: result.tenant,
@@ -123,10 +156,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refreshToken: result.refreshToken,
       };
 
-      setUser({...result.user, role: result.user.role as 'owner' | 'admin' | 'manager' | 'user' | 'guest', permissions: [...result.user.permissions]});
+      setUser({
+        ...result.user,
+        role: result.user.role as
+          | 'owner'
+          | 'admin'
+          | 'manager'
+          | 'user'
+          | 'guest',
+        permissions: [...result.user.permissions],
+      });
       setTenant(result.tenant);
       setAccessToken(result.accessToken);
-      
+
       localStorage.setItem('auth-data', JSON.stringify(authData));
     } catch (error) {
       console.error('Login failed:', error);
@@ -143,7 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }): Promise<void> => {
     try {
       const result = await signupMutation.mutateAsync(data);
-      
+
       const authData = {
         user: result.user,
         tenant: result.tenant,
@@ -151,9 +193,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refreshToken: null,
       };
 
-      setUser({...result.user, role: result.user.role as 'owner' | 'admin' | 'manager' | 'user' | 'guest', permissions: [...result.user.permissions]});
+      setUser({
+        ...result.user,
+        role: result.user.role as
+          | 'owner'
+          | 'admin'
+          | 'manager'
+          | 'user'
+          | 'guest',
+        permissions: [...result.user.permissions],
+      });
       setTenant(result.tenant);
-      
+
       localStorage.setItem('auth-data', JSON.stringify(authData));
     } catch (error) {
       console.error('Signup failed:', error);
@@ -170,12 +221,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUserData = async () => {
     if (!accessToken) return;
-    
+
     try {
       // This would trigger the meQuery to refetch
       const result = await meQuery.refetch();
       if (result.data) {
-        setUser({...result.data.user, role: result.data.user.role as 'owner' | 'admin' | 'manager' | 'user' | 'guest', permissions: [...result.data.user.permissions]});
+        setUser({
+          ...result.data.user,
+          role: result.data.user.role as
+            | 'owner'
+            | 'admin'
+            | 'manager'
+            | 'user'
+            | 'guest',
+          permissions: [...result.data.user.permissions],
+        });
         setTenant(result.data.tenant);
       }
     } catch (error) {
@@ -196,7 +256,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isOwner,
     isAdmin,
     isManager,
-    isLoading: isLoading || loginMutation.isPending || signupMutation.isPending,
+    isLoading:
+      isLoading ||
+      loginMutation.isPending ||
+      signupMutation.isPending ||
+      meQuery.isFetching,
     hasPermission,
     login,
     signup,

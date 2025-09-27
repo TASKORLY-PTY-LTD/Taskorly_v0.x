@@ -256,7 +256,15 @@ export const authRouter = createTRPCRouter({
           .eq('id', authData.user.id)
           .single();
 
-        if (dbError || !dbUser) {
+        if (dbError) {
+          console.error('DB Error:', dbError);
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'There has been a db Error!',
+          });
+        }
+
+        if (!dbUser) {
           throw new TRPCError({
             code: 'NOT_FOUND',
             message: 'User profile not found',

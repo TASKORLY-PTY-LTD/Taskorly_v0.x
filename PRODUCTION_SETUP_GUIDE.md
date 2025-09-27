@@ -31,6 +31,7 @@ Complete guide for deploying Taskorly to production with zero-downtime continuou
 ```
 
 ### Architecture Benefits
+
 - **Auto-scaling**: Vercel handles traffic spikes automatically
 - **Edge Deployment**: Global CDN with ~50ms latency worldwide
 - **Database Isolation**: Supabase provides managed PostgreSQL with built-in security
@@ -41,6 +42,7 @@ Complete guide for deploying Taskorly to production with zero-downtime continuou
 ### 1. Vercel Production Environment
 
 #### 1.1 Create Vercel Project
+
 ```bash
 # Install Vercel CLI
 npm i -g vercel
@@ -99,6 +101,7 @@ MCP_MAX_RETRIES=3
 ### 2. Supabase Production Setup
 
 #### 2.1 Create Production Supabase Project
+
 1. Go to [supabase.com](https://supabase.com)
 2. Create new project with production-grade settings:
    - **Region**: Choose closest to your users
@@ -123,13 +126,13 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_document_chunks_embedding ON documen
 
 -- Performance monitoring
 CREATE OR REPLACE VIEW performance_stats AS
-SELECT 
+SELECT
     schemaname,
     tablename,
     attname,
     n_distinct,
     correlation
-FROM pg_stats 
+FROM pg_stats
 WHERE schemaname = 'public';
 ```
 
@@ -141,8 +144,8 @@ CREATE POLICY "Production tenant isolation" ON users
   FOR ALL TO authenticated
   USING (
     tenant_id IN (
-      SELECT tenant_id FROM users 
-      WHERE id = auth.uid() 
+      SELECT tenant_id FROM users
+      WHERE id = auth.uid()
       AND deleted_at IS NULL
     )
   );
@@ -153,10 +156,10 @@ RETURNS boolean AS $$
 BEGIN
   -- Check if user has exceeded rate limit
   IF (
-    SELECT COUNT(*) 
-    FROM usage_logs 
-    WHERE user_id = rate_limit_check.user_id 
-    AND operation = rate_limit_check.operation 
+    SELECT COUNT(*)
+    FROM usage_logs
+    WHERE user_id = rate_limit_check.user_id
+    AND operation = rate_limit_check.operation
     AND created_at > NOW() - time_window
   ) >= max_requests THEN
     RETURN false;
@@ -200,7 +203,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -233,7 +236,7 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
@@ -250,7 +253,7 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
@@ -277,7 +280,7 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
@@ -380,8 +383,8 @@ COMMIT;
 ```typescript
 // src/lib/feature-flags.ts
 export const featureFlags = {
-  NEW_CHAT_INTERFACE: process.env.NODE_ENV === 'production' 
-    ? process.env.FEATURE_NEW_CHAT_INTERFACE === 'true' 
+  NEW_CHAT_INTERFACE: process.env.NODE_ENV === 'production'
+    ? process.env.FEATURE_NEW_CHAT_INTERFACE === 'true'
     : true,
   ADVANCED_ANALYTICS: process.env.FEATURE_ADVANCED_ANALYTICS === 'true',
   BETA_RAG_PIPELINE: process.env.FEATURE_BETA_RAG_PIPELINE === 'true',
@@ -413,16 +416,12 @@ export async function GET() {
       database: 'healthy',
       redis: 'healthy', // if using Redis
       external_apis: 'healthy',
-    }
+    },
   };
 
   try {
     // Database health check
-    const { data, error } = await supabaseAdmin
-      .from('tenants')
-      .select('count')
-      .limit(1)
-      .single();
+    const { data, error } = await supabaseAdmin.from('tenants').select('count').limit(1).single();
 
     if (error) {
       health.checks.database = 'unhealthy';
@@ -432,7 +431,7 @@ export async function GET() {
     // External API health checks
     const apiChecks = await Promise.allSettled([
       fetch('https://api.openai.com/v1/models', {
-        headers: { 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}` }
+        headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
       }).then(r => r.ok),
       // Add other API health checks
     ]);
@@ -442,14 +441,17 @@ export async function GET() {
       health.checks.external_apis = 'degraded';
     }
 
-    return NextResponse.json(health, { 
-      status: health.status === 'healthy' ? 200 : 503 
+    return NextResponse.json(health, {
+      status: health.status === 'healthy' ? 200 : 503,
     });
   } catch (error) {
-    return NextResponse.json({
-      status: 'unhealthy',
-      error: 'Health check failed'
-    }, { status: 503 });
+    return NextResponse.json(
+      {
+        status: 'unhealthy',
+        error: 'Health check failed',
+      },
+      { status: 503 }
+    );
   }
 }
 ```
@@ -509,33 +511,33 @@ export class ProductionMonitoring {
 -- Run these regularly to track production performance
 
 -- Slow queries
-SELECT 
+SELECT
   query,
   calls,
   total_time,
   mean_time,
   rows,
   100.0 * shared_blks_hit / nullif(shared_blks_hit + shared_blks_read, 0) AS hit_percent
-FROM pg_stat_statements 
-ORDER BY total_time DESC 
+FROM pg_stat_statements
+ORDER BY total_time DESC
 LIMIT 10;
 
 -- Table sizes and growth
-SELECT 
+SELECT
   schemaname,
   tablename,
   pg_size_pretty(pg_relation_size(schemaname||'.'||tablename)) AS size,
   pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS total_size
-FROM pg_tables 
+FROM pg_tables
 WHERE schemaname = 'public'
 ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
 
 -- Connection monitoring
-SELECT 
+SELECT
   state,
   COUNT(*) as connections,
   AVG(EXTRACT(EPOCH FROM (now() - state_change))) as avg_duration
-FROM pg_stat_activity 
+FROM pg_stat_activity
 WHERE datname = current_database()
 GROUP BY state;
 ```
@@ -565,36 +567,37 @@ const nextConfig = {
         headers: [
           {
             key: 'X-DNS-Prefetch-Control',
-            value: 'on'
+            value: 'on',
           },
           {
             key: 'Strict-Transport-Security',
-            value: 'max-age=63072000; includeSubDomains; preload'
+            value: 'max-age=63072000; includeSubDomains; preload',
           },
           {
             key: 'X-XSS-Protection',
-            value: '1; mode=block'
+            value: '1; mode=block',
           },
           {
             key: 'X-Frame-Options',
-            value: 'DENY'
+            value: 'DENY',
           },
           {
             key: 'X-Content-Type-Options',
-            value: 'nosniff'
+            value: 'nosniff',
           },
           {
             key: 'Referrer-Policy',
-            value: 'origin-when-cross-origin'
+            value: 'origin-when-cross-origin',
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' *.vercel-analytics.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' *.supabase.co *.openai.com *.anthropic.com *.googleapis.com"
-          }
-        ]
-      }
-    ]
-  }
+            value:
+              "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' *.vercel-analytics.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' *.supabase.co *.openai.com *.anthropic.com *.googleapis.com",
+          },
+        ],
+      },
+    ];
+  },
 };
 ```
 
@@ -710,7 +713,7 @@ curl -f https://your-domain.com/api/health
 
 1. **RTO (Recovery Time Objective)**: 15 minutes
 2. **RPO (Recovery Point Objective)**: 1 hour
-3. **Backup Schedule**: 
+3. **Backup Schedule**:
    - Database: Every 4 hours
    - Application: Continuous (Git)
    - Environment: Daily
@@ -747,4 +750,6 @@ curl -f https://your-domain.com/api/health
 
 ---
 
-This production setup provides enterprise-grade deployment with zero-downtime updates, comprehensive monitoring, and robust disaster recovery. The architecture scales automatically and maintains high availability while ensuring security best practices.
+This production setup provides enterprise-grade deployment with zero-downtime updates, comprehensive
+monitoring, and robust disaster recovery. The architecture scales automatically and maintains high
+availability while ensuring security best practices.
