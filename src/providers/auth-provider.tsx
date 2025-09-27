@@ -86,6 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           localStorage.removeItem('auth-data');
         }
       }
+      // Only set isLoading false after initializing auth
       setIsLoading(false);
     };
 
@@ -95,7 +96,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Auto-fetch user data when we have a token but no user
   useEffect(() => {
     if (meQuery.data) {
-      setUser({...meQuery.data.user, role: meQuery.data.user.role as 'owner' | 'admin' | 'manager' | 'user' | 'guest', permissions: [...meQuery.data.user.permissions]});
+      setUser({
+        ...meQuery.data.user,
+        role: meQuery.data.user.role as 'owner' | 'admin' | 'manager' | 'user' | 'guest',
+        permissions: [...meQuery.data.user.permissions],
+      });
       setTenant(meQuery.data.tenant);
     }
   }, [meQuery.data]);
@@ -143,7 +148,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refreshToken: result.refreshToken,
       };
 
-      setUser({...result.user, role: result.user.role as 'owner' | 'admin' | 'manager' | 'user' | 'guest', permissions: [...result.user.permissions]});
+      setUser({
+        ...result.user,
+        role: result.user.role as 'owner' | 'admin' | 'manager' | 'user' | 'guest',
+        permissions: [...result.user.permissions],
+      });
       setTenant(result.tenant);
       setAccessToken(result.accessToken);
       
@@ -171,7 +180,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refreshToken: null,
       };
 
-      setUser({...result.user, role: result.user.role as 'owner' | 'admin' | 'manager' | 'user' | 'guest', permissions: [...result.user.permissions]});
+      setUser({
+        ...result.user,
+        role: result.user.role as 'owner' | 'admin' | 'manager' | 'user' | 'guest',
+        permissions: [...result.user.permissions],
+      });
       setTenant(result.tenant);
       
       localStorage.setItem('auth-data', JSON.stringify(authData));
@@ -195,7 +208,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // This would trigger the meQuery to refetch
       const result = await meQuery.refetch();
       if (result.data) {
-        setUser({...result.data.user, role: result.data.user.role as 'owner' | 'admin' | 'manager' | 'user' | 'guest', permissions: [...result.data.user.permissions]});
+        setUser({
+          ...result.data.user,
+          role: result.data.user.role as 'owner' | 'admin' | 'manager' | 'user' | 'guest',
+          permissions: [...result.data.user.permissions],
+        });
         setTenant(result.data.tenant);
       }
     } catch (error) {
@@ -216,7 +233,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isOwner,
     isAdmin,
     isManager,
-    isLoading: isLoading || loginMutation.isPending || signupMutation.isPending,
+    isLoading: isLoading || loginMutation.isPending || signupMutation.isPending || meQuery.isFetching,
     hasPermission,
     login,
     signup,
