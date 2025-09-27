@@ -15,7 +15,7 @@ interface DemoChatInputProps {
 export function DemoChatInput({
   onSendMessage,
   disabled = false,
-  placeholder = 'Ask me anything about your company information...'
+  placeholder = 'Ask me anything about your company information...',
 }: DemoChatInputProps) {
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -58,14 +58,14 @@ export function DemoChatInput({
   };
 
   return (
-    <div className="p-4 bg-white border-t">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-end gap-3">
-          <div className="flex-1">
+    <div className='p-4 bg-white border-t'>
+      <div className='max-w-4xl mx-auto'>
+        <div className='flex items-end gap-3'>
+          <div className='flex-1'>
             <Textarea
               ref={textareaRef}
               value={message}
-              onChange={(e) => handleInputChange(e.target.value)}
+              onChange={e => handleInputChange(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={placeholder}
               disabled={disabled || isLoading}
@@ -80,19 +80,19 @@ export function DemoChatInput({
           <Button
             onClick={handleSubmit}
             disabled={!message.trim() || disabled || isLoading}
-            size="default"
-            className="h-11 px-4 bg-blue-500 hover:bg-blue-600 text-white"
+            size='default'
+            className='h-11 px-4 bg-blue-500 hover:bg-blue-600 text-white'
           >
             {isLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className='w-4 h-4 animate-spin' />
             ) : (
-              <Send className="w-4 h-4" />
+              <Send className='w-4 h-4' />
             )}
           </Button>
         </div>
-        
+
         {/* Helper text */}
-        <div className="mt-2 text-xs text-gray-500 text-center">
+        <div className='mt-2 text-xs text-gray-500 text-center'>
           Press Enter to send, Shift+Enter for new line
         </div>
       </div>

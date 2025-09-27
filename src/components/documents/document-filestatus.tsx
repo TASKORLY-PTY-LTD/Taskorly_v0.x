@@ -3,22 +3,22 @@ import { Badge } from '@/components/ui/badge';
 import { CheckCircle, Clock, XCircle, FileText } from 'lucide-react';
 import { trpc } from '@/utils/trpc';
 
-const DocumentStatus = ({ 
-  processingStatus, 
-  chunkCount, 
+const DocumentStatus = ({
+  processingStatus,
+  chunkCount,
 }: {
   processingStatus: string;
   chunkCount: number;
 }) => {
   const utils = trpc.useUtils();
-  
+
   // Auto-refresh for processing documents
   useEffect(() => {
-  if (processingStatus === 'processing' || processingStatus === 'pending') {
+    if (processingStatus === 'processing' || processingStatus === 'pending') {
       utils.documents.list.invalidate();
-    };
+    }
   }, [processingStatus, utils]);
-  
+
   const getStatusIcon = () => {
     if (processingStatus === 'completed' && chunkCount > 0) {
       return <CheckCircle className='h-4 w-4 text-green-500' />;
@@ -60,7 +60,7 @@ const DocumentStatus = ({
     }
     return 'Unknown';
   };
-  
+
   return (
     <div className='flex items-center space-x-2'>
       {getStatusIcon()}

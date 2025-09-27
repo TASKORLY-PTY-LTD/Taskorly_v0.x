@@ -110,9 +110,10 @@ Instructions:
 Response:`);
 
       // Prepare context section
-      const contextSection = contextString && contextString.trim() 
-        ? `Relevant Context:\n${contextString}\n\nPlease use this context to provide accurate, well-informed responses.`
-        : 'No relevant context found for this query.';
+      const contextSection =
+        contextString && contextString.trim()
+          ? `Relevant Context:\n${contextString}\n\nPlease use this context to provide accurate, well-informed responses.`
+          : 'No relevant context found for this query.';
 
       // Create the processing chain
       const chain = RunnableSequence.from([
@@ -128,14 +129,14 @@ Response:`);
       console.log('Processing message with context:', {
         messageLength: message.length,
         contextLength: contextString?.length || 0,
-        hasContext: !!(contextString && contextString.trim())
+        hasContext: !!(contextString && contextString.trim()),
       });
 
       // Stream the response
       const stream = await chain.stream({
         systemPrompt: this.config.system_prompt,
         contextSection: contextSection,
-        message: message
+        message: message,
       });
 
       for await (const chunk of stream) {
@@ -167,9 +168,8 @@ Response:`);
       console.log('Message processed successfully:', {
         responseLength: fullResponse.length,
         tokenCount: tokenCount,
-        toolCalls: toolCalls.length
+        toolCalls: toolCalls.length,
       });
-
     } catch (error) {
       console.error('Error processing message:', error);
       throw new Error(`Failed to process message: ${(error as Error).message}`);
@@ -181,7 +181,9 @@ Response:`);
    * Note: This method is not implemented as vector search is handled in the chat router
    */
   searchDocuments(query: string, limit: number, threshold: number) {
-    throw new Error('Document search should be handled in the chat router using searchSimilarVectors');
+    throw new Error(
+      'Document search should be handled in the chat router using searchSimilarVectors'
+    );
   }
 
   /**
@@ -247,9 +249,9 @@ Response:`);
   validateConfig(): boolean {
     const required = [
       'llm_provider',
-      'llm_model', 
+      'llm_model',
       'llm_api_key',
-      'system_prompt'
+      'system_prompt',
     ];
 
     for (const field of required) {

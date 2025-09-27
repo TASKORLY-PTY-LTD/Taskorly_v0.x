@@ -59,12 +59,16 @@ export class Logger {
    * Internal method to handle the actual logging
    * Stores logs in Supabase for centralized log management across environments
    */
-  private async log(level: LogLevel, message: string, metadata?: Record<string, any>) {
+  private async log(
+    level: LogLevel,
+    message: string,
+    metadata?: Record<string, any>
+  ) {
     try {
       // Always log to console for immediate visibility during development
       const timestamp = new Date().toISOString();
       const logEntry = `[${timestamp}] [${level.toUpperCase()}] ${message}`;
-      
+
       switch (level) {
         case LogLevel.DEBUG:
           console.debug(logEntry, metadata || '');
@@ -109,7 +113,10 @@ export class Logger {
     } catch (error) {
       // Fallback to console if Supabase logging fails
       console.error('Failed to log to Supabase:', error);
-      console.log(`[${new Date().toISOString()}] [${level.toUpperCase()}] ${message}`, metadata || '');
+      console.log(
+        `[${new Date().toISOString()}] [${level.toUpperCase()}] ${message}`,
+        metadata || ''
+      );
     }
   }
 }

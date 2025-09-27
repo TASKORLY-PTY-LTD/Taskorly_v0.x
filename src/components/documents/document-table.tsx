@@ -38,11 +38,13 @@ import DocumentStatus from './document-filestatus';
 export function DocumentTable() {
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [selectedDocument, setSelectedDocument] = useState<inferRouterOutputs<AppRouter>['documents']['list'][number] | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<
+    inferRouterOutputs<AppRouter>['documents']['list'][number] | null
+  >(null);
 
   const { data: documents = [] } = trpc.documents.list.useQuery({
     limit: 50,
-    offset: 0
+    offset: 0,
   });
 
   const formatFileSize = (bytes: number) => {
@@ -53,12 +55,16 @@ export function DocumentTable() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const handleViewDocument = (document: inferRouterOutputs<AppRouter>['documents']['list'][number]) => {
+  const handleViewDocument = (
+    document: inferRouterOutputs<AppRouter>['documents']['list'][number]
+  ) => {
     setSelectedDocument(document);
     setViewDialogOpen(true);
   };
 
-  const handleDeleteDocument = (document: inferRouterOutputs<AppRouter>['documents']['list'][number]) => {
+  const handleDeleteDocument = (
+    document: inferRouterOutputs<AppRouter>['documents']['list'][number]
+  ) => {
     setSelectedDocument(document);
     setDeleteDialogOpen(true);
   };
@@ -82,66 +88,72 @@ export function DocumentTable() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {documents.map((document: inferRouterOutputs<AppRouter>['documents']['list'][number]) => (
-            <TableRow key={document.id}>
-              <TableCell>
-                <div className='flex items-center space-x-2'>
-                  <FileText className='h-4 w-4 text-muted-foreground' />
-                  <div className='min-w-0 flex-1'>
-                    <p className='font-medium truncate'>{document.title}</p>
-                    <p className='text-xs text-muted-foreground truncate'>
-                      {document.content.substring(0, 60)}...
-                    </p>
+          {documents.map(
+            (
+              document: inferRouterOutputs<AppRouter>['documents']['list'][number]
+            ) => (
+              <TableRow key={document.id}>
+                <TableCell>
+                  <div className='flex items-center space-x-2'>
+                    <FileText className='h-4 w-4 text-muted-foreground' />
+                    <div className='min-w-0 flex-1'>
+                      <p className='font-medium truncate'>{document.title}</p>
+                      <p className='text-xs text-muted-foreground truncate'>
+                        {document.content.substring(0, 60)}...
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </TableCell>
-              <TableCell>
-                <Badge variant='outline' className='text-xs'>
-                  {document.content_type.toUpperCase()}
-                </Badge>
-              </TableCell>
-              <TableCell className='text-sm'>
-                {formatFileSize(document.content.length)}
-              </TableCell>
-              <TableCell>
-                <DocumentStatus 
-                  processingStatus={document.processing_status || 'pending'}
-                  chunkCount={document.chunk_count || 0}
-                />
-              </TableCell>
-              <TableCell className='text-sm text-muted-foreground'>
-                {new Date(document.created_at).toLocaleDateString()}
-              </TableCell>
-              <TableCell>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant='ghost' size='icon' className='h-8 w-8'>
-                      <MoreHorizontal className='h-4 w-4' />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent 
-                    align='end' 
-                    className='w-48 bg-background/95 backdrop-blur-sm border border-border shadow-lg'
-                  >
-                    <DropdownMenuItem 
-                      onClick={() => handleViewDocument(document)}
-                      className='cursor-pointer hover:bg-accent hover:text-accent-foreground'
+                </TableCell>
+                <TableCell>
+                  <Badge variant='outline' className='text-xs'>
+                    {document.content_type.toUpperCase()}
+                  </Badge>
+                </TableCell>
+                <TableCell className='text-sm'>
+                  {formatFileSize(document.content.length)}
+                </TableCell>
+                <TableCell>
+                  <DocumentStatus
+                    processingStatus={document.processing_status || 'pending'}
+                    chunkCount={document.chunk_count || 0}
+                  />
+                </TableCell>
+                <TableCell className='text-sm text-muted-foreground'>
+                  {new Date(document.created_at).toLocaleDateString()}
+                </TableCell>
+                <TableCell>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant='ghost' size='icon' className='h-8 w-8'>
+                        <MoreHorizontal className='h-4 w-4' />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align='end'
+                      className='w-48 bg-background/95 backdrop-blur-sm border border-border shadow-lg'
                     >
-                      <Eye className='mr-2 h-4 w-4' />
-                      View
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
-                      onClick={() => {handleDeleteDocument(document)}}
-                      className='text-destructive cursor-pointer hover:bg-destructive hover:text-destructive-foreground'
-                    >
-                      <Trash2 className='mr-2 h-4 w-4' />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
-            </TableRow>
-          ))}
+                      <DropdownMenuItem
+                        onClick={() => handleViewDocument(document)}
+                        className='cursor-pointer hover:bg-accent hover:text-accent-foreground'
+                      >
+                        <Eye className='mr-2 h-4 w-4' />
+                        View
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          handleDeleteDocument(document);
+                        }}
+                        className='text-destructive cursor-pointer hover:bg-destructive hover:text-destructive-foreground'
+                      >
+                        <Trash2 className='mr-2 h-4 w-4' />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            )
+          )}
         </TableBody>
       </Table>
 
@@ -161,7 +173,7 @@ export function DocumentTable() {
         open={viewDialogOpen}
         onOpenChange={setViewDialogOpen}
       />
-      
+
       {/* Delete dialog temporarily disabled */}
       <DocumentDeleteDialog
         document={selectedDocument}

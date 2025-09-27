@@ -46,7 +46,13 @@ export function PermissionGuard({
 }
 
 // Convenience components for common use cases
-export function AdminOnly({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) {
+export function AdminOnly({
+  children,
+  fallback,
+}: {
+  children: ReactNode;
+  fallback?: ReactNode;
+}) {
   return (
     <PermissionGuard roles={['owner', 'admin']} fallback={fallback}>
       {children}
@@ -54,7 +60,13 @@ export function AdminOnly({ children, fallback }: { children: ReactNode; fallbac
   );
 }
 
-export function ManagerOnly({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) {
+export function ManagerOnly({
+  children,
+  fallback,
+}: {
+  children: ReactNode;
+  fallback?: ReactNode;
+}) {
   return (
     <PermissionGuard roles={['owner', 'admin', 'manager']} fallback={fallback}>
       {children}
@@ -62,7 +74,13 @@ export function ManagerOnly({ children, fallback }: { children: ReactNode; fallb
   );
 }
 
-export function AuthOnly({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) {
+export function AuthOnly({
+  children,
+  fallback,
+}: {
+  children: ReactNode;
+  fallback?: ReactNode;
+}) {
   return (
     <PermissionGuard requireAuth={true} fallback={fallback}>
       {children}
@@ -72,12 +90,15 @@ export function AuthOnly({ children, fallback }: { children: ReactNode; fallback
 
 // Hook for conditional logic in components
 export function usePermissions() {
-  const { user, hasPermission, isAuthenticated, isOwner, isAdmin, isManager } = useAuth();
+  const { user, hasPermission, isAuthenticated, isOwner, isAdmin, isManager } =
+    useAuth();
 
   const can = (permission: string) => hasPermission(permission);
-  const hasRole = (role: 'owner' | 'admin' | 'manager' | 'user' | 'guest') => user?.role === role;
-  const hasAnyRole = (roles: ('owner' | 'admin' | 'manager' | 'user' | 'guest')[]) => 
-    user ? roles.includes(user.role) : false;
+  const hasRole = (role: 'owner' | 'admin' | 'manager' | 'user' | 'guest') =>
+    user?.role === role;
+  const hasAnyRole = (
+    roles: ('owner' | 'admin' | 'manager' | 'user' | 'guest')[]
+  ) => (user ? roles.includes(user.role) : false);
 
   return {
     user,

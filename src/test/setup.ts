@@ -18,12 +18,12 @@ beforeAll(() => {
 
   // Set default test environment variables if not provided
   const defaultEnvVars = {
-    'NEXT_PUBLIC_SUPABASE_URL': 'https://test-project.supabase.co',
-    'NEXT_PUBLIC_SUPABASE_ANON_KEY': 'test-anon-key',
-    'SUPABASE_SERVICE_ROLE_KEY': 'test-service-role-key',
-    'ENCRYPTION_KEY': 'test-encryption-key-32-chars-long',
-    'NEXTAUTH_SECRET': 'test-nextauth-secret',
-    'NEXTAUTH_URL': 'http://localhost:3000',
+    NEXT_PUBLIC_SUPABASE_URL: 'https://test-project.supabase.co',
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-anon-key',
+    SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',
+    ENCRYPTION_KEY: 'test-encryption-key-32-chars-long',
+    NEXTAUTH_SECRET: 'test-nextauth-secret',
+    NEXTAUTH_URL: 'http://localhost:3000',
   };
 
   for (const [key, value] of Object.entries(defaultEnvVars)) {

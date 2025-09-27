@@ -2,20 +2,20 @@
 
 /**
  * Upload Dialog Component
- * 
+ *
  * This component handles file uploads for the document management system.
  * It supports two different processing paths:
- * 
+ *
  * 1. TEXT FILES (TXT, MD, JSON):
  *    - Processed client-side using FileReader API
  *    - Text content extracted immediately
  *    - Sent to server for AI chunking and storage
- * 
+ *
  * 2. PDF FILES:
  *    - Converted to base64 format for server transmission
  *    - Sent to server for PDF parsing using pdf2json library
  *    - Server extracts text, creates AI chunks, and stores everything
- * 
+ *
  * The component provides a unified interface for both file types while
  * handling the different processing requirements behind the scenes.
  */
@@ -32,12 +32,18 @@ import {
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { trpc } from '@/utils/trpc';
-import { processFile, isSupportedFileType, getUnsupportedFileMessage, preparePDFForServer, processPDFFile } from '@/lib/file-processor';
+import {
+  processFile,
+  isSupportedFileType,
+  getUnsupportedFileMessage,
+  preparePDFForServer,
+  processPDFFile,
+} from '@/lib/file-processor';
 
 // Helper function to get file type from extension (copied from file-processor.ts)
 function getFileTypeFromExtension(fileName: string): string {
   const extension = fileName.split('.').pop()?.toLowerCase();
-  
+
   switch (extension) {
     case 'txt':
       return 'text/plain';
@@ -75,9 +81,9 @@ export function UploadDialog({ children }: UploadDialogProps) {
   useEffect(() => {
     setIsClient(true);
   }, []);
-  
+
   const utils = trpc.useContext();
-  
+
   // PDF upload mutation for server-side processing
   // This mutation handles PDF files differently from text files:
   // 1. PDFs are sent as base64 data to the server
@@ -92,33 +98,34 @@ export function UploadDialog({ children }: UploadDialogProps) {
     },
   });
 
-  const { mutate: processDocument } = trpc.documents.processDocument.useMutation({
-    onSuccess: () => {
-      // Refresh the documents list when PDF upload is successful
-      // This ensures the new PDF document appears in the UI
-      utils.documents.list.invalidate();
-    },
-  });
+  const { mutate: processDocument } =
+    trpc.documents.processDocument.useMutation({
+      onSuccess: () => {
+        // Refresh the documents list when PDF upload is successful
+        // This ensures the new PDF document appears in the UI
+        utils.documents.list.invalidate();
+      },
+    });
 
   // File selection handler
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     const errors: string[] = [];
     const validFiles: File[] = [];
-    
+
     // Check each file for support
-    files.forEach((file) => {
+    files.forEach(file => {
       if (!isSupportedFileType(file)) {
         errors.push(getUnsupportedFileMessage(file));
       } else {
         validFiles.push(file);
       }
     });
-    
+
     // Update state
     setFileErrors(prev => [...prev, ...errors]);
     setSelectedFiles(prev => [...prev, ...validFiles]);
-    
+
     // Clear the input
     e.target.value = '';
   };
@@ -139,111 +146,130 @@ export function UploadDialog({ children }: UploadDialogProps) {
   };
 
   const handleUpload = async () => {
-  if (selectedFiles.length === 0) return;
-  
-  if (!isClient) {
-    setFileErrors(['Please wait for the page to fully load before uploading files.']);
-    return;
-  }
+    if (selectedFiles.length === 0) return;
 
-  setIsUploading(true);
-  setFileErrors([]);
-  setFileSuccesses([]);
-
-  // Track errors locally to check at the end
-  const errorsList: string[] = [];
-
-  try {
-    for (let i = 0; i < selectedFiles.length; i++) {
-      const file = selectedFiles[i];
-      if (file) {
-        try {
-          setProcessingFile(file.name);
-          
-          const fileType = file.type || getFileTypeFromExtension(file.name);
-          
-          if (fileType === 'application/pdf') {
-            const pdfData = await preparePDFForServer(file);
-                          
-            // Upload PDF
-            const uploadedDoc = await new Promise<any>((resolve, reject) => {
-              uploadPDF({
-                title: pdfData.fileName,
-                fileData: pdfData.fileData,
-                fileName: pdfData.fileName,
-                fileSize: pdfData.fileSize,
-                sourceUrl: undefined,
-                metadata: {
-                  originalFileName: pdfData.fileName,
-                  uploadedAt: new Date().toISOString(),
-                  fileSize: pdfData.fileSize,
-                  fileType: pdfData.fileType,
-                },
-              }, {
-                onSuccess: (data) => resolve(data),
-                onError: (error) => reject(error),
-              });
-            });
-
-            // Wait for table refresh
-            await new Promise(resolve => setTimeout(resolve, 500));
-
-            // Close dialog immediately
-            setSelectedFiles([]);
-            setIsOpen(false);
-            setIsUploading(false);
-            setProcessingFile(null);
-
-            // Continue processing in background (fire and forget)
-            processDocument({
-              documentId: uploadedDoc.id,
-            }, {
-              onSuccess: () => {
-                console.log(`Successfully processed ${file.name} in background`);
-              },
-              onError: (error) => {
-                console.error(`Background processing failed for ${file.name}:`, error);
-              },
-            });
-          }
-          
-        } catch (fileError) {
-          console.error(`Failed to process file ${file.name}:`, fileError);
-          
-          let errorMessage = `Failed to process "${file.name}": `;
-          if (fileError instanceof Error) {
-            if (fileError.message.includes('No text content could be extracted')) {
-              errorMessage += 'This PDF appears to be image-based or corrupted.';
-            } else if (fileError.message.includes('PDF extraction failed')) {
-              errorMessage += 'PDF processing failed. The file might be corrupted.';
-            } else if (fileError.message.includes('PDF processing must be handled by the upload dialog')) {
-              continue;
-            } else {
-              errorMessage += fileError.message;
-            }
-          } else {
-            errorMessage += 'Unknown error occurred.';
-          }
-          
-          errorsList.push(errorMessage);
-          setFileErrors(prev => [...prev, errorMessage]);
-        }
-      }
+    if (!isClient) {
+      setFileErrors([
+        'Please wait for the page to fully load before uploading files.',
+      ]);
+      return;
     }
 
-    // Only run this if there were errors (dialog already closed on success)
-    if (errorsList.length > 0) {
+    setIsUploading(true);
+    setFileErrors([]);
+    setFileSuccesses([]);
+
+    // Track errors locally to check at the end
+    const errorsList: string[] = [];
+
+    try {
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        if (file) {
+          try {
+            setProcessingFile(file.name);
+
+            const fileType = file.type || getFileTypeFromExtension(file.name);
+
+            if (fileType === 'application/pdf') {
+              const pdfData = await preparePDFForServer(file);
+
+              // Upload PDF
+              const uploadedDoc = await new Promise<any>((resolve, reject) => {
+                uploadPDF(
+                  {
+                    title: pdfData.fileName,
+                    fileData: pdfData.fileData,
+                    fileName: pdfData.fileName,
+                    fileSize: pdfData.fileSize,
+                    sourceUrl: undefined,
+                    metadata: {
+                      originalFileName: pdfData.fileName,
+                      uploadedAt: new Date().toISOString(),
+                      fileSize: pdfData.fileSize,
+                      fileType: pdfData.fileType,
+                    },
+                  },
+                  {
+                    onSuccess: data => resolve(data),
+                    onError: error => reject(error),
+                  }
+                );
+              });
+
+              // Wait for table refresh
+              await new Promise(resolve => setTimeout(resolve, 500));
+
+              // Close dialog immediately
+              setSelectedFiles([]);
+              setIsOpen(false);
+              setIsUploading(false);
+              setProcessingFile(null);
+
+              // Continue processing in background (fire and forget)
+              processDocument(
+                {
+                  documentId: uploadedDoc.id,
+                },
+                {
+                  onSuccess: () => {
+                    console.log(
+                      `Successfully processed ${file.name} in background`
+                    );
+                  },
+                  onError: error => {
+                    console.error(
+                      `Background processing failed for ${file.name}:`,
+                      error
+                    );
+                  },
+                }
+              );
+            }
+          } catch (fileError) {
+            console.error(`Failed to process file ${file.name}:`, fileError);
+
+            let errorMessage = `Failed to process "${file.name}": `;
+            if (fileError instanceof Error) {
+              if (
+                fileError.message.includes('No text content could be extracted')
+              ) {
+                errorMessage +=
+                  'This PDF appears to be image-based or corrupted.';
+              } else if (fileError.message.includes('PDF extraction failed')) {
+                errorMessage +=
+                  'PDF processing failed. The file might be corrupted.';
+              } else if (
+                fileError.message.includes(
+                  'PDF processing must be handled by the upload dialog'
+                )
+              ) {
+                continue;
+              } else {
+                errorMessage += fileError.message;
+              }
+            } else {
+              errorMessage += 'Unknown error occurred.';
+            }
+
+            errorsList.push(errorMessage);
+            setFileErrors(prev => [...prev, errorMessage]);
+          }
+        }
+      }
+
+      // Only run this if there were errors (dialog already closed on success)
+      if (errorsList.length > 0) {
+        setIsUploading(false);
+        setProcessingFile(null);
+      }
+    } catch (error) {
+      console.error('Upload failed:', error);
+      setFileErrors(prev => [...prev, 'Upload failed. Please try again.']);
       setIsUploading(false);
       setProcessingFile(null);
     }
-    
-  } catch (error) {
-    console.error('Upload failed:', error);
-    setFileErrors(prev => [...prev, 'Upload failed. Please try again.']);
-    setIsUploading(false);
-    setProcessingFile(null);
-  }
-};
+  };
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 B';
@@ -260,7 +286,8 @@ export function UploadDialog({ children }: UploadDialogProps) {
         <DialogHeader>
           <DialogTitle>Upload Documents</DialogTitle>
           <DialogDescription>
-            Upload your restaurant documents to the knowledge base. Supports: TXT, MD, JSON, and PDF files
+            Upload your restaurant documents to the knowledge base. Supports:
+            TXT, MD, JSON, and PDF files
           </DialogDescription>
         </DialogHeader>
 
@@ -289,7 +316,10 @@ export function UploadDialog({ children }: UploadDialogProps) {
           {fileSuccesses.length > 0 && (
             <div className='space-y-2'>
               {fileSuccesses.map((success, index) => (
-                <div key={index} className='flex items-start space-x-2 p-3 bg-green-50 border border-green-200 rounded-lg'>
+                <div
+                  key={index}
+                  className='flex items-start space-x-2 p-3 bg-green-50 border border-green-200 rounded-lg'
+                >
                   <CheckCircle className='h-4 w-4 text-green-600 mt-0.5' />
                   <p className='text-sm text-green-700'>{success}</p>
                 </div>
@@ -301,7 +331,10 @@ export function UploadDialog({ children }: UploadDialogProps) {
           {fileErrors.length > 0 && (
             <div className='space-y-2'>
               {fileErrors.map((error, index) => (
-                <div key={index} className='flex items-start space-x-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg'>
+                <div
+                  key={index}
+                  className='flex items-start space-x-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg'
+                >
                   <AlertCircle className='h-4 w-4 text-destructive mt-0.5' />
                   <p className='text-sm text-destructive'>{error}</p>
                 </div>
@@ -324,7 +357,11 @@ export function UploadDialog({ children }: UploadDialogProps) {
                         {file.name}
                       </p>
                       <p className='text-xs text-muted-foreground'>
-                        {formatFileSize(file.size)} • {getFileTypeFromExtension(file.name) === 'application/pdf' ? 'PDF' : 'Text'}
+                        {formatFileSize(file.size)} •{' '}
+                        {getFileTypeFromExtension(file.name) ===
+                        'application/pdf'
+                          ? 'PDF'
+                          : 'Text'}
                       </p>
                     </div>
                   </div>
@@ -355,7 +392,9 @@ export function UploadDialog({ children }: UploadDialogProps) {
               onClick={handleUpload}
               disabled={selectedFiles.length === 0 || isUploading}
             >
-              {isUploading ? 'Processing...' : `Upload ${selectedFiles.length > 0 ? `(${selectedFiles.length})` : ''}`}
+              {isUploading
+                ? 'Processing...'
+                : `Upload ${selectedFiles.length > 0 ? `(${selectedFiles.length})` : ''}`}
             </Button>
           </div>
         </div>

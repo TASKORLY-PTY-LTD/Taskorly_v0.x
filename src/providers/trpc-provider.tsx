@@ -18,29 +18,34 @@ const getBaseUrl = () => {
 };
 
 export function TRPCProvider({ children }: TRPCProviderProps) {
-  const [queryClient] = useState(() => 
-    new QueryClient({
-      defaultOptions: {
-        queries: {
-          // With SSR, we usually want to set some default staleTime
-          // above 0 to avoid refetching immediately on the client
-          staleTime: 60 * 1000,
-          retry: (failureCount, error) => {
-            // Don't retry on 4xx errors (client errors)
-            if (error instanceof TRPCClientError && error.data?.httpStatus >= 400 && error.data?.httpStatus < 500) {
-              return false;
-            }
-            // Retry up to 3 times for other errors
-            return failureCount < 3;
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            // With SSR, we usually want to set some default staleTime
+            // above 0 to avoid refetching immediately on the client
+            staleTime: 60 * 1000,
+            retry: (failureCount, error) => {
+              // Don't retry on 4xx errors (client errors)
+              if (
+                error instanceof TRPCClientError &&
+                error.data?.httpStatus >= 400 &&
+                error.data?.httpStatus < 500
+              ) {
+                return false;
+              }
+              // Retry up to 3 times for other errors
+              return failureCount < 3;
+            },
+          },
+          mutations: {
+            retry: false, // Don't retry mutations by default
           },
         },
-        mutations: {
-          retry: false, // Don't retry mutations by default
-        },
-      },
-    })
+      })
   );
-  
+
   const [trpcClient] = useState(() =>
     trpc.createClient({
       links: [
@@ -49,10 +54,11 @@ export function TRPCProvider({ children }: TRPCProviderProps) {
           transformer: superjson,
           headers() {
             // Get auth token from localStorage if available
-            const authData = typeof window !== 'undefined' 
-              ? localStorage.getItem('auth-data') 
-              : null;
-            
+            const authData =
+              typeof window !== 'undefined'
+                ? localStorage.getItem('auth-data')
+                : null;
+
             if (authData) {
               try {
                 const parsed = JSON.parse(authData);
@@ -68,17 +74,19 @@ export function TRPCProvider({ children }: TRPCProviderProps) {
                 localStorage.removeItem('auth-data');
               }
             }
-            
+
             return {
               'content-type': 'application/json',
             };
           },
           // Add error handling for UNAUTHORIZED responses
           fetch(url, options) {
-            return fetch(url, options).then(async (response) => {
+            return fetch(url, options).then(async response => {
               // Check if this is an UNAUTHORIZED response
               if (response.status === 401) {
-                console.log('🔒 401 Unauthorized response detected, clearing auth data');
+                console.log(
+                  '🔒 401 Unauthorized response detected, clearing auth data'
+                );
                 localStorage.removeItem('auth-data');
                 // Reload the page to trigger re-authentication
                 window.location.reload();
@@ -93,9 +101,7 @@ export function TRPCProvider({ children }: TRPCProviderProps) {
 
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
-      <QueryClientProvider client={queryClient}>
-        {children}
-      </QueryClientProvider>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </trpc.Provider>
   );
 }
