@@ -9,7 +9,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { trpc } from '@/utils/trpc';
 import { POS_SYSTEM_PROMPT } from '../page';
 import CustomerChatBubble from '@/components/customer/customer-chat-bubble';
-//test vercel deployment
+import { MOCK_SUGGESTIONS } from './utils/customerUtils';
+import { ScreenContext, Suggestion } from './types/customer.types';
 
 import {
   Send,
@@ -50,20 +51,6 @@ interface Message {
   error?: boolean; // Changed to boolean to match bubble component
 }
 
-interface ScreenContext {
-  url?: string;
-  posSystem?: 'square' | 'toast' | 'shopify' | 'generic';
-  currentScreen?: string;
-  visibleElements?: string[];
-}
-
-interface Suggestion {
-  id: string;
-  text: string;
-  category: 'pos' | 'general' | 'troubleshoot';
-  icon: React.ReactNode;
-}
-
 const FEATURES = [
   {
     icon: <MessageSquare className='w-4 h-4' />,
@@ -79,33 +66,6 @@ const FEATURES = [
     icon: <FileText className='w-4 h-4' />,
     title: 'Documentation',
     description: 'Access guides and troubleshooting tips',
-  },
-];
-
-const MOCK_SUGGESTIONS: Suggestion[] = [
-  {
-    id: '1',
-    text: 'How do I process a refund in Square?',
-    category: 'pos',
-    icon: <Square className='h-4 w-4' />,
-  },
-  {
-    id: '2',
-    text: 'Payment terminal not responding',
-    category: 'troubleshoot',
-    icon: <Shield className='h-4 w-4' />,
-  },
-  {
-    id: '3',
-    text: 'How to add a new product?',
-    category: 'pos',
-    icon: <Sparkles className='h-4 w-4' />,
-  },
-  {
-    id: '4',
-    text: 'Generate daily sales report',
-    category: 'general',
-    icon: <Monitor className='h-4 w-4' />,
   },
 ];
 
@@ -237,7 +197,7 @@ export default function CustomerChatPage() {
   };
 
   const captureScreen = () => {
-    setScreenContext(prev => ({
+    setScreenContext((prev: ScreenContext) => ({
       ...prev,
       currentScreen: 'captured',
       visibleElements: ['checkout-button', 'product-grid', 'payment-options'],
@@ -264,7 +224,7 @@ export default function CustomerChatPage() {
           <div className='flex items-center space-x-4'>
             <div className='w-10 h-10 rounded-xl flex items-center justify-center'>
               <Image
-                src='/logo.png'
+                src='/Brandmark.png'
                 alt='AI Assistant'
                 width={40}
                 height={40}
@@ -405,7 +365,7 @@ export default function CustomerChatPage() {
                       message={message}
                       isStreaming={message.isStreaming || false}
                       useCustomLogo={true}
-                      logoSrc='/logo.png'
+                      logoSrc='/Brandmark.png'
                       logoAlt='Taskorly Logo'
                       variant='fullscreen'
                       onSuggestionClick={suggestion =>
@@ -426,7 +386,7 @@ export default function CustomerChatPage() {
                     }}
                     isStreaming={true}
                     useCustomLogo={true}
-                    logoSrc='/logo.png'
+                    logoSrc='/Brandmark.png'
                     logoAlt='Taskorly Logo'
                     variant='fullscreen'
                   />
