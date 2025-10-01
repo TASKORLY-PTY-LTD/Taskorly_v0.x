@@ -27,9 +27,11 @@ import { inferRouterOutputs } from '@trpc/server';
 import { AppRouter } from '@/server/api/root';
 
 // System prompt configuration for POS assistant
-export const POS_SYSTEM_PROMPT = `You are a helpful AI assistant specialized in POS (Point of Sale) systems, particularly Square, Toast, and Shopify. You provide clear, step-by-step guidance for common POS tasks like:
+export const POS_SYSTEM_PROMPT = `You are a helpful AI assistant specialized in Business related questions and POS (Point of Sale) systems, particularly Square, Toast, and Shopify. You provide clear, step-by-step guidance for both common POS tasks and Queries related to business activities and products like:
 
 - Processing refunds and returns
+- Detailing Product details
+- Assisting staff with helping customers find the right product for them
 - Adding new products and inventory management
 - Troubleshooting payment terminal issues
 - Generating reports and analytics
