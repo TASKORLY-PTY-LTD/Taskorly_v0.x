@@ -14,11 +14,19 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       // 16x16 = standard broswer tabs, 32x32 = high DPI displays
-      { url: '/Brandmark-16x16.png', sizes: '16x16', type: 'image/png' },
-      { url: '/Brandmark-32x32.png', sizes: '32x32', type: 'image/png' },
+      {
+        url: '/Brandmark_Reverse-16x16.png',
+        sizes: '16x16',
+        type: 'image/png',
+      },
+      {
+        url: '/Brandmark_Reverse-32x32.png',
+        sizes: '32x32',
+        type: 'image/png',
+      },
     ],
-    shortcut: '/Brandmark-32x32.png',
-    apple: '/Brandmark-32x32.png',
+    shortcut: '/Brandmark_Reverse-32x32.png',
+    apple: '/Brandmark_Reverse-32x32.png',
   },
 };
 

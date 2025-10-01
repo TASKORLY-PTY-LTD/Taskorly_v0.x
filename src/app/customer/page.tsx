@@ -224,7 +224,7 @@ export default function CustomerChatPage() {
           <div className='flex items-center space-x-4'>
             <div className='w-10 h-10 rounded-xl flex items-center justify-center'>
               <Image
-                src='/Brandmark.png'
+                src='/Brandmark_Reverse.png'
                 alt='AI Assistant'
                 width={40}
                 height={40}
@@ -286,8 +286,14 @@ export default function CustomerChatPage() {
           <div className='px-6 pb-6'>
             <div className='bg-white/10 rounded-2xl p-8 backdrop-blur-sm'>
               <div className='text-center mb-6'>
-                <div className='w-16 h-16 bg-gradient-to-br from-blue-500 to-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-4'>
-                  <Bot className='w-8 h-8 text-white' />
+                <div className='w-16 h-16 flex items-center justify-center mx-auto mb-4'>
+                  <Image
+                    src='/Brandmark_Reverse.png'
+                    alt='AI Assistant'
+                    width={52}
+                    height={52}
+                    className='rounded-lg'
+                  />
                 </div>
                 <h2 className='text-2xl font-bold mb-2'>
                   Welcome to your AI POS Assistant
@@ -365,7 +371,7 @@ export default function CustomerChatPage() {
                       message={message}
                       isStreaming={message.isStreaming || false}
                       useCustomLogo={true}
-                      logoSrc='/Brandmark.png'
+                      logoSrc='/Brandmark_Reverse.png'
                       logoAlt='Taskorly Logo'
                       variant='fullscreen'
                       onSuggestionClick={suggestion =>
@@ -386,7 +392,7 @@ export default function CustomerChatPage() {
                     }}
                     isStreaming={true}
                     useCustomLogo={true}
-                    logoSrc='/Brandmark.png'
+                    logoSrc='/Brandmark_Reverse.png'
                     logoAlt='Taskorly Logo'
                     variant='fullscreen'
                   />
@@ -492,7 +498,8 @@ export default function CustomerChatPage() {
                     </Button>
                   </div>
 
-                  <div className='space-y-3 text-sm'>
+                  {/* Screen Context - Commented out */}
+                  {/* <div className='space-y-3 text-sm'>
                     <div>
                       <span className='text-slate-300'>System:</span>
                       <span className='ml-2 text-white capitalize'>
@@ -515,7 +522,7 @@ export default function CustomerChatPage() {
                         </span>
                       </div>
                     )}
-                  </div>
+                  </div> */}
 
                   {/* Conversation Management */}
                   <div className='mt-4 pt-4 border-t border-slate-700/50'>
@@ -532,7 +539,7 @@ export default function CustomerChatPage() {
                       variant='outline'
                       size='sm'
                       onClick={clearConversation}
-                      className='w-full justify-start border-slate-600 hover:bg-slate-700/50 text-slate-300'
+                      className='w-full justify-start border-teal-400 bg-blue-800/30 hover:border-teal-300 hover:bg-blue-700/50 text-teal-100 hover:text-white'
                     >
                       <Zap className='w-4 h-4 mr-2' />
                       New Conversation
@@ -551,7 +558,7 @@ export default function CustomerChatPage() {
                         onClick={() =>
                           handleSendMessage('How do I process a refund?')
                         }
-                        className='w-full justify-start border-slate-600 hover:bg-slate-700/50 text-slate-300'
+                        className='w-full justify-start border-teal-400 bg-blue-800/30 hover:border-teal-300 hover:bg-blue-700/50 text-teal-100 hover:text-white'
                       >
                         <Zap className='w-4 h-4 mr-2' />
                         Process Refund
@@ -562,7 +569,7 @@ export default function CustomerChatPage() {
                         onClick={() =>
                           handleSendMessage('How do I add a new product?')
                         }
-                        className='w-full justify-start border-slate-600 hover:bg-slate-700/50 text-slate-300'
+                        className='w-full justify-start border-teal-400 bg-blue-800/30 hover:border-teal-300 hover:bg-blue-700/50 text-teal-100 hover:text-white'
                       >
                         <Sparkles className='w-4 h-4 mr-2' />
                         Add Product
@@ -575,7 +582,7 @@ export default function CustomerChatPage() {
                             'My payment terminal is not working'
                           )
                         }
-                        className='w-full justify-start border-slate-600 hover:bg-slate-700/50 text-slate-300'
+                        className='w-full justify-start border-teal-400 bg-blue-800/30 hover:border-teal-300 hover:bg-blue-700/50 text-teal-100 hover:text-white'
                       >
                         <Shield className='w-4 h-4 mr-2' />
                         Troubleshoot
