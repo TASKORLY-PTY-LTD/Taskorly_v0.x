@@ -55,7 +55,7 @@ const CustomerChatBubble = memo(function CustomerChatBubble({
   variant = 'default',
   onSuggestionClick,
   useCustomLogo = false,
-  logoSrc = '/Brandmark.png',
+  logoSrc = '/Brandmark_Reverse.png',
   logoAlt = 'Assistant Logo',
 }: CustomerChatBubbleProps) {
   const isUser = message.role === 'user';
