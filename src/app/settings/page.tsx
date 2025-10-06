@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -13,21 +13,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/providers/auth-provider';
-import { useDevMode } from '@/providers/dev-mode-provider';
 import {
-  Settings,
+  Settings as LucideSettings,
   Zap,
-  Shield,
-  Bell,
   Save,
   RefreshCw,
   AlertTriangle,
-  User,
-  Lock,
-  Palette,
 } from 'lucide-react';
+import { trpc } from '@/utils/trpc';
 
-// Simple label component
 const Label = ({ htmlFor, children, ...props }: any) => (
   <label
     htmlFor={htmlFor}
@@ -38,71 +32,106 @@ const Label = ({ htmlFor, children, ...props }: any) => (
   </label>
 );
 
-// Simple switch component
-const Switch = ({ checked, onCheckedChange, ...props }: any) => (
-  <button
-    type='button'
-    role='switch'
-    aria-checked={checked}
-    onClick={() => onCheckedChange(!checked)}
-    className={`peer inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 ${
-      checked ? 'bg-primary' : 'bg-input'
-    }`}
-    {...props}
-  >
-    <span
-      className={`pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform ${
-        checked ? 'translate-x-5' : 'translate-x-0'
-      }`}
-    />
-  </button>
-);
-
 export default function SettingsPage() {
   const { user, getCurrentRole } = useAuth();
-  const { isDevMode } = useDevMode();
   const [activeTab, setActiveTab] = useState('general');
   const [hasChanges, setHasChanges] = useState(false);
+  const [settings, setSettings] = useState<any>(null);
 
-  // Mock settings state
-  const [settings, setSettings] = useState({
-    applicationName: 'Taskorly RAG Chat',
-    description: 'AI-powered document chat and retrieval system',
-    llmModel: 'gpt-4-turbo',
-    maxTokens: 4096,
-    temperature: 0.7,
-    systemPrompt:
-      'You are a helpful AI assistant that provides accurate information based on the provided documents.',
-    authRequired: true,
-    sessionTimeout: 24,
-    encryptionEnabled: true,
-    emailNotifications: true,
-    systemAlerts: true,
+  // Use QUERY instead of mutation for fetching
+  const { data, isLoading, error, refetch } = trpc.settings.fetch.useQuery(
+    undefined,
+    {
+      enabled: !!user, // Only run query when user exists
+    }
+  );
+
+  const saveSettings = trpc.settings.save.useMutation({
+    onSuccess: () => {
+      setHasChanges(false);
+      refetch(); // Refresh data after save
+    },
+    onError: (error) => {
+      console.error('Failed to save settings:', error);
+    }
   });
 
+  // Update local state when data is fetched
+  useEffect(() => {
+    if (data) {
+      setSettings(data);
+    }
+  }, [data]);
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Card>
+          <CardHeader>
+            <CardTitle>User not found</CardTitle>
+            <CardDescription>
+              Please log in to access settings.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Card>
+          <CardHeader>
+            <CardTitle>Loading...</CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Card>
+          <CardHeader>
+            <CardTitle>Error</CardTitle>
+            <CardDescription>{error.message}</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
   const handleSettingChange = (key: string, value: any) => {
-    setSettings(prev => ({
+    setSettings((prev: any) => ({
       ...prev,
       [key]: value,
     }));
     setHasChanges(true);
   };
 
-  const handleSaveSettings = () => {
-    console.log('Saving settings:', settings);
-    setHasChanges(false);
+  const handleSaveSettings = async () => {
+    if (!user || !settings) return;
+    
+    await saveSettings.mutateAsync({
+      Description: settings.Description,
+      Industry: settings.Industry,
+    });
   };
 
-  const handleResetSettings = () => {
+  const handleResetSettings = async () => {
+    if (!user) return;
+    await refetch();
     setHasChanges(false);
   };
 
   const tabs = [
-    { id: 'general', label: 'General', icon: Settings },
+    { id: 'general', label: 'General', icon: LucideSettings },
     { id: 'ai', label: 'AI Models', icon: Zap },
-    { id: 'security', label: 'Security', icon: Shield },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
   ];
+
+  if (!settings) return null;
 
   return (
     <div className='flex-1 space-y-4 p-4 md:p-6 pt-6'>
@@ -123,19 +152,23 @@ export default function SettingsPage() {
             variant='outline'
             size='sm'
             onClick={handleResetSettings}
-            disabled={!hasChanges}
+            disabled={!hasChanges || saveSettings.isPending}
           >
             <RefreshCw className='mr-2 h-4 w-4' />
             Reset
           </Button>
-          <Button size='sm' onClick={handleSaveSettings} disabled={!hasChanges}>
+          <Button 
+            size='sm' 
+            onClick={handleSaveSettings} 
+            disabled={!hasChanges || saveSettings.isPending}
+          >
             <Save className='mr-2 h-4 w-4' />
-            Save Changes
+            {saveSettings.isPending ? 'Saving...' : 'Save Changes'}
           </Button>
         </div>
       </div>
 
-      {/* Simple tab navigation */}
+      {/* Tab navigation */}
       <div className='border-b'>
         <nav className='-mb-px flex space-x-8'>
           {tabs.map(tab => {
@@ -163,7 +196,7 @@ export default function SettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle className='flex items-center'>
-              <Settings className='mr-2 h-5 w-5' />
+              <LucideSettings className='mr-2 h-5 w-5' />
               General Settings
             </CardTitle>
             <CardDescription>
@@ -173,26 +206,28 @@ export default function SettingsPage() {
           <CardContent className='space-y-4'>
             <div className='grid gap-4 md:grid-cols-2'>
               <div className='space-y-2'>
-                <Label htmlFor='appName'>Application Name</Label>
+                <Label htmlFor='Industry'>Business Industry</Label>
                 <Input
-                  id='appName'
-                  value={settings.applicationName}
+                  id='Industry'
+                  value={settings.Industry || ''}
                   onChange={e =>
-                    handleSettingChange('applicationName', e.target.value)
+                    handleSettingChange('Industry', e.target.value)
                   }
+                  placeholder="e.g., Technology, Healthcare, Finance"
                 />
               </div>
             </div>
 
             <div className='space-y-2'>
-              <Label htmlFor='description'>Description</Label>
+              <Label htmlFor='Description'>Description</Label>
               <Textarea
-                id='description'
-                value={settings.description}
+                id='Description'
+                value={settings.Description || ''}
                 onChange={e =>
-                  handleSettingChange('description', e.target.value)
+                  handleSettingChange('Description', e.target.value)
                 }
                 rows={3}
+                placeholder="Describe your business or use case..."
               />
             </div>
           </CardContent>
@@ -211,173 +246,9 @@ export default function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className='space-y-4'>
-            <div className='grid gap-4 md:grid-cols-2'>
-              <div className='space-y-2'>
-                <Label htmlFor='llmModel'>LLM Model</Label>
-                <Input
-                  id='llmModel'
-                  value={settings.llmModel}
-                  onChange={e =>
-                    handleSettingChange('llmModel', e.target.value)
-                  }
-                />
-              </div>
-              <div className='space-y-2'>
-                <Label htmlFor='maxTokens'>Max Tokens</Label>
-                <Input
-                  id='maxTokens'
-                  type='number'
-                  value={settings.maxTokens}
-                  onChange={e =>
-                    handleSettingChange('maxTokens', parseInt(e.target.value))
-                  }
-                />
-              </div>
-            </div>
-
-            <div className='space-y-2'>
-              <Label htmlFor='temperature'>Temperature</Label>
-              <Input
-                id='temperature'
-                type='number'
-                min='0'
-                max='2'
-                step='0.1'
-                value={settings.temperature}
-                onChange={e =>
-                  handleSettingChange('temperature', parseFloat(e.target.value))
-                }
-              />
-            </div>
-
-            <div className='space-y-2'>
-              <Label htmlFor='systemPrompt'>System Prompt</Label>
-              <Textarea
-                id='systemPrompt'
-                value={settings.systemPrompt}
-                onChange={e =>
-                  handleSettingChange('systemPrompt', e.target.value)
-                }
-                rows={4}
-              />
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {activeTab === 'security' && (
-        <Card>
-          <CardHeader>
-            <CardTitle className='flex items-center'>
-              <Shield className='mr-2 h-5 w-5' />
-              Security Settings
-            </CardTitle>
-            <CardDescription>
-              Configure security and authentication settings.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className='space-y-4'>
-            <div className='space-y-4'>
-              <div className='flex items-center justify-between'>
-                <div>
-                  <Label htmlFor='authRequired'>Authentication Required</Label>
-                  <p className='text-xs text-muted-foreground'>
-                    Require users to authenticate
-                  </p>
-                </div>
-                <Switch
-                  id='authRequired'
-                  checked={settings.authRequired}
-                  onCheckedChange={(checked: boolean) =>
-                    handleSettingChange('authRequired', checked)
-                  }
-                />
-              </div>
-
-              <div className='flex items-center justify-between'>
-                <div>
-                  <Label htmlFor='encryptionEnabled'>Data Encryption</Label>
-                  <p className='text-xs text-muted-foreground'>
-                    Enable data encryption at rest
-                  </p>
-                </div>
-                <Switch
-                  id='encryptionEnabled'
-                  checked={settings.encryptionEnabled}
-                  onCheckedChange={(checked: boolean) =>
-                    handleSettingChange('encryptionEnabled', checked)
-                  }
-                />
-              </div>
-            </div>
-
-            <div className='space-y-2'>
-              <Label htmlFor='sessionTimeout'>Session Timeout (hours)</Label>
-              <Input
-                id='sessionTimeout'
-                type='number'
-                min='1'
-                max='168'
-                value={settings.sessionTimeout}
-                onChange={e =>
-                  handleSettingChange(
-                    'sessionTimeout',
-                    parseInt(e.target.value)
-                  )
-                }
-              />
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {activeTab === 'notifications' && (
-        <Card>
-          <CardHeader>
-            <CardTitle className='flex items-center'>
-              <Bell className='mr-2 h-5 w-5' />
-              Notification Settings
-            </CardTitle>
-            <CardDescription>
-              Configure notification preferences and alerts.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className='space-y-4'>
-            <div className='space-y-4'>
-              <div className='flex items-center justify-between'>
-                <div>
-                  <Label htmlFor='emailNotifications'>
-                    Email Notifications
-                  </Label>
-                  <p className='text-xs text-muted-foreground'>
-                    Send notifications via email
-                  </p>
-                </div>
-                <Switch
-                  id='emailNotifications'
-                  checked={settings.emailNotifications}
-                  onCheckedChange={(checked: boolean) =>
-                    handleSettingChange('emailNotifications', checked)
-                  }
-                />
-              </div>
-
-              <div className='flex items-center justify-between'>
-                <div>
-                  <Label htmlFor='systemAlerts'>System Alerts</Label>
-                  <p className='text-xs text-muted-foreground'>
-                    Show system status alerts
-                  </p>
-                </div>
-                <Switch
-                  id='systemAlerts'
-                  checked={settings.systemAlerts}
-                  onCheckedChange={(checked: boolean) =>
-                    handleSettingChange('systemAlerts', checked)
-                  }
-                />
-              </div>
-            </div>
+            <p className='text-sm text-muted-foreground'>
+              AI model configuration coming soon...
+            </p>
           </CardContent>
         </Card>
       )}
