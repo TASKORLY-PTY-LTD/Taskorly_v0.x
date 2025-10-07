@@ -4,9 +4,9 @@ import { TRPCError } from '@trpc/server';
 import { RAGPipeline } from '@/lib/rag/pipeline';
 import { generateSingleEmbedding } from '@/lib/vector-embedder';
 import { searchSimilarVectors } from '@/lib/pinecone-client';
+import { buildSystemPrompt } from './settings';
 
 export const chatRouter = createTRPCRouter({
-  // Enhanced sendMessage with RAG functionality
   sendMessage: tenantProcedure
     .input(
       z.object({
@@ -14,23 +14,43 @@ export const chatRouter = createTRPCRouter({
         message: z.string().min(1),
         includeContext: z.boolean().default(true),
         maxTokens: z.number().optional(),
-        systemPrompt: z.string().optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
       try {
+        //Step 1: Fetch user settings from database
+        const { data: settings, error: settingsError } = await ctx.supabaseAdmin
+          .from("Settings")
+          .select("*")
+          .eq("UserId", ctx.user.id)
+          .maybeSingle();
+
+        if (settingsError) {
+          console.error("Error fetching settings:", settingsError);
+        }
+
+        //Step 2: Build system prompt from settings (with fallback to defaults)
+        const systemPromptBase = settings 
+          ? buildSystemPrompt(settings)
+          : buildSystemPrompt({
+              Description: null,
+              Industry: null,
+              Setting_id: 0,
+              Tenant_Id: ctx.user.tenant_id,
+              UserId: ctx.user.id,
+            });
+
         let retrievedDocs: any[] = [];
         let contextString = '';
 
-        // Step 1: Generate embedding for the user's query
+        // Step 3: Generate embedding for the user's query (RAG)
         if (input.includeContext) {
           console.log('Generating embedding for query:', input.message);
 
           const queryEmbedding = await generateSingleEmbedding(input.message, {
-            model: 'text-embedding-004', // Use the same model as vector-embedder
+            model: 'text-embedding-004',
           });
 
-          // Step 2: Search Pinecone for relevant documents
           console.log(
             `Searching Pinecone for relevant documents... default-${ctx.user.tenant_id}`
           );
@@ -57,7 +77,7 @@ export const chatRouter = createTRPCRouter({
               : null,
           });
 
-          // Step 3: Process search results
+          // Process search results
           if (searchResults && searchResults.length > 0) {
             retrievedDocs = searchResults
               .filter(result => result.score >= 0.3)
@@ -69,7 +89,6 @@ export const chatRouter = createTRPCRouter({
                 metadata: result.metadata,
               }));
 
-            // Build context string for the LLM
             contextString = retrievedDocs
               .map(doc => `Document: ${doc.title}\nContent: ${doc.content}`)
               .join('\n\n---\n\n');
@@ -79,14 +98,15 @@ export const chatRouter = createTRPCRouter({
         }
 
         // Step 4: Enhanced system prompt with context
-        const enhancedSystemPrompt = input.systemPrompt
-          ? `${input.systemPrompt}\n\n${contextString ? `\nRelevant Context:\n${contextString}\n\nPlease use this context to provide accurate, well-informed responses. If the context doesn't contain relevant information, rely on your general knowledge but mention that no specific documentation was found.` : ''}`
-          : `You are a helpful AI assistant. ${contextString ? `\n\nRelevant Context:\n${contextString}\n\nUse this context to provide accurate responses.` : ''}`;
+        const enhancedSystemPrompt = contextString
+          ? `${systemPromptBase}\n\nRelevant Context:\n${contextString}\n\nPlease use this context to provide accurate, well-informed responses. If the context doesn't contain relevant information, rely on your general knowledge but mention that no specific documentation was found.`
+          : systemPromptBase;
 
         console.log('Enhanced system prompt:', {
           length: enhancedSystemPrompt.length,
           includesContext: enhancedSystemPrompt.includes('Relevant Context'),
-          context: contextString,
+          includesIndustry: settings?.Industry ? true : false,
+          industry: settings?.Industry,
         });
 
         // Step 5: Configure RAG Pipeline
@@ -132,12 +152,6 @@ export const chatRouter = createTRPCRouter({
             tokenCount = chunk.count || 0;
           }
         }
-
-        // Step 8: Add source citation if context was used
-        // if (retrievedDocs.length > 0 && assistantContent) {
-        //   assistantContent += '\n\n---\n**Sources:**\n' +
-        //     retrievedDocs.map(doc => `• ${doc.title} (${Math.round(doc.similarity * 100)}% relevance)`).join('\n');
-        // }
 
         return {
           content: assistantContent,
