@@ -16,6 +16,26 @@ const DEFAULT_SETTINGS = {
   Industry: '',
 };
 
+export function buildSystemPrompt(settings: Settings): string {
+  const basePrompt = `You are a helpful AI assistant specialized in business and POS (Point of Sale) systems.`;
+
+  const industryPart = settings.Industry
+    ? ` Your primary industry focus is: ${settings.Industry}.`
+    : '';
+
+  const descriptionPart = settings.Description
+    ? ` Additional context: ${settings.Description}.`
+    : '';
+
+  return (
+    basePrompt +
+    industryPart +
+    descriptionPart +
+    `\n\nAlways provide clear, actionable steps and ask clarifying questions when needed. Be friendly, professional, and focus on practical solutions.`
+  );
+}
+
+
 export const settingsRouter = createTRPCRouter({
 
   fetch: tenantProcedure.query(async ({ ctx }) => {
