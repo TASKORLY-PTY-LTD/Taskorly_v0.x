@@ -17,6 +17,7 @@ import {
   CheckCircle,
   XCircle,
   Clock,
+  Settings,
 } from 'lucide-react';
 import { trpc } from '@/utils/trpc';
 
@@ -32,7 +33,13 @@ const QuickActionItems = [
     url: '/documents',
     icon: FileText,
     description: 'Add files to knowledge base',
-  },  
+  },
+  {
+    title: 'Settings',
+    url: '/settings',
+    icon: Settings,
+    description: 'Configure your account',
+  },    
 ];
 
 export default function DashboardPage() {
