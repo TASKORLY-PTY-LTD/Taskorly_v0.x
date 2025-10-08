@@ -6,57 +6,22 @@ import { memo, useMemo } from 'react';
 import { marked } from 'marked';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
+import { Message, CustomerChatBubbleProps } from '../types/customer.types';
+import {
+  cleanContent,
+  generateSuggestions,
+  formatTimestamp,
+} from '../utils/message-utils';
+import { LOGO_CONFIG } from '../constants/logo-config';
 
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-  isStreaming?: boolean;
-  suggestions?: string[];
-  sources?: Array<{
-    title: string;
-    similarity: number;
-  }>;
-  tokenCount?: number;
-  error?: boolean;
-  posContext?: {
-    system: string;
-    screen: string;
-    action?: string;
-  };
-}
-
-interface CustomerChatBubbleProps {
-  message: Message;
-  isStreaming: boolean;
-  variant?: 'default' | 'overlay' | 'fullscreen';
-  onSuggestionClick?: (suggestion: string) => void;
-  useCustomLogo?: boolean;
-  logoSrc?: string;
-  logoAlt?: string;
-}
-
-function cleanContent(content: string): string {
-  return content
-    .replace(/\[object Object\]/g, '')
-    .replace(/&#39;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/&amp;/g, '&')
-    .replace(/<br\s*\/?><br\s*\/?>/g, '\n\n')
-    .replace(/<br\s*\/?>/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-const CustomerChatBubble = memo(function CustomerChatBubble({
+export const CustomerChatBubble = memo(function CustomerChatBubble({
   message,
   isStreaming = false,
   variant = 'default',
   onSuggestionClick,
   useCustomLogo = false,
-  logoSrc = '/Brandmark_Reverse.png',
-  logoAlt = 'Assistant Logo',
+  logoSrc = LOGO_CONFIG.main,
+  logoAlt = LOGO_CONFIG.altText.assistant,
 }: CustomerChatBubbleProps) {
   const isUser = message.role === 'user';
   const isOverlay = variant === 'overlay';
@@ -295,37 +260,42 @@ const CustomerChatBubble = memo(function CustomerChatBubble({
                     : 'text-slate-400'
               }`}
             >
-              {message.timestamp.toLocaleTimeString([], {
-                hour: 'numeric',
-                minute: '2-digit',
-                hour12: true,
-              })}
+              {formatTimestamp(message.timestamp)}
             </div>
           </div>
 
           {/* Suggestions */}
-          {!isUser && message.suggestions && message.suggestions.length > 0 && (
-            <div className='space-y-1'>
-              <div
-                className={`${isOverlay ? 'text-xs' : 'text-sm'} text-slate-400 font-medium`}
-              >
-                Quick actions:
-              </div>
-              <div className='flex flex-wrap gap-2'>
-                {message.suggestions.map((suggestion, index) => (
-                  <button
-                    key={index}
-                    onClick={() => onSuggestionClick?.(suggestion)}
-                    className={`${
-                      isOverlay ? 'text-xs px-2 py-1' : 'text-sm px-3 py-1'
-                    } bg-slate-700/50 hover:bg-slate-600/50 text-slate-300 border border-slate-600/50 rounded-lg transition-colors`}
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          {!isUser &&
+            !message.error &&
+            (() => {
+              const generatedSuggestions = generateSuggestions(message.content);
+              return (
+                generatedSuggestions.length > 0 && (
+                  <div className='space-y-1'>
+                    <div
+                      className={`${isOverlay ? 'text-xs' : 'text-sm'} text-slate-400 font-medium`}
+                    >
+                      Quick actions:
+                    </div>
+                    <div className='flex flex-wrap gap-2'>
+                      {generatedSuggestions.map((suggestion, index) => (
+                        <button
+                          key={index}
+                          onClick={() => onSuggestionClick?.(suggestion)}
+                          className={`${
+                            isOverlay
+                              ? 'text-xs px-2 py-1'
+                              : 'text-sm px-3 py-1'
+                          } bg-slate-700/50 hover:bg-slate-600/50 text-slate-300 border border-slate-600/50 rounded-lg transition-colors`}
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              );
+            })()}
         </div>
       </div>
 
@@ -340,5 +310,3 @@ const CustomerChatBubble = memo(function CustomerChatBubble({
     </div>
   );
 });
-
-export default CustomerChatBubble;

@@ -5,8 +5,11 @@ import { TRPCProvider } from '@/providers/trpc-provider';
 import { DevModeProvider } from '@/providers/dev-mode-provider';
 import { AuthProvider } from '@/providers/auth-provider';
 import { MainLayout } from '@/components/layout/main-layout';
+import { getFaviconConfig } from './customer/constants/logo-config';
 
 const inter = Inter({ subsets: ['latin'] });
+
+const faviconConfig = getFaviconConfig();
 
 export const metadata: Metadata = {
   title: 'Taskorly RAG Chat',
@@ -15,18 +18,18 @@ export const metadata: Metadata = {
     icon: [
       // 16x16 = standard broswer tabs, 32x32 = high DPI displays
       {
-        url: '/Brandmark_Reverse-16x16.png',
+        url: faviconConfig['16x16'],
         sizes: '16x16',
         type: 'image/png',
       },
       {
-        url: '/Brandmark_Reverse-32x32.png',
+        url: faviconConfig['32x32'],
         sizes: '32x32',
         type: 'image/png',
       },
     ],
-    shortcut: '/Brandmark_Reverse-32x32.png',
-    apple: '/Brandmark_Reverse-32x32.png',
+    shortcut: faviconConfig.shortcut,
+    apple: faviconConfig.apple,
   },
 };
 
