@@ -272,7 +272,7 @@ export default function CustomerChatPage() {
               variant='outline'
               size='sm'
               onClick={() => setShowSidebar(!showSidebar)}
-              className='border-teal-400 bg-blue-800/50 hover:border-teal-300 hover:bg-blue-700/70 text-teal-100 hover:text-white'
+              className='border-white/20 bg-blue-800/50 hover:border-white/80 hover:bg-blue-700/70 text-white hover:text-white'
             >
               <Settings className='w-4 h-4' />
             </Button>
@@ -332,7 +332,7 @@ export default function CustomerChatPage() {
                       variant='outline'
                       size='sm'
                       onClick={() => handleSuggestionClick(question)}
-                      className='text-xs border-teal-400 bg-blue-800/30 hover:border-teal-300 hover:bg-blue-700/50 text-teal-100 hover:text-white'
+                      className='text-xs border-white/20 bg-blue-800/30 hover:border-white/80 hover:bg-blue-700/50 text-white hover:text-white'
                     >
                       {question}
                       <ArrowRight className='w-3 h-3 ml-2' />
@@ -411,7 +411,7 @@ export default function CustomerChatPage() {
                           variant='outline'
                           size='sm'
                           onClick={() => handleSuggestionClick(suggestion)}
-                          className='text-xs border-teal-400 bg-blue-800/50 hover:border-teal-300 hover:bg-blue-700/70 text-teal-100 hover:text-white hover:shadow-lg hover:shadow-teal-500/25'
+                          className='text-xs border-white/20 bg-blue-800/50 hover:border-white/80 hover:bg-blue-700/70 text-white hover:text-white hover:shadow-lg hover:shadow-white/25'
                         >
                           {suggestion.icon}
                           <span className='ml-2'>{suggestion.text}</span>
@@ -537,7 +537,7 @@ export default function CustomerChatPage() {
                       variant='outline'
                       size='sm'
                       onClick={clearConversation}
-                      className='w-full justify-start border-teal-400 bg-blue-800/30 hover:border-teal-300 hover:bg-blue-700/50 text-teal-100 hover:text-white'
+                      className='w-full justify-start border-white/20 bg-blue-800/30 hover:border-white/80 hover:bg-blue-700/50 text-white hover:text-white'
                     >
                       <Zap className='w-4 h-4 mr-2' />
                       New Conversation
@@ -556,7 +556,7 @@ export default function CustomerChatPage() {
                         onClick={() =>
                           handleSendMessage('How do I process a refund?')
                         }
-                        className='w-full justify-start border-teal-400 bg-blue-800/30 hover:border-teal-300 hover:bg-blue-700/50 text-teal-100 hover:text-white'
+                        className='w-full justify-start border-white/20 bg-blue-800/30 hover:border-white/80 hover:bg-blue-700/50 text-white hover:text-white'
                       >
                         <Zap className='w-4 h-4 mr-2' />
                         Process Refund
@@ -567,7 +567,7 @@ export default function CustomerChatPage() {
                         onClick={() =>
                           handleSendMessage('How do I add a new product?')
                         }
-                        className='w-full justify-start border-teal-400 bg-blue-800/30 hover:border-teal-300 hover:bg-blue-700/50 text-teal-100 hover:text-white'
+                        className='w-full justify-start border-white/20 bg-blue-800/30 hover:border-white/80 hover:bg-blue-700/50 text-white hover:text-white'
                       >
                         <Sparkles className='w-4 h-4 mr-2' />
                         Add Product
@@ -580,7 +580,7 @@ export default function CustomerChatPage() {
                             'My payment terminal is not working'
                           )
                         }
-                        className='w-full justify-start border-teal-400 bg-blue-800/30 hover:border-teal-300 hover:bg-blue-700/50 text-teal-100 hover:text-white'
+                        className='w-full justify-start border-white/20 bg-blue-800/30 hover:border-white/80 hover:bg-blue-700/50 text-white hover:text-white'
                       >
                         <Shield className='w-4 h-4 mr-2' />
                         Troubleshoot
