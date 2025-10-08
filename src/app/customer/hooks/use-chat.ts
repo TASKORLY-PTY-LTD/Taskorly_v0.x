@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Message, ScreenContext, Suggestion } from '../types/customer.types';
 import { ChatService } from '../services/chat-service';
 import {
@@ -53,10 +53,14 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
   const createConversationMutation = trpc.chat.createConversation.useMutation();
 
   // Create chat service with tRPC dependencies
-  const chatService = new ChatService({
-    sendMessageMutation,
-    createConversationMutation,
-  });
+  const chatService = useMemo(
+    () =>
+      new ChatService({
+        sendMessageMutation,
+        createConversationMutation,
+      }),
+    [sendMessageMutation, createConversationMutation]
+  );
 
   // State
   const [messages, setMessages] = useState<Message[]>(initialMessages);
