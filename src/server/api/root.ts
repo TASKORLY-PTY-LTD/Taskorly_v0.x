@@ -3,7 +3,8 @@ import { authRouter } from '../routers/auth';
 import { chatRouter } from '../routers/chat';
 import { documentsRouter } from '../routers/documents';
 import { mcpRouter } from '../routers/mcp';
-import { configRouter } from '../routers/config';
+// import { configRouter } from '../routers/config';
+import { settingsRouter } from '../routers/settings';
 
 /**
  * This is the primary router for your server.
@@ -15,7 +16,8 @@ export const appRouter = createTRPCRouter({
   chat: chatRouter,
   documents: documentsRouter,
   mcp: mcpRouter,
-  config: configRouter,
+  // config: configRouter,
+  settings: settingsRouter,
 });
 
 // Export type definition of API

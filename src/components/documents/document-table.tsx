@@ -99,18 +99,18 @@ export function DocumentTable() {
                     <div className='min-w-0 flex-1'>
                       <p className='font-medium truncate'>{document.title}</p>
                       <p className='text-xs text-muted-foreground truncate'>
-                        {document.content.substring(0, 60)}...
+                        {document.content ? document.content.substring(0, 60): "N/A"}...
                       </p>
                     </div>
                   </div>
                 </TableCell>
                 <TableCell>
                   <Badge variant='outline' className='text-xs'>
-                    {document.content_type.toUpperCase()}
+                    {document.content_type ? document.content_type.toUpperCase(): "N/A"}
                   </Badge>
                 </TableCell>
                 <TableCell className='text-sm'>
-                  {formatFileSize(document.content.length)}
+                  {formatFileSize(document.content?.length || 0)}
                 </TableCell>
                 <TableCell>
                   <DocumentStatus
@@ -119,7 +119,7 @@ export function DocumentTable() {
                   />
                 </TableCell>
                 <TableCell className='text-sm text-muted-foreground'>
-                  {new Date(document.created_at).toLocaleDateString()}
+                  {document.created_at? new Date(document.created_at).toLocaleDateString(): "N/A"}
                 </TableCell>
                 <TableCell>
                   <DropdownMenu>

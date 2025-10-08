@@ -20,9 +20,9 @@ export default function DocumentsPage() {
   });
 
   const totalDocuments = documents.length;
-  const readyDocuments = documents.filter(doc => doc.chunk_count > 0).length;
+  const readyDocuments = documents.filter(doc => doc.chunk_count ? doc.chunk_count > 0 : false).length;
   const processingDocuments = documents.filter(doc => !doc.chunk_count).length;
-  const totalSize = documents.reduce((acc, doc) => acc + doc.content.length, 0);
+  const totalSize = documents.reduce((acc, doc) => acc + (doc.content?.length || 0), 0);
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 B';

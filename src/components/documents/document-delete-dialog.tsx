@@ -95,12 +95,12 @@ export function DocumentDeleteDialog({
               <div>
                 <p className='text-muted-foreground'>Type</p>
                 <Badge variant='outline' className='text-xs'>
-                  {document.content_type.toUpperCase()}
+                  {document.content_type ? document.content_type.toUpperCase() : 'N/A'}
                 </Badge>
               </div>
               <div>
                 <p className='text-muted-foreground'>Size</p>
-                <p>{formatFileSize(document.content.length)}</p>
+                <p>{formatFileSize(document.content?.length || 0)}</p>
               </div>
             </div>
 

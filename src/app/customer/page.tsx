@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { trpc } from '@/utils/trpc';
-import { POS_SYSTEM_PROMPT } from '../page';
+// import { buildSystemPrompt } from '@/server/routers/settings';
 import CustomerChatBubble from '@/components/customer/customer-chat-bubble';
 import { MOCK_SUGGESTIONS } from './utils/customerUtils';
 import { ScreenContext, Suggestion } from './types/customer.types';
@@ -146,7 +146,6 @@ export default function CustomerChatPage() {
       if (!convId) {
         const conv = await createConversation.mutateAsync({
           title: 'Customer Support Chat',
-          systemPrompt: POS_SYSTEM_PROMPT,
         });
         convId = conv.id;
         setConversationId(convId);
@@ -157,7 +156,6 @@ export default function CustomerChatPage() {
         conversationId: convId ?? undefined,
         message: content.trim(),
         includeContext: true,
-        systemPrompt: POS_SYSTEM_PROMPT,
       });
 
       // Add assistant message with suggestions
