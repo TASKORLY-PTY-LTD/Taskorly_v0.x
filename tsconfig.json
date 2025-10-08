@@ -6,7 +6,6 @@
     "allowJs": true,
     "checkJs": false,
     "skipLibCheck": true,
-
     // Modules
     "module": "esnext",
     "moduleResolution": "bundler",
@@ -15,13 +14,11 @@
     "isolatedModules": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-
     // Emit
     "noEmit": true,
     "declaration": false,
     "incremental": true,
     "tsBuildInfoFile": ".next/cache/tsbuildinfo",
-
     // Type Checking - Enhanced
     "strict": true,
     "noImplicitAny": true,
@@ -34,23 +31,18 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": false,
-
     // Additional Checks
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false,
     "allowUnusedLabels": false,
     "allowUnreachableCode": false,
-
     // JSX
     "jsx": "preserve",
     "jsxImportSource": "react",
-
     // Interop Constraints
     "forceConsistentCasingInFileNames": true,
-
     // Path Mapping
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
       "@/components/*": ["./src/components/*"],
@@ -59,7 +51,6 @@
       "@/types/*": ["./src/types/*"],
       "@/utils/*": ["./src/utils/*"]
     },
-
     // Next.js
     "plugins": [
       {
@@ -67,6 +58,6 @@
       }
     ]
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/**/*.ts", "src/**/*.tsx"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/**/*.ts", "src/**/*.tsx", "vitest.config.mts"],
   "exclude": ["node_modules", ".next", "out", "build", "dist", "**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"]
 }
