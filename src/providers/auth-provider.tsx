@@ -63,7 +63,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     retry: false,
   });
 
-  // Load user from localStorage on mount
   useEffect(() => {
     const initializeAuth = async () => {
       const savedAuth = localStorage.getItem('auth-data');
@@ -71,13 +70,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const authData = JSON.parse(savedAuth);
 
-          // If we have a token, we'll let the meQuery validate it
-          // If the token is expired, the meQuery will fail and we'll handle it
           if (authData.accessToken) {
             setAccessToken(authData.accessToken);
-            // Don't set user/tenant immediately - let meQuery validate the token first
+            return; // Don’t set isLoading=false yet — wait for meQuery
           } else {
-            // No token, so we can't be authenticated
             setUser(null);
             setTenant(null);
           }
@@ -86,12 +82,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           localStorage.removeItem('auth-data');
         }
       }
-      // Only set isLoading false after initializing auth
+
+      // Only set isLoading to false if there’s no token at all
       setIsLoading(false);
     };
 
     initializeAuth();
   }, []);
+
+  useEffect(() => {
+    if (accessToken && !meQuery.isFetching && !meQuery.isLoading) {
+      setIsLoading(false);
+    }
+  }, [accessToken, meQuery.isFetching, meQuery.isLoading]);
 
   // Auto-fetch user data when we have a token but no user
   useEffect(() => {
