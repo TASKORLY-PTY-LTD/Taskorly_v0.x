@@ -39,13 +39,13 @@ const QuickActionItems = [
     url: '/settings',
     icon: Settings,
     description: 'Configure your account',
-  },    
+  },
 ];
 
 export default function DashboardPage() {
   const { data: documents = [] } = trpc.documents.list.useQuery({
     limit: 50,
-    offset: 0
+    offset: 0,
   });
 
   const formatFileSize = (bytes: number) => {
@@ -74,8 +74,7 @@ export default function DashboardPage() {
       <div>
         <h1 className='text-3xl font-bold tracking-tight'>Dashboard</h1>
         <p className='text-muted-foreground'>
-          Welcome to Taskorly.{' '}
-          {isDevMode && ''}
+          Welcome to Taskorly. {isDevMode && ''}
         </p>
       </div>
 
@@ -89,16 +88,21 @@ export default function DashboardPage() {
           <CardContent>
             <div className='grid gap-4 md:grid-row-3'>
               {QuickActionItems.map(item => (
-              <Button variant='outline' className='justify-start h-auto p-4' key={item.url} onClick={() => window.location.href = item.url}>
-                <item.icon className='mr-3 h-5 w-5'/>
-                <div className='text-left'>
-                  <div className='font-medium'>{item.title}</div>
-                  <div className='text-sm text-muted-foreground'>
-                    {item.description}
+                <Button
+                  variant='outline'
+                  className='justify-start h-auto p-4'
+                  key={item.url}
+                  onClick={() => (window.location.href = item.url)}
+                >
+                  <item.icon className='mr-3 h-5 w-5' />
+                  <div className='text-left'>
+                    <div className='font-medium'>{item.title}</div>
+                    <div className='text-sm text-muted-foreground'>
+                      {item.description}
+                    </div>
                   </div>
-                </div>
-              </Button>
-            ))}
+                </Button>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -117,14 +121,14 @@ export default function DashboardPage() {
               </p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className='text-lg'>Recent Documents</CardTitle>
               <CardDescription>Latest uploaded files</CardDescription>
             </CardHeader>
             <CardContent className='space-y-4'>
-              {documents.map((document) => (
+              {documents.map(document => (
                 <div key={document.id} className='flex items-start space-x-3'>
                   <div className='mt-1'>
                     {document.processing_status === 'completed' && (
@@ -146,16 +150,23 @@ export default function DashboardPage() {
                         {document.content_type}
                       </Badge>
                       <span className='text-xs text-muted-foreground'>
-                        {(formatFileSize(document.content?.length || 0))}
+                        {formatFileSize(document.content?.length || 0)}
                       </span>
                     </div>
                     <CardDescription className='text-xs text-muted-foreground'>
-                       {document.created_at? new Date(document.created_at).toLocaleDateString(): "N/A"}
+                      {document.created_at
+                        ? new Date(document.created_at).toLocaleDateString()
+                        : 'N/A'}
                     </CardDescription>
                   </div>
                 </div>
               ))}
-              <Button variant='ghost' size='sm' className='w-full' onClick={() => window.location.href = '/documents'}>
+              <Button
+                variant='ghost'
+                size='sm'
+                className='w-full'
+                onClick={() => (window.location.href = '/documents')}
+              >
                 <FileText className='mr-2 h-4 w-4' />
                 Manage Documents
                 <ArrowRight className='ml-2 h-4 w-4' />

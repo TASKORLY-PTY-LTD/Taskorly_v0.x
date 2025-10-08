@@ -1,9 +1,6 @@
 'use client';
 
-import {
-  SidebarProvider,
-  SidebarInset,
-} from '@/components/ui/sidebar';
+import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppHeader } from './app-header';
 import { AppSidebar } from './app-sidebar';
 import { LoginForm } from '@/components/auth/login-form';
@@ -19,10 +16,10 @@ export function MainLayout({ children }: MainLayoutProps) {
   // Always block UI while loading
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-2 text-sm text-gray-500">Loading...</p>
+      <div className='min-h-screen flex items-center justify-center'>
+        <div className='text-center'>
+          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto'></div>
+          <p className='mt-2 text-sm text-gray-500'>Loading...</p>
         </div>
       </div>
     );
@@ -38,9 +35,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       <AppSidebar />
       <SidebarInset>
         <AppHeader />
-        <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-          {children}
-        </div>
+        <div className='flex flex-1 flex-col gap-4 p-4 pt-0'>{children}</div>
       </SidebarInset>
     </SidebarProvider>
   );

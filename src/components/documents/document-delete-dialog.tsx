@@ -95,7 +95,9 @@ export function DocumentDeleteDialog({
               <div>
                 <p className='text-muted-foreground'>Type</p>
                 <Badge variant='outline' className='text-xs'>
-                  {document.content_type ? document.content_type.toUpperCase() : 'N/A'}
+                  {document.content_type
+                    ? document.content_type.toUpperCase()
+                    : 'N/A'}
                 </Badge>
               </div>
               <div>

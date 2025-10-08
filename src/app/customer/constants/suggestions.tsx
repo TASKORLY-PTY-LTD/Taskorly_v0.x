@@ -1,5 +1,14 @@
 import React from 'react';
-import { Square, Shield, Sparkles, Monitor, MessageSquare, Zap, FileText, ArrowRight } from 'lucide-react';
+import {
+  Square,
+  Shield,
+  Sparkles,
+  Monitor,
+  MessageSquare,
+  Zap,
+  FileText,
+  ArrowRight,
+} from 'lucide-react';
 import { Suggestion } from '../types/customer.types';
 
 export const MOCK_SUGGESTIONS: Suggestion[] = [
