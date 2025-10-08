@@ -129,7 +129,7 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
         setIsLoading(false);
       }
     },
-    [conversationId, onError, onMessageSent, onMessageReceived]
+    [conversationId, onError, onMessageSent, onMessageReceived, chatService]
   );
 
   // Clear conversation
