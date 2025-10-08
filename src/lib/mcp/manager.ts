@@ -215,61 +215,61 @@ export class MCPManager {
   /**
    * Add a new MCP server
    */
-  async addServer(
-    tenantId: string,
-    serverConfig: {
-      name: string;
-      description?: string;
-      server_url?: string;
-      server_command?: string;
-      server_args?: string[];
-      server_env?: Record<string, string>;
-      capabilities?: any;
-    }
-  ): Promise<string> {
-    try {
-      // Insert server configuration
-      const { data: server, error } = await supabaseAdmin
-        .from('mcp_servers')
-        .insert({
-          tenant_id: tenantId,
-          name: serverConfig.name,
-          description: serverConfig.description,
-          server_url: serverConfig.server_url,
-          server_command: serverConfig.server_command,
-          server_args: serverConfig.server_args,
-          server_env: serverConfig.server_env || {},
-          capabilities: serverConfig.capabilities || {},
-          is_active: true,
-        })
-        .select()
-        .single();
+  // async addServer(
+  //   tenantId: string,
+  //   serverConfig: {
+  //     name: string;
+  //     description?: string;
+  //     server_url?: string;
+  //     server_command?: string;
+  //     server_args?: string[];
+  //     server_env?: Record<string, string>;
+  //     capabilities?: any;
+  //   }
+  // ): Promise<string> {
+  //   try {
+  //     // Insert server configuration
+  //     const { data: server, error } = await supabaseAdmin
+  //       .from('mcp_servers')
+  //       .insert({
+  //         tenant_id: tenantId,
+  //         name: serverConfig.name,
+  //         description: serverConfig.description,
+  //         server_url: serverConfig.server_url,
+  //         server_command: serverConfig.server_command,
+  //         server_args: serverConfig.server_args,
+  //         server_env: serverConfig.server_env || {},
+  //         capabilities: serverConfig.capabilities || {},
+  //         is_active: true,
+  //       })
+  //       .select()
+  //       .single();
 
-      if (error || !server) {
-        throw new Error(`Failed to add server: ${error?.message}`);
-      }
+  //     if (error || !server) {
+  //       throw new Error(`Failed to add server: ${error?.message}`);
+  //     }
 
-      // Try to connect to the new server
-      try {
-        await this.connectToServer(tenantId, server);
-      } catch (connectionError) {
-        console.warn(
-          `Server added but connection failed: ${(connectionError as Error).message}`
-        );
+  //     // Try to connect to the new server
+  //     try {
+  //       await this.connectToServer(tenantId, server);
+  //     } catch (connectionError) {
+  //       console.warn(
+  //         `Server added but connection failed: ${(connectionError as Error).message}`
+  //       );
 
-        // Mark server as inactive if connection fails
-        await supabaseAdmin
-          .from('mcp_servers')
-          .update({ is_active: false })
-          .eq('id', server.id);
-      }
+  //       // Mark server as inactive if connection fails
+  //       await supabaseAdmin
+  //         .from('mcp_servers')
+  //         .update({ is_active: false })
+  //         .eq('id', server.id);
+  //     }
 
-      return server.id;
-    } catch (error) {
-      console.error('Error adding MCP server:', error);
-      throw error;
-    }
-  }
+  //     return server.id;
+  //   } catch (error) {
+  //     console.error('Error adding MCP server:', error);
+  //     throw error;
+  //   }
+  // }
 
   /**
    * Remove an MCP server
@@ -406,10 +406,8 @@ export class MCPManager {
 
       health[server.name] = {
         status: connection
-          ? 'connected'
-          : server.is_active
-            ? 'disconnected'
-            : 'error',
+          ? 'connected': server.enabled ? 'disconnected' : 'error',
+        lastError: connection ? undefined : server.enabled ? undefined : 'Server is inactive',
         toolCount: tools.length,
       };
     }

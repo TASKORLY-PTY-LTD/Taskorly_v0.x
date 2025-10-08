@@ -28,44 +28,44 @@ export const mcpRouter = createTRPCRouter({
   }),
 
   // Execute a tool
-  executeTool: tenantProcedure
-    .input(
-      z.object({
-        toolName: z.string(),
-        args: z.record(z.any()),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      try {
-        const result = await mcpManager.executeTool(
-          ctx.tenant.id,
-          input.toolName,
-          input.args
-        );
+  // executeTool: tenantProcedure
+  //   .input(
+  //     z.object({
+  //       toolName: z.string(),
+  //       args: z.record(z.any()),
+  //     })
+  //   )
+  //   .mutation(async ({ ctx, input }) => {
+  //     try {
+  //       const result = await mcpManager.executeTool(
+  //         ctx.tenant.id,
+  //         input.toolName,
+  //         input.args
+  //       );
 
-        // Log usage
-        await ctx.supabaseAdmin.from('usage_logs').insert({
-          tenant_id: ctx.tenant.id,
-          user_id: ctx.user.id,
-          event_type: 'tool_execution',
-          tokens_used: 0, // Tools don't use tokens directly
-          cost_cents: 0,
-          metadata: {
-            tool_name: input.toolName,
-            args: input.args,
-            success: !!result,
-          },
-        });
+  //       // Log usage
+  //       await ctx.supabaseAdmin.from('usage_logs').insert({
+  //         tenant_id: ctx.tenant.id,
+  //         user_id: ctx.user.id,
+  //         event_type: 'tool_execution',
+  //         tokens_used: 0, // Tools don't use tokens directly
+  //         cost_cents: 0,
+  //         metadata: {
+  //           tool_name: input.toolName,
+  //           args: input.args,
+  //           success: !!result,
+  //         },
+  //       });
 
-        return result;
-      } catch (error) {
-        console.error('Error executing tool:', error);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to execute tool: ${(error as Error).message}`,
-        });
-      }
-    }),
+  //       return result;
+  //     } catch (error) {
+  //       console.error('Error executing tool:', error);
+  //       throw new TRPCError({
+  //         code: 'INTERNAL_SERVER_ERROR',
+  //         message: `Failed to execute tool: ${(error as Error).message}`,
+  //       });
+  //     }
+  //   }),
 
   // List MCP servers for tenant
   listServers: tenantProcedure.query(async ({ ctx }) => {
@@ -85,38 +85,38 @@ export const mcpRouter = createTRPCRouter({
   }),
 
   // Add new MCP server (admin only)
-  addServer: adminTenantProcedure
-    .input(
-      z.object({
-        name: z.string().min(1).max(255),
-        description: z.string().optional(),
-        server_url: z.string().url().optional(),
-        server_command: z.string().optional(),
-        server_args: z.array(z.string()).optional(),
-        server_env: z.record(z.string()).optional(),
-        capabilities: z.record(z.any()).optional(),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      try {
-        const serverId = await mcpManager.addServer(ctx.tenant.id, {
-          name: input.name,
-          description: input.description ?? undefined,
-          server_url: input.server_url ?? undefined,
-          server_command: input.server_command ?? undefined,
-          server_args: input.server_args ?? undefined,
-          server_env: input.server_env ?? undefined,
-          capabilities: input.capabilities ?? undefined,
-        });
-        return { id: serverId };
-      } catch (error) {
-        console.error('Error adding MCP server:', error);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to add MCP server',
-        });
-      }
-    }),
+  // addServer: adminTenantProcedure
+  //   .input(
+  //     z.object({
+  //       name: z.string().min(1).max(255),
+  //       description: z.string().optional(),
+  //       server_url: z.string().url().optional(),
+  //       server_command: z.string().optional(),
+  //       server_args: z.array(z.string()).optional(),
+  //       server_env: z.record(z.string()).optional(),
+  //       capabilities: z.record(z.any()).optional(),
+  //     })
+  //   )
+  //   .mutation(async ({ ctx, input }) => {
+  //     try {
+  //       const serverId = await mcpManager.addServer(ctx.tenant.id, {
+  //         name: input.name,
+  //         description: input.description ?? undefined,
+  //         server_url: input.server_url ?? undefined,
+  //         server_command: input.server_command ?? undefined,
+  //         server_args: input.server_args ?? undefined,
+  //         server_env: input.server_env ?? undefined,
+  //         capabilities: input.capabilities ?? undefined,
+  //       });
+  //       return { id: serverId };
+  //     } catch (error) {
+  //       console.error('Error adding MCP server:', error);
+  //       throw new TRPCError({
+  //         code: 'INTERNAL_SERVER_ERROR',
+  //         message: 'Failed to add MCP server',
+  //       });
+  //     }
+  //   }),
 
   // Update MCP server (admin only)
   updateServer: adminTenantProcedure
