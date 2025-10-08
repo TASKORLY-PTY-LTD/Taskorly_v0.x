@@ -148,9 +148,9 @@ export const documentsRouter = createTRPCRouter({
         await ctx.supabaseAdmin.from('usage_logs').insert({
           tenant_id: ctx.tenant?.id!,
           user_id: ctx.user.id,
-          event_type: 'pdf_upload',
+          operation: 'pdf_upload',
           tokens_used: 0,
-          cost_cents: 0,
+          cost_usd: 0,
           metadata: {
             document_id: document.id,
             content_type: 'application/pdf',
@@ -267,7 +267,7 @@ export const documentsRouter = createTRPCRouter({
 
         if (
           document.processing_status === 'completed' &&
-          document.chunk_count > 0
+          (document.chunk_count ?? 0) > 0
         ) {
           throw new TRPCError({
             code: 'BAD_REQUEST',
@@ -292,7 +292,7 @@ export const documentsRouter = createTRPCRouter({
           {
             documentId: document.id,
             contentType: document.content_type,
-            contentLength: document.content.length,
+            contentLength: document.content?.length,
             isPDF,
             pageCount,
           }
@@ -301,10 +301,10 @@ export const documentsRouter = createTRPCRouter({
         try {
           // STEP 1: Chunk the document with Gemini
           const chunks = await chunkDocumentWithGemini(
-            document.content,
+            document.content ?? '',
             document.id,
             document.title,
-            document.content_type,
+            document.content_type ?? '',
             input.chunkingOptions
           );
 
@@ -444,9 +444,9 @@ export const documentsRouter = createTRPCRouter({
           await ctx.supabaseAdmin.from('usage_logs').insert({
             tenant_id: ctx.tenant?.id!,
             user_id: ctx.user.id,
-            event_type: eventType,
+            operation: eventType,
             tokens_used: totalTokens,
-            cost_cents: Math.ceil(totalTokens * 0.0001),
+            cost_usd: Math.ceil(totalTokens * 0.0001),
             metadata: usageMetadata,
           });
 
@@ -502,9 +502,9 @@ export const documentsRouter = createTRPCRouter({
           await ctx.supabaseAdmin.from('usage_logs').insert({
             tenant_id: ctx.tenant?.id!,
             user_id: ctx.user.id,
-            event_type: failedEventType,
+            operation: failedEventType,
             tokens_used: 0,
-            cost_cents: 0,
+            cost_usd: 0,
             metadata: {
               document_id: document.id,
               content_type: document.content_type,
@@ -830,9 +830,9 @@ export const documentsRouter = createTRPCRouter({
           await ctx.supabaseAdmin.from('usage_logs').insert({
             tenant_id: ctx.tenant?.id!,
             user_id: ctx.user.id,
-            event_type: 'bulk_document_upload_with_chunking_and_vectors',
+            operation: 'bulk_document_upload_with_chunking_and_vectors',
             tokens_used: totalTokens,
-            cost_cents: Math.ceil(totalTokens * 0.0001),
+            cost_usd: Math.ceil(totalTokens * 0.0001),
             metadata: {
               document_count: input.documents.length,
               successful_uploads: results.filter(r => r.success).length,

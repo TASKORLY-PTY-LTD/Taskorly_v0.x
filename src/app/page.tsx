@@ -9,36 +9,17 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useEffect, useState } from "react"
 import { useDevMode } from '@/providers/dev-mode-provider';
 import {
   MessageSquare,
   FileText,
-  Server,
-  Activity,
   ArrowRight,
   CheckCircle,
   XCircle,
   Clock,
-  Home,
+  Settings,
 } from 'lucide-react';
 import { trpc } from '@/utils/trpc';
-import { inferRouterOutputs } from '@trpc/server';
-import { AppRouter } from '@/server/api/root';
-
-// System prompt configuration for POS assistant
-export const POS_SYSTEM_PROMPT = `You are a helpful AI assistant specialized in Business related questions and POS (Point of Sale) systems, particularly Square, Toast, and Shopify. You provide clear, step-by-step guidance for both common POS tasks and Queries related to business activities and products like:
-
-- Processing refunds and returns
-- Detailing Product details
-- Assisting staff with helping customers find the right product for them
-- Adding new products and inventory management
-- Troubleshooting payment terminal issues
-- Generating reports and analytics
-- Customer management
-- Staff training and onboarding
-
-Always provide specific, actionable steps and ask clarifying questions when needed. Be friendly, professional, and focus on practical solutions.`;
 
 const QuickActionItems = [
   {
@@ -52,7 +33,13 @@ const QuickActionItems = [
     url: '/documents',
     icon: FileText,
     description: 'Add files to knowledge base',
-  },  
+  },
+  {
+    title: 'Settings',
+    url: '/settings',
+    icon: Settings,
+    description: 'Configure your account',
+  },    
 ];
 
 export default function DashboardPage() {
@@ -137,7 +124,7 @@ export default function DashboardPage() {
               <CardDescription>Latest uploaded files</CardDescription>
             </CardHeader>
             <CardContent className='space-y-4'>
-              {documents.map((document: inferRouterOutputs<AppRouter>['documents']['list'][number]) => (
+              {documents.map((document) => (
                 <div key={document.id} className='flex items-start space-x-3'>
                   <div className='mt-1'>
                     {document.processing_status === 'completed' && (
@@ -159,16 +146,16 @@ export default function DashboardPage() {
                         {document.content_type}
                       </Badge>
                       <span className='text-xs text-muted-foreground'>
-                        {(formatFileSize(document.content.length))}
+                        {(formatFileSize(document.content?.length || 0))}
                       </span>
                     </div>
-                    <p className='text-xs text-muted-foreground'>
-                       {new Date(document.created_at).toLocaleDateString()}
-                    </p>
+                    <CardDescription className='text-xs text-muted-foreground'>
+                       {document.created_at? new Date(document.created_at).toLocaleDateString(): "N/A"}
+                    </CardDescription>
                   </div>
                 </div>
               ))}
-              <Button variant='ghost' size='sm' className='w-full'>
+              <Button variant='ghost' size='sm' className='w-full' onClick={() => window.location.href = '/documents'}>
                 <FileText className='mr-2 h-4 w-4' />
                 Manage Documents
                 <ArrowRight className='ml-2 h-4 w-4' />
