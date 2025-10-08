@@ -20,17 +20,17 @@ export const chatRouter = createTRPCRouter({
       try {
         //Step 1: Fetch user settings from database
         const { data: settings, error: settingsError } = await ctx.supabaseAdmin
-          .from("Settings")
-          .select("*")
-          .eq("UserId", ctx.user.id)
+          .from('Settings')
+          .select('*')
+          .eq('UserId', ctx.user.id)
           .maybeSingle();
 
         if (settingsError) {
-          console.error("Error fetching settings:", settingsError);
+          console.error('Error fetching settings:', settingsError);
         }
 
         //Step 2: Build system prompt from settings (with fallback to defaults)
-        const systemPromptBase = settings 
+        const systemPromptBase = settings
           ? buildSystemPrompt(settings)
           : buildSystemPrompt({
               Description: null,

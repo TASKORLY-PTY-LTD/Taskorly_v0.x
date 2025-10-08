@@ -406,8 +406,15 @@ export class MCPManager {
 
       health[server.name] = {
         status: connection
-          ? 'connected': server.enabled ? 'disconnected' : 'error',
-        lastError: connection ? undefined : server.enabled ? undefined : 'Server is inactive',
+          ? 'connected'
+          : server.enabled
+            ? 'disconnected'
+            : 'error',
+        lastError: connection
+          ? undefined
+          : server.enabled
+            ? undefined
+            : 'Server is inactive',
         toolCount: tools.length,
       };
     }

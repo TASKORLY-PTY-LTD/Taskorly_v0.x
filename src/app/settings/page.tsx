@@ -50,9 +50,9 @@ export default function SettingsPage() {
       setHasChanges(false);
       refetch(); // Refresh data after save
     },
-    onError: (error) => {
+    onError: error => {
       console.error('Failed to save settings:', error);
-    }
+    },
   });
 
   // Update local state when data is fetched
@@ -64,13 +64,11 @@ export default function SettingsPage() {
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className='flex items-center justify-center h-full'>
         <Card>
           <CardHeader>
             <CardTitle>User not found</CardTitle>
-            <CardDescription>
-              Please log in to access settings.
-            </CardDescription>
+            <CardDescription>Please log in to access settings.</CardDescription>
           </CardHeader>
         </Card>
       </div>
@@ -79,7 +77,7 @@ export default function SettingsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className='flex items-center justify-center h-full'>
         <Card>
           <CardHeader>
             <CardTitle>Loading...</CardTitle>
@@ -91,7 +89,7 @@ export default function SettingsPage() {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className='flex items-center justify-center h-full'>
         <Card>
           <CardHeader>
             <CardTitle>Error</CardTitle>
@@ -112,7 +110,7 @@ export default function SettingsPage() {
 
   const handleSaveSettings = async () => {
     if (!user || !settings) return;
-    
+
     await saveSettings.mutateAsync({
       Description: settings.Description,
       Industry: settings.Industry,
@@ -156,9 +154,9 @@ export default function SettingsPage() {
             <RefreshCw className='mr-2 h-4 w-4' />
             Reset
           </Button>
-          <Button 
-            size='sm' 
-            onClick={handleSaveSettings} 
+          <Button
+            size='sm'
+            onClick={handleSaveSettings}
             disabled={!hasChanges || saveSettings.isPending}
           >
             <Save className='mr-2 h-4 w-4' />
@@ -212,7 +210,7 @@ export default function SettingsPage() {
                   onChange={e =>
                     handleSettingChange('Industry', e.target.value)
                   }
-                  placeholder="e.g., Technology, Healthcare, Finance"
+                  placeholder='e.g., Technology, Healthcare, Finance'
                 />
               </div>
             </div>
@@ -226,7 +224,7 @@ export default function SettingsPage() {
                   handleSettingChange('Description', e.target.value)
                 }
                 rows={3}
-                placeholder="Describe your business or use case..."
+                placeholder='Describe your business or use case...'
               />
             </div>
           </CardContent>

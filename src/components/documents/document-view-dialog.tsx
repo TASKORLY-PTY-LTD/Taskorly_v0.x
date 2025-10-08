@@ -116,7 +116,9 @@ export function DocumentViewDialog({
             <div className='space-y-1'>
               <p className='text-sm font-medium text-muted-foreground'>Type</p>
               <Badge variant='outline' className='text-xs'>
-                {displayDocument.content_type ? displayDocument.content_type.toUpperCase(): 'N/A'}
+                {displayDocument.content_type
+                  ? displayDocument.content_type.toUpperCase()
+                  : 'N/A'}
               </Badge>
             </div>
             <div className='space-y-1'>
@@ -148,7 +150,9 @@ export function DocumentViewDialog({
               </p>
               <p className='text-sm flex items-center gap-1'>
                 <Calendar className='h-3 w-3' />
-                {displayDocument.created_at ? new Date(displayDocument.created_at).toLocaleDateString(): 'N/A'}
+                {displayDocument.created_at
+                  ? new Date(displayDocument.created_at).toLocaleDateString()
+                  : 'N/A'}
               </p>
             </div>
           </div>
