@@ -116,13 +116,13 @@ export function DocumentViewDialog({
             <div className='space-y-1'>
               <p className='text-sm font-medium text-muted-foreground'>Type</p>
               <Badge variant='outline' className='text-xs'>
-                {displayDocument.content_type.toUpperCase()}
+                {displayDocument.content_type ? displayDocument.content_type.toUpperCase(): 'N/A'}
               </Badge>
             </div>
             <div className='space-y-1'>
               <p className='text-sm font-medium text-muted-foreground'>Size</p>
               <p className='text-sm'>
-                {formatFileSize(displayDocument.content.length)}
+                {formatFileSize(displayDocument.content?.length || 0)}
               </p>
             </div>
             <div className='space-y-1'>
@@ -148,7 +148,7 @@ export function DocumentViewDialog({
               </p>
               <p className='text-sm flex items-center gap-1'>
                 <Calendar className='h-3 w-3' />
-                {new Date(displayDocument.created_at).toLocaleDateString()}
+                {displayDocument.created_at ? new Date(displayDocument.created_at).toLocaleDateString(): 'N/A'}
               </p>
             </div>
           </div>
