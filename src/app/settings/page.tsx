@@ -38,7 +38,6 @@ export default function SettingsPage() {
   const [hasChanges, setHasChanges] = useState(false);
   const [settings, setSettings] = useState<any>(null);
 
-  // Use QUERY instead of mutation for fetching
   const { data, isLoading, error, refetch } = trpc.settings.fetch.useQuery(
     undefined,
     {
@@ -242,7 +241,7 @@ export default function SettingsPage() {
               AI Model Configuration
             </CardTitle>
             <CardDescription>
-              Configure AI models for language processing.
+              Configure AI model for processing.
             </CardDescription>
           </CardHeader>
           <CardContent className='space-y-4'>
