@@ -219,7 +219,7 @@ export default function SettingsPage() {
             </div>
 
             <div className='space-y-2'>
-              <Label htmlFor='Description'>Description</Label>
+              <Label htmlFor='Description'>Business Description</Label>
               <Textarea
                 id='Description'
                 value={settings.Description || ''}
