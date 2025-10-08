@@ -15,7 +15,7 @@ interface User {
   fullName: string | null;
   name?: string; // For compatibility with app-header
   role: 'owner' | 'admin' | 'manager' | 'user' | 'guest';
-  tenantId: string;
+  tenantId: string | null;
   permissions: string[];
 }
 
