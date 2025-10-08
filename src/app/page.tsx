@@ -146,12 +146,12 @@ export default function DashboardPage() {
                         {document.content_type}
                       </Badge>
                       <span className='text-xs text-muted-foreground'>
-                        {(formatFileSize(document.content.length))}
+                        {(formatFileSize(document.content?.length || 0))}
                       </span>
                     </div>
-                    <p className='text-xs text-muted-foreground'>
-                       {new Date(document.created_at).toLocaleDateString()}
-                    </p>
+                    <CardDescription className='text-xs text-muted-foreground'>
+                       {document.created_at? new Date(document.created_at).toLocaleDateString(): "N/A"}
+                    </CardDescription>
                   </div>
                 </div>
               ))}
