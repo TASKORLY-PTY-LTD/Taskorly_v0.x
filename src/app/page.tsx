@@ -155,7 +155,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
               ))}
-              <Button variant='ghost' size='sm' className='w-full'>
+              <Button variant='ghost' size='sm' className='w-full' onClick={() => window.location.href = '/documents'}>
                 <FileText className='mr-2 h-4 w-4' />
                 Manage Documents
                 <ArrowRight className='ml-2 h-4 w-4' />
