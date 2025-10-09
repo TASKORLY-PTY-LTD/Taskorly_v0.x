@@ -250,7 +250,7 @@ export const authRouter = createTRPCRouter({
           .select(
             `
             *,
-            tenants!inner(*)
+            tenants(*)
           `
           )
           .eq('id', authData.user.id)
