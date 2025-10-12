@@ -41,7 +41,7 @@ export default function DocumentsPage() {
     <div className='flex-1 space-y-4 p-4 md:p-6 pt-6'>
       <div className='flex items-center justify-between'>
         <div>
-          <h1 className='text-3xl font-bold tracking-tight'>Documents</h1>
+          <h1 className='text-3xl font-bold tracking-tight' data-testid='documents-title'>Documents</h1>
           <p className='text-muted-foreground'>
             Manage your knowledge base and document collection.
           </p>

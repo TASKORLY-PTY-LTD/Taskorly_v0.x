@@ -134,7 +134,7 @@ export default function SettingsPage() {
     <div className='flex-1 space-y-4 p-4 md:p-6 pt-6'>
       <div className='flex items-center justify-between'>
         <div>
-          <h1 className='text-3xl font-bold tracking-tight'>Settings</h1>
+          <h1 className='text-3xl font-bold tracking-tight' data-testid='settings-title'>Settings</h1>
           <p className='text-muted-foreground'>
             Configure your application settings and preferences.
           </p>

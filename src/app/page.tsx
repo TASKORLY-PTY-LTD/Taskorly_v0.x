@@ -27,18 +27,21 @@ const QuickActionItems = [
     url: '/customer',
     icon: MessageSquare,
     description: 'Begin a new conversation',
+    dataTestid: 'customer-chat-button',
   },
   {
     title: 'Documents',
     url: '/documents',
     icon: FileText,
     description: 'Add files to knowledge base',
+    dataTestid: 'documents-button',
   },
   {
     title: 'Settings',
     url: '/settings',
     icon: Settings,
     description: 'Configure your account',
+    dataTestid: 'settings-button',
   },
 ];
 
@@ -82,7 +85,7 @@ export default function DashboardPage() {
       <div className='grid gap-4 md:grid-cols-2'>
         <Card>
           <CardHeader>
-            <CardTitle className='text-lg'>Quick Actions</CardTitle>
+            <CardTitle className='text-lg' data-testid='quick-actions-title'>Quick Actions</CardTitle>
             <CardDescription>Common tasks and shortcuts</CardDescription>
           </CardHeader>
           <CardContent>
@@ -93,6 +96,7 @@ export default function DashboardPage() {
                   className='justify-start h-auto p-4'
                   key={item.url}
                   onClick={() => (window.location.href = item.url)}
+                  data-testid={item.dataTestid}
                 >
                   <item.icon className='mr-3 h-5 w-5' />
                   <div className='text-left'>
@@ -124,7 +128,7 @@ export default function DashboardPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className='text-lg'>Recent Documents</CardTitle>
+              <CardTitle className='text-lg' data-testid='recent-documents-title'>Recent Documents</CardTitle>
               <CardDescription>Latest uploaded files</CardDescription>
             </CardHeader>
             <CardContent className='space-y-4'>
@@ -166,6 +170,7 @@ export default function DashboardPage() {
                 size='sm'
                 className='w-full'
                 onClick={() => (window.location.href = '/documents')}
+                data-testid='manage-documents-button'
               >
                 <FileText className='mr-2 h-4 w-4' />
                 Manage Documents

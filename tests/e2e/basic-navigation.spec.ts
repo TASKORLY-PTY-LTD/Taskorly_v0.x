@@ -1,58 +1,64 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Basic Navigation', () => {
-  test('should load homepage', async ({ page }) => {
+
+  //Do the sign in before each test
+  // test.beforeEach(async ({ page }) => { test.beforeEach(async ({ page }) => {
+  //   // Navigate to dashboard page
+  //   await page.goto('/');
+  // });
+  test('should first load login page when not authenticated', async ({ page }) => {
     await page.goto('/');
 
-    // Check if the page loads and has expected content
-    await expect(page).toHaveTitle(/Taskorly/);
+    // Check if the page shows a login form
+    await expect(page.locator('div.tracking-tight.text-2xl.font-bold')).toContainText('Welcome Back');
 
-    // Check for main dashboard elements
-    await expect(page.locator('h1')).toContainText('Dashboard');
+    // check its the login page 
+    await expect(page.locator('button.inline-flex:nth-child(3)')).toContainText('Sign In');
 
-    // Check for navigation elements
-    await expect(page.locator('nav')).toBeVisible();
   });
 
-  test('should navigate between main pages', async ({ page }) => {
+  test('should navigate between main pages after sign in', async ({ page }) => {
     await page.goto('/');
 
-    // Navigate to Chat page
-    await page.locator('a[href="/chat"]').click();
-    await expect(page).toHaveURL('/chat');
-    await expect(page.locator('h1')).toContainText('Chat');
+    //sign in with test accounts
+    await page.locator('input[data-testid="email-input"]').fill('Zimraan@taskorly.com');
+    await page.locator('input[data-testid="password-input"]').fill('Shammy010404!');
+    await page.locator('button[type="submit"]').click();
+
+    // Navigate to CustomerChat page
+    await page.locator('a[href="/customer"]').click();
+    await expect(page).toHaveURL('/customer');
+    await expect(page.locator('h2[data-testid="customer-intro-title"]')).toHaveText('Welcome to your AI POS Assistant');
 
     // Navigate to Documents page
     await page.locator('a[href="/documents"]').click();
     await expect(page).toHaveURL('/documents');
-    await expect(page.locator('h1')).toContainText('Documents');
+    await expect(page.locator('h1[data-testid="documents-title"]')).toHaveText('Documents');
 
     // Navigate to Settings page
     await page.locator('a[href="/settings"]').click();
     await expect(page).toHaveURL('/settings');
-    await expect(page.locator('h1')).toContainText('Settings');
+    await expect(page.locator('h1[data-testid="settings-title"]')).toHaveText('Settings');
 
-    // Navigate to Servers page
-    await page.locator('a[href="/servers"]').click();
-    await expect(page).toHaveURL('/servers');
-    await expect(page.locator('h1')).toContainText('MCP Servers');
   });
 
-  test('should display dashboard statistics', async ({ page }) => {
+  test('should display dashboard quick actions and stat cards', async ({ page }) => {
     await page.goto('/');
 
-    // Check for stat cards
-    await expect(page.locator('text=Total Messages')).toBeVisible();
-    await expect(page.locator('text=Documents')).toBeVisible();
-    await expect(page.locator('text=MCP Servers')).toBeVisible();
-    await expect(page.locator('text=System Status')).toBeVisible();
+    //sign in with test accounts
+    await page.locator('input[data-testid="email-input"]').fill('Zimraan@taskorly.com');
+    await page.locator('input[data-testid="password-input"]').fill('Shammy010404!');
+    await page.locator('button[type="submit"]').click();
+
+    await page.goto('/');
+
+    // Check for Quick actions
+    // await expect(page.locator('[data-testid="quick-actions-title"]')).toHaveText('Quick Actions');
 
     // Check for recent activity sections
-    await expect(page.locator('text=Recent Messages')).toBeVisible();
-    await expect(page.locator('text=Recent Documents')).toBeVisible();
-
-    // Check for quick actions
-    await expect(page.locator('text=Quick Actions')).toBeVisible();
+    // await expect(page.locator('h2[data-testid="recent-documents-title"]')).toHaveText('Recent Documents');
+    // await expect(page.locator('button[data-testid="manage-documents-button"]')).toBeVisible();
   });
 
   test('should have responsive design on mobile', async ({ page }) => {

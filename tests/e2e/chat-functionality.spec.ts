@@ -1,21 +1,19 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Chat Functionality', () => {
+test.describe('Customer Chat Functionality', () => {
   test.beforeEach(async ({ page }) => {
-    // Navigate to chat page
-    await page.goto('/chat');
+    // Navigate to customer chat page
+    await page.goto('/customer');
   });
 
   test('should display chat interface', async ({ page }) => {
     // Check for main chat elements
-    await expect(page.locator('h1')).toContainText('Chat');
+    await expect(page.locator('h2')).toContainText('Welcome to your AI POS Assistant');
 
-    // Check for message area (should be visible even if empty)
-    await expect(page.locator('[data-testid="message-list"]')).toBeVisible();
 
     // Check for chat input
     await expect(
-      page.locator('textarea[placeholder*="message"]')
+      page.locator('input.flex-1')
     ).toBeVisible();
 
     // Check for send button

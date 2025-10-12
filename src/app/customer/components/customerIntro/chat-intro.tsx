@@ -23,7 +23,7 @@ export function ChatIntro({ isVisible, onSuggestionClick }: ChatIntroProps) {
               className='rounded-lg'
             />
           </div>
-          <h2 className='text-2xl font-bold mb-2'>
+          <h2 className='text-2xl font-bold mb-2' data-testid='customer-intro-title'>
             Welcome to your AI POS Assistant
           </h2>
           <p className='text-slate-300'>

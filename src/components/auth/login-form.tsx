@@ -86,6 +86,7 @@ export function LoginForm() {
                 onChange={e => handleInputChange('email', e.target.value)}
                 disabled={isLoading}
                 required
+                data-testid='email-input'
               />
             </div>
 
@@ -102,6 +103,7 @@ export function LoginForm() {
                   className='pr-10'
                   disabled={isLoading}
                   required
+                  data-testid='password-input'
                 />
                 <Button
                   type='button'
