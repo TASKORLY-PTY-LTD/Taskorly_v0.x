@@ -162,39 +162,3 @@ export const settingsRouter = createTRPCRouter({
       }
     }),
 });
-
-// export async function fetchSettings(userId: string): Promise<Settings | null> {
-//   try {
-//     const { data, error } = await supabaseAdmin
-//       .from("Settings")
-//       .select("*")
-//       .eq("user_id", userId)
-//       .maybeSingle();
-
-//     if (error) {
-//       console.error("Error fetching settings:", error);
-//       return null;
-//     }
-//     return data as Settings;
-//   } catch (error) {
-//     console.error("Error fetching settings:", error);
-//     return null;
-//   }
-// }
-
-// export async function setSettings(userId: string, settings: Partial<Settings>): Promise<boolean> {
-//   try {
-//     const { error } = await supabaseAdmin
-//       .from("Settings")
-//       .upsert({ user_id: userId, ...settings }, { onConflict: "user_id" });
-
-//     if (error) {
-//       console.error("Error setting settings:", error);
-//       return false;
-//     }
-//     return true;
-//   } catch (error) {
-//     console.error("Error setting settings:", error);
-//     return false;
-//   }
-// }
