@@ -11,7 +11,7 @@ export const supabase: SupabaseClient<Database> = createClient(
 // Service role client for admin operations
 export const supabaseAdmin: SupabaseClient<Database> = createClient(
   env.NEXT_PUBLIC_SUPABASE_URL,
-  env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  env.SUPABASE_SERVICE_ROLE_KEY,
   {
     auth: {
       autoRefreshToken: false,
