@@ -7,37 +7,46 @@ export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
 
   // In dev mode, disable auth middleware to avoid Supabase requirement
-  if (
-    process.env.NODE_ENV === 'development' ||
-    process.env.NODE_ENV === 'production'
-  ) {
-    // Add security headers but skip auth
-    return NextResponse.next({
-      headers: {
-        'X-Frame-Options': 'DENY',
-        'X-Content-Type-Options': 'nosniff',
-        'Referrer-Policy': 'origin-when-cross-origin',
-        'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-      },
-    });
-  }
+  // if (
+  //   process.env.NODE_ENV === 'development' ||
+  //   process.env.NODE_ENV === 'production'
+  // ) {
+  //   // Add security headers but skip auth
+  //   return NextResponse.next({
+  //     headers: {
+  //       'X-Frame-Options': 'DENY',
+  //       'X-Content-Type-Options': 'nosniff',
+  //       'Referrer-Policy': 'origin-when-cross-origin',
+  //       'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  //     },
+  //   });
+  // }
 
   // Create a Supabase client configured to use cookies
   const supabase = createMiddlewareClient<Database>({ req, res });
 
   // Refresh session if expired
   const {
-    data: { session },
+    data: { session }
   } = await supabase.auth.getSession();
 
+
+  if (session) {
+    // This is a great place to decode the JWT and check for your custom claims
+    console.log('User Access Token:', session.access_token);
+  }
+
+
   // Protected routes that require authentication
-  const protectedRoutes = [
-    '/api/trpc',
-    '/dashboard',
-    '/customer', // focus on this route
-    '/documents', // focus on this route
-    '/settings',
-  ];
+  // const protectedRoutes = [
+  //   // '/api/trpc',
+  //   // '/dashboard',
+  //   // '/customer', // focus on this route
+  //   // '/documents', // focus on this route
+  //   // '/settings',
+  // ];
+  const protectedRoutes: string[] = [];
+  
   const isProtectedRoute = protectedRoutes.some(route =>
     req.nextUrl.pathname.startsWith(route)
   );

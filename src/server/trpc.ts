@@ -2,7 +2,8 @@ import { initTRPC, TRPCError } from '@trpc/server';
 import { type NextRequest } from 'next/server';
 import superjson from 'superjson';
 import { ZodError } from 'zod';
-import { supabase, supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase'; // Keep admin for admin tasks
+import { createClient } from '@supabase/supabase-js'; // We need this to create user-specific clients
 
 // Create context for tRPC
 export const createTRPCContext = async (opts: { req: NextRequest }) => {
@@ -12,66 +13,81 @@ export const createTRPCContext = async (opts: { req: NextRequest }) => {
   const authHeader = req.headers.get('authorization');
   const token = authHeader?.replace('Bearer ', '');
 
-  let user = null;
-  let tenant = null;
-
-  if (token) {
-    try {
-      // console.log('=== AUTH DEBUG ===');
-      // console.log('Token found, verifying...');
-
-      // Verify the JWT token
-      const {
-        data: { user: authUser },
-        error,
-      } = await supabase.auth.getUser(token);
-
-      if (authUser && !error) {
-        // console log user here
-        // console.log('Auth user found:', authUser.id);
-
-        // Get user from our database
-        const { data: dbUser, error: dbError } = await supabaseAdmin
-          .from('users')
-          .select('*, tenants!inner(*)')
-          .eq('id', authUser.id)
-          .single();
-
-        if (dbError) {
-          console.error('Database user lookup error:', dbError);
-        }
-
-        if (dbUser) {
-          // console.log('Database user found:', dbUser.id);
-          // console.log('User tenant:', dbUser.tenant_id);
-          // console.log('Tenants data:', dbUser.tenants);
-
-          user = dbUser;
-          // Get the first tenant for now - in the future we might want to handle multiple tenants
-          tenant = Array.isArray(dbUser.tenants)
-            ? dbUser.tenants[0]
-            : dbUser.tenants;
-          // console.log('Selected tenant:', tenant);
-        } else {
-          console.log('No database user found for auth user:', authUser.id);
-        }
-      } else {
-        console.log('Auth verification failed:', error);
-      }
-    } catch (error) {
-      console.error('Auth error:', error);
-    }
-  } else {
-    console.log('No auth token found');
+  // If there's no token, return a basic context
+  if (!token) {
+    return {
+      req,
+      user: null,
+      tenant: null,
+      supabase: createClient( // Return a basic, unauthenticated client
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      ),
+      supabaseAdmin,
+    };
   }
 
+  // --- START: THE FIX ---
+  // Create a new Supabase client INSTANCE, authenticated as the user
+  const userSupabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    }
+  );
+
+  // Now, use this user-specific client to get both the auth user and the db user
+  const { data: { user: authUser } } = await userSupabase.auth.getUser();
+
+  if (!authUser) {
+    // If the token is invalid, return a null context
+    return {
+      req,
+      user: null,
+      tenant: null,
+      supabase: userSupabase, // Still return the (failed) user client
+      supabaseAdmin,
+    };
+  }
+  
+  // Use the SAME user-authenticated client to fetch from the database.
+  // This will correctly respect all RLS policies.
+  const { data: dbUser, error: dbError } = await userSupabase
+    .from('users')
+    .select('*, tenants!inner(*)')
+    .eq('id', authUser.id)
+    .single();
+
+  if (dbError || !dbUser) {
+    // This can happen if the user exists in auth but not in your public.users table
+    console.error('Could not find DB user for authenticated user:', authUser.id, dbError);
+    return {
+      req,
+      user: null,
+      tenant: null,
+      supabase: userSupabase,
+      supabaseAdmin,
+    };
+  }
+
+  const tenant = Array.isArray(dbUser.tenants)
+    ? dbUser.tenants[0]
+    : dbUser.tenants;
+
+  // Return a fully populated context
   return {
     req,
-    user,
-    tenant,
-    supabase,
+    user: dbUser,
+    tenant: tenant,
+    supabase: userSupabase, // This is the authenticated client for procedures to use
     supabaseAdmin,
   };
+  // --- END: THE FIX ---
 };
 
 const t = initTRPC.context<typeof createTRPCContext>().create({
@@ -99,12 +115,14 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
   return next({
     ctx: {
       ...ctx,
-      user: ctx.user,
+      // The user object is already the full user profile from the DB
+      user: ctx.user, 
       tenant: ctx.tenant,
     },
   });
 });
 
+// ... the rest of your procedures (tenantProcedure, adminProcedure) are correct and remain the same
 // Tenant procedure that requires both user and tenant
 export const tenantProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (!ctx.tenant) {
