@@ -5,7 +5,7 @@
  */
 
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { env } from './env';
+import { env } from '../Connections/env';
 
 // Interface for chunk data structure
 export interface DocumentChunk {

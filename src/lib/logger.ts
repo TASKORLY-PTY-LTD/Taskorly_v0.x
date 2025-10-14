@@ -1,4 +1,4 @@
-import { supabaseAdmin } from './supabase';
+import { supabaseAdmin } from './Connections/supabase';
 
 /**
  * Log levels for structured logging

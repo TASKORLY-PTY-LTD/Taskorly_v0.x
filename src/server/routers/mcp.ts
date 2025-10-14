@@ -8,7 +8,7 @@ import {
 } from '../trpc';
 import { TRPCError } from '@trpc/server';
 import { MCPManager } from '@/lib/mcp/manager';
-import { encrypt, decrypt } from '@/lib/encryption';
+import { encrypt, decrypt } from '@/lib/Security/encryption';
 
 const mcpManager = new MCPManager();
 

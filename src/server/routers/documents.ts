@@ -4,8 +4,8 @@ import { TRPCError } from '@trpc/server';
 import {
   chunkDocumentWithGemini,
   type DocumentChunk,
-} from '@/lib/gemini-chunker';
-import { processDocumentVectors } from '@/lib/vector-processor';
+} from '@/lib/PipelineLogic/gemini-chunker';
+import { processDocumentVectors } from '@/lib/PipelineLogic/vector-processor';
 import { createLogger } from '@/lib/logger';
 
 export const documentsRouter = createTRPCRouter({
@@ -1042,7 +1042,7 @@ export const documentsRouter = createTRPCRouter({
         // Delete all vector embeddings associated with this document from Pinecone
         try {
           const { deleteDocumentVectors } = await import(
-            '@/lib/vector-processor'
+            '@/lib/PipelineLogic/vector-processor'
           );
           const logger = createLogger(ctx.tenant.id, ctx.user.id);
 

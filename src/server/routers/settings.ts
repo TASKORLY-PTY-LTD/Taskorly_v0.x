@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '../../lib/supabase';
+import { supabaseAdmin } from '../../lib/Connections/supabase';
 import { z } from 'zod';
 import { createTRPCRouter, tenantProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';

@@ -2,7 +2,7 @@ import { initTRPC, TRPCError } from '@trpc/server';
 import { type NextRequest } from 'next/server';
 import superjson from 'superjson';
 import { ZodError } from 'zod';
-import { supabaseAdmin } from '@/lib/supabase'; // Keep admin for admin tasks
+import { supabaseAdmin } from '@/lib/Connections/supabase'; // Keep admin for admin tasks
 import { createClient } from '@supabase/supabase-js'; // We need this to create user-specific clients
 
 // Create context for tRPC

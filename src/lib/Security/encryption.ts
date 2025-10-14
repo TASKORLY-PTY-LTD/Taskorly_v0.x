@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { env } from './env';
+import { env } from '../Connections/env';
 
 const ALGORITHM = 'aes-256-gcm';
 const KEY_LENGTH = 32;

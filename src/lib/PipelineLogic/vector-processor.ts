@@ -8,8 +8,8 @@
  */
 
 import { generateEmbeddings, type EmbeddingResult } from './vector-embedder';
-import { storeEmbeddings, type VectorUpsertResult } from './pinecone-client';
-import { createLogger } from './logger';
+import { storeEmbeddings, type VectorUpsertResult } from '../Connections/pinecone-client';
+import { createLogger } from '../logger';
 import type { DocumentChunk } from './gemini-chunker';
 import _ from 'lodash';
 
@@ -329,7 +329,7 @@ export async function deleteDocumentVectors(
     );
 
     // Import deleteVectors function
-    const { deleteVectors } = await import('./pinecone-client');
+    const { deleteVectors } = await import('../Connections/pinecone-client');
 
     console.log(
       'Attempting to delete vector IDs:',
