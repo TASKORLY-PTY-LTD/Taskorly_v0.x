@@ -1,8 +1,8 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
-import { supabaseAdmin } from '@/lib/supabase';
-import { decrypt } from '@/lib/encryption';
+import { supabaseAdmin } from '@/lib/Connections/supabase';
+import { decrypt } from '@/lib/Security/encryption';
 
 export interface MCPTool {
   name: string;

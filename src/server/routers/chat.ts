@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { createTRPCRouter, publicProcedure, tenantProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
-import { RAGPipeline } from '@/lib/rag/pipeline';
-import { generateSingleEmbedding } from '@/lib/vector-embedder';
-import { searchSimilarVectors } from '@/lib/pinecone-client';
+import { RAGPipeline } from '@/lib/PipelineLogic/pipeline';
+import { generateSingleEmbedding } from '@/lib/PipelineLogic/vector-embedder';
+import { searchSimilarVectors } from '@/lib/Connections/pinecone-client';
 import { buildSystemPrompt } from './settings';
 
 export const chatRouter = createTRPCRouter({

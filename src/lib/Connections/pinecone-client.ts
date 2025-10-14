@@ -6,8 +6,8 @@
 
 import { Pinecone } from '@pinecone-database/pinecone';
 import { env } from './env';
-import { createLogger } from './logger';
-import type { EmbeddingResult } from './vector-embedder';
+import { createLogger } from '../logger';
+import type { EmbeddingResult } from '../PipelineLogic/vector-embedder';
 import _ from 'lodash';
 import { id } from 'zod/v4/locales';
 
