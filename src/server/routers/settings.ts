@@ -48,7 +48,6 @@ export const settingsRouter = createTRPCRouter({
       const { data, error } = await ctx.supabaseAdmin
         .from('Settings')
         .select('*')
-        .eq('UserId', ctx.user.id)
         .eq('Tenant_Id', ctx.user.tenant_id)
         .maybeSingle();
 
