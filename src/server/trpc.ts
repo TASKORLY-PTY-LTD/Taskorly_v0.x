@@ -55,17 +55,28 @@ export const createTRPCContext = async (opts: { req: NextRequest }) => {
     };
   }
   
-  // Use the SAME user-authenticated client to fetch from the database.
-  // This will correctly respect all RLS policies.
-  const { data: dbUser, error: dbError } = await userSupabase
-    .from('users')
-    .select('*, tenants!inner(*)')
-    .eq('id', authUser.id)
+  const { data: dbEmployee, error: dbError } = await userSupabase
+    .from('employees')  // ← CHANGED from 'users'
+    .select(`
+      *,
+      tenants (
+        tenant_id,
+        name,
+        slug,
+        location,
+        business_id,
+        businesses (
+          business_id,
+          business_name,
+          industry
+        )
+      )
+    `)
+    .eq('user_id', authUser.id)  // ← CHANGED from 'id'
     .single();
 
-  if (dbError || !dbUser) {
-    // This can happen if the user exists in auth but not in your public.users table
-    console.error('Could not find DB user for authenticated user:', authUser.id, dbError);
+  if (dbError || !dbEmployee) {
+    console.error('Could not find employee for auth user:', authUser.id, dbError);
     return {
       req,
       user: null,
@@ -75,19 +86,22 @@ export const createTRPCContext = async (opts: { req: NextRequest }) => {
     };
   }
 
-  const tenant = Array.isArray(dbUser.tenants)
-    ? dbUser.tenants[0]
-    : dbUser.tenants;
+  const tenant = dbEmployee.tenants;
 
-  // Return a fully populated context
   return {
     req,
-    user: dbUser,
+    user: {
+      id: authUser.id,
+      email: authUser.email || '',
+      role: dbEmployee.role,
+      employee_id: dbEmployee.employee_id,
+      tenant_id: dbEmployee.tenant_id,
+      user_metadata: authUser.user_metadata,
+    },
     tenant: tenant,
-    supabase: userSupabase, // This is the authenticated client for procedures to use
+    supabase: userSupabase,
     supabaseAdmin,
   };
-  // --- END: THE FIX ---
 };
 
 const t = initTRPC.context<typeof createTRPCContext>().create({
