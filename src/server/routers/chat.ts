@@ -21,9 +21,9 @@ export const chatRouter = createTRPCRouter({
       try {
         //Step 1: Fetch user settings from database
         const { data: settings, error: settingsError } = await ctx.supabaseAdmin
-          .from('Settings')
+          .from('settings')
           .select('*')
-          .eq('UserId', ctx.user.id)
+          .eq('tenant_id', ctx.user.tenant_id)
           .maybeSingle();
 
         if (settingsError) {
@@ -32,13 +32,17 @@ export const chatRouter = createTRPCRouter({
 
         //Step 2: Build system prompt from settings (with fallback to defaults)
         const systemPromptBase = settings
-          ? buildSystemPrompt(settings)
+          ? buildSystemPrompt({
+              Description: settings.description,
+              Industry: settings.industry,
+              Setting_id: Number(settings.setting_id),
+              Tenant_Id: settings.tenant_id,
+            })
           : buildSystemPrompt({
               Description: null,
               Industry: null,
               Setting_id: 0,
               Tenant_Id: ctx.user.tenant_id,
-              UserId: ctx.user.id,
             });
 
         let retrievedDocs: any[] = [];
@@ -106,8 +110,8 @@ export const chatRouter = createTRPCRouter({
         console.log('Enhanced system prompt:', {
           length: enhancedSystemPrompt.length,
           includesContext: enhancedSystemPrompt.includes('Relevant Context'),
-          includesIndustry: settings?.Industry ? true : false,
-          industry: settings?.Industry,
+          includesIndustry: settings?.industry ? true : false,
+          industry: settings?.industry,
         });
 
         // Step 5: Configure RAG Pipeline
