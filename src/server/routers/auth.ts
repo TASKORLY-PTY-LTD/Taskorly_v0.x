@@ -3,7 +3,7 @@ import { TRPCError } from '@trpc/server';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure, publicProcedure } from '../trpc';
-import { createClient } from '@supabase/supabase-js'; // <-- ADD THIS IMPORT
+import { createClient } from '@supabase/supabase-js';
 
 // Permission definitions for different roles
 const ROLE_PERMISSIONS = {
@@ -54,59 +54,108 @@ export const authRouter = createTRPCRouter({
       });
 
       if (error || !data.session) {
-        // This usually means the refresh token is invalid or expired
         throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Failed to refresh session.' });
       }
 
-      // Return the new tokens
       return {
         accessToken: data.session.access_token,
         refreshToken: data.session.refresh_token,
       };
     }),
 
-
-  // User signup with email/password (This remains unchanged)
+  // User signup with email/password
   signup: publicProcedure
     .input(
       z.object({
         email: z.string().email(),
         password: z.string().min(8).max(100),
         fullName: z.string().min(1).max(100),
-        tenantName: z.string().min(1).max(50).optional(),
-        role: z.enum(['owner', 'admin', 'manager', 'user']).default('user'),
+        businessName: z.string().min(1).max(100),
+        storeName: z.string().min(1).max(100),
+        location: z.string().min(1).max(200),
+        industry: z.string().optional(),
+        businessType: z.string().optional(),
+        phone: z.string().optional(),
+        website: z.string().optional(),
+        role: z.enum(['owner', 'admin', 'manager', 'user']).default('owner'),
       })
     )
     .mutation(async ({ input }) => {
-      // ... your existing signup logic is correct and remains here ...
       try {
-        // Check if user already exists
-        const { data: existingUser } = await supabaseAdmin
-          .from('users')
-          .select('email')
-          .eq('email', input.email)
-          .single();
+        // Check if user already exists in auth
+        const { data: existingAuthUser } = await supabaseAdmin.auth.admin.listUsers();
+        const authUserExists = existingAuthUser?.users.find(u => u.email === input.email);
 
-        if (existingUser) {
-          throw new TRPCError({
-            code: 'CONFLICT',
-            message: 'User with this email already exists',
-          });
+        if (authUserExists) {
+          // Check if they have an employee record
+          const { data: existingEmployee } = await supabaseAdmin
+            .from('employees')
+            .select('employee_id, user_id')
+            .eq('user_id', authUserExists.id)
+            .maybeSingle();
+          
+          if (existingEmployee) {
+            throw new TRPCError({
+              code: 'CONFLICT',
+              message: 'User with this email already exists',
+            });
+          } else {
+            // Auth user exists but no employee record - this is an orphaned user
+            console.log('Found orphaned auth user, cleaning up...');
+            await supabaseAdmin.auth.admin.deleteUser(authUserExists.id);
+            console.log('✅ Cleaned up orphaned auth user');
+          }
         }
 
-        // Hash password
-        const hashedPassword = await bcrypt.hash(input.password, 12);
+        // Also check for orphaned employee records (employee without auth user)
+        const { data: orphanedEmployees } = await supabaseAdmin
+          .from('employees')
+          .select('employee_id, user_id')
+          .is('user_id', null)
+          .limit(100);
 
-        // Create or get tenant
+        if (orphanedEmployees && orphanedEmployees.length > 0) {
+          console.log(`Found ${orphanedEmployees.length} orphaned employee records, cleaning up...`);
+          for (const emp of orphanedEmployees) {
+            await supabaseAdmin
+              .from('employees')
+              .delete()
+              .eq('employee_id', emp.employee_id);
+          }
+          console.log('✅ Cleaned up orphaned employee records');
+        }
+
+        let business;
         let tenant;
-        if (input.role === 'owner' && input.tenantName) {
-          // Verify we're using the admin client with proper permissions
-          console.log(
-            'Creating tenant with admin client for:',
-            input.tenantName
-          );
-          // Create new tenant for owner
-          const tenantSlug = input.tenantName
+
+        if (input.role === 'owner') {
+          // Step 1: Create the business (the organization/company)
+          const { data: newBusiness, error: businessError } = await supabaseAdmin
+            .from('businesses')
+            .insert({
+              business_name: input.businessName,
+              industry: input.industry,
+              type: input.businessType,
+              phone: input.phone,
+              website: input.website,
+              email: input.email,
+            })
+            .select()
+            .single();
+
+          if (businessError) {
+            console.error('Business creation failed:', businessError);
+            throw new TRPCError({
+              code: 'INTERNAL_SERVER_ERROR',
+              message: `Failed to create business: ${businessError.message}`,
+              cause: businessError,
+            });
+          }
+
+          business = newBusiness;
+
+          // Step 2: Create the tenant (the store/location)
+          const tenantSlug = `${input.businessName}-${input.storeName}`
             .toLowerCase()
             .replace(/[^a-z0-9-]/g, '-')
             .replace(/-+/g, '-')
@@ -115,125 +164,211 @@ export const authRouter = createTRPCRouter({
           const { data: newTenant, error: tenantError } = await supabaseAdmin
             .from('tenants')
             .insert({
-              name: input.tenantName,
+              name: input.storeName,
               slug: tenantSlug,
+              location: input.location,
+              business_id: business.business_id,
             })
             .select()
             .single();
 
           if (tenantError) {
-            console.error('Tenant creation failed:', {
-              error: tenantError,
-              message: tenantError.message,
-              code: tenantError.code,
-              details: tenantError.details,
-              hint: tenantError.hint,
-              tenantName: input.tenantName,
-              slug: tenantSlug,
-            });
+            console.error('Tenant creation failed:', tenantError);
+            // Rollback: delete the business if tenant creation fails
+            await supabaseAdmin
+              .from('businesses')
+              .delete()
+              .eq('business_id', business.business_id);
+            
             throw new TRPCError({
               code: 'INTERNAL_SERVER_ERROR',
-              message: `Failed to create tenant: ${tenantError.message}`,
+              message: `Failed to create store location: ${tenantError.message}`,
               cause: tenantError,
             });
           }
 
           tenant = newTenant;
         } else {
-          // For non-owner roles, they should be assigned to an existing tenant
-          // This would typically be handled by an admin inviting users
           throw new TRPCError({
             code: 'BAD_REQUEST',
-            message: 'Non-owner users must be invited to existing tenants',
+            message: 'Non-owner users must be invited to existing stores',
           });
         }
 
-        // Create user using Supabase Auth
+        // Step 3: Create user using Supabase Auth
+        console.log('Creating auth user for:', input.email);
         const { data: authUser, error: authError } =
           await supabaseAdmin.auth.admin.createUser({
             email: input.email,
             password: input.password,
-            email_confirm: true, // Auto-confirm for now
+            email_confirm: true,
             user_metadata: {
               full_name: input.fullName,
-              tenant_id: tenant.id,
+              tenant_id: tenant.tenant_id,
+              business_id: business.business_id,
               role: input.role,
             },
           });
 
         if (authError || !authUser.user) {
+          console.error('Auth user creation failed:', authError);
+          // Rollback: delete tenant and business
+          await supabaseAdmin
+            .from('tenants')
+            .delete()
+            .eq('tenant_id', tenant.tenant_id);
+          await supabaseAdmin
+            .from('businesses')
+            .delete()
+            .eq('business_id', business.business_id);
+          
           throw new TRPCError({
             code: 'INTERNAL_SERVER_ERROR',
             message: 'Failed to create user account',
           });
         }
 
-        // Create user record in our database
-        const { data: dbUser, error: dbError } = await supabaseAdmin
-          .from('users')
-          .insert({
-            id: authUser.user.id,
-            email: input.email,
-            full_name: input.fullName,
-            tenant_id: tenant.id,
-            role: input.role,
-          })
-          .select()
-          .single();
+        console.log('✅ Auth user created:', authUser.user.id);
 
-        if (dbError) {
-          // Rollback: delete the auth user if db insert fails
-          await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: 'Failed to create user profile',
-          });
+        // Check if employee record already exists (might be created by database trigger)
+        const { data: existingEmp } = await supabaseAdmin
+          .from('employees')
+          .select('employee_id, user_id, tenant_id, role')
+          .eq('user_id', authUser.user.id)
+          .maybeSingle();
+
+        let dbEmployee;
+
+        if (existingEmp) {
+          console.log('⚠️ Employee record already exists (likely from database trigger), updating it...');
+          // Update the existing employee record with correct data
+          const { data: updatedEmployee, error: updateError } = await supabaseAdmin
+            .from('employees')
+            .update({
+              tenant_id: tenant.tenant_id,
+              role: input.role,
+              active: 'active',
+            })
+            .eq('user_id', authUser.user.id)
+            .select()
+            .single();
+
+          if (updateError) {
+            console.error('Failed to update employee record:', updateError);
+            // Rollback
+            await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
+            await supabaseAdmin
+              .from('tenants')
+              .delete()
+              .eq('tenant_id', tenant.tenant_id);
+            await supabaseAdmin
+              .from('businesses')
+              .delete()
+              .eq('business_id', business.business_id);
+            
+            throw new TRPCError({
+              code: 'INTERNAL_SERVER_ERROR',
+              message: 'Failed to update employee profile',
+            });
+          }
+
+          dbEmployee = updatedEmployee;
+          console.log('✅ Employee record updated');
+        } else {
+          // Step 4: Create employee record in database (if trigger didn't create it)
+          console.log('Creating employee record for user_id:', authUser.user.id);
+          const { data: newEmployee, error: dbError } = await supabaseAdmin
+            .from('employees')
+            .insert({
+              user_id: authUser.user.id,
+              tenant_id: tenant.tenant_id,
+              role: input.role,
+              active: 'active',
+            })
+            .select()
+            .single();
+
+          if (dbError) {
+            console.error('Database error creating employee:', dbError);
+            console.error('Error code:', dbError.code);
+            console.error('Error message:', dbError.message);
+            console.error('Error details:', dbError.details);
+            console.error('Error hint:', dbError.hint);
+            
+            // Rollback: delete everything in reverse order
+            try {
+              await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
+              console.log('✅ Rolled back auth user');
+            } catch (authDeleteError) {
+              console.error('Failed to delete auth user during rollback:', authDeleteError);
+            }
+            
+            try {
+              await supabaseAdmin
+                .from('tenants')
+                .delete()
+                .eq('tenant_id', tenant.tenant_id);
+              console.log('✅ Rolled back tenant');
+            } catch (tenantDeleteError) {
+              console.error('Failed to delete tenant during rollback:', tenantDeleteError);
+            }
+            
+            try {
+              await supabaseAdmin
+                .from('businesses')
+                .delete()
+                .eq('business_id', business.business_id);
+              console.log('✅ Rolled back business');
+            } catch (businessDeleteError) {
+              console.error('Failed to delete business during rollback:', businessDeleteError);
+            }
+            
+            throw new TRPCError({
+              code: 'INTERNAL_SERVER_ERROR',
+              message: `Failed to create user profile: ${dbError.message}`,
+              cause: dbError,
+            });
+          }
+
+          dbEmployee = newEmployee;
+          console.log('✅ Employee record created');
         }
 
-        // Create user permissions record
-        const permissions =
-          ROLE_PERMISSIONS[input.role] || ROLE_PERMISSIONS.user;
-        // TODO: Re-enable after database migration
-        // try {
-        //   await supabaseAdmin
-        //     .from('user_permissions')
-        //     .insert({
-        //       user_id: authUser.user.id,
-        //       permissions: permissions
-        //     });
-        // } catch (permError) {
-        //   console.error('Failed to create user permissions:', permError);
-        //   // Don't fail the signup, just log the error
-        // }
-
-        // Create default tenant configuration for owner
+        // Step 5: Create default tenant configuration for owner
         if (input.role === 'owner') {
-          await supabaseAdmin.from('tenant_configurations').insert({
-            tenant_id: tenant.id,
-            llm_provider: 'openai',
-            llm_model: 'gpt-4o',
-            llm_api_key: '', // Will be set later
-            embedding_model: 'text-embedding-3-small',
-            system_prompt: 'You are a helpful AI assistant.',
-            temperature: 0.7,
-            max_context_length: 4000,
-            vector_db_config: {},
+          const { error: settingsError } = await supabaseAdmin.from('settings').insert({
+            tenant_id: tenant.tenant_id,
+            description: `Settings for ${input.storeName}`,
+            industry: input.industry,
           });
+          
+          if (settingsError) {
+            console.error('Failed to create tenant settings:', settingsError);
+            // Don't fail signup for this
+          }
         }
 
         return {
           user: {
-            id: dbUser.id,
-            email: dbUser.email,
-            fullName: dbUser.full_name,
-            role: dbUser.role,
-            tenantId: dbUser.tenant_id,
-            permissions,
+            id: authUser.user.id,
+            employeeId: dbEmployee.employee_id,
+            email: input.email,
+            fullName: input.fullName,
+            role: dbEmployee.role,
+            tenantId: dbEmployee.tenant_id,
+            permissions: ROLE_PERMISSIONS[input.role],
+          },
+          business: {
+            id: business.business_id,
+            name: business.business_name,
+            industry: business.industry,
+            type: business.type,
           },
           tenant: {
-            id: tenant.id,
+            id: tenant.tenant_id,
             name: tenant.name,
             slug: tenant.slug,
+            location: tenant.location,
           },
         };
       } catch (error) {
@@ -257,7 +392,7 @@ export const authRouter = createTRPCRouter({
     )
     .mutation(async ({ input }) => {
       try {
-        // Step 1: Authenticate with Supabase using the admin client
+        // Authenticate with Supabase
         const { data: authData, error: authError } =
           await supabaseAdmin.auth.signInWithPassword({
             email: input.email,
@@ -265,18 +400,13 @@ export const authRouter = createTRPCRouter({
           });
 
         if (authError || !authData.session) {
-          if (authError) {
-            console.error('🔴 Supabase Auth Error:', authError.message);
-          }
           throw new TRPCError({
             code: 'UNAUTHORIZED',
             message: 'Invalid email or password',
           });
         }
 
-        // --- START: THE FIX ---
-        // Step 2: Create a NEW Supabase client authenticated as the logged-in user.
-        // This is necessary to respect Row Level Security (RLS) policies.
+        // Create user-authenticated client for RLS
         const userSupabase = createClient(
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -289,48 +419,43 @@ export const authRouter = createTRPCRouter({
           }
         );
 
-        // Step 3: Fetch the user's profile using the NEW, user-authenticated client.
-        const { data: dbUser, error: dbError } = await userSupabase
-          .from('users')
-          .select(
-            `
+        // Fetch employee record with tenant and business info
+        const { data: dbEmployee, error: dbError } = await userSupabase
+          .from('employees')
+          .select(`
             *,
-            tenants(*)
-          `
-          )
-          .eq('id', authData.user.id)
+            tenants (
+              *,
+              businesses (*)
+            )
+          `)
+          .eq('user_id', authData.user.id)
           .single();
-        // --- END: THE FIX ---
 
-        if (dbError) {
+        if (dbError || !dbEmployee) {
           console.error('DB Error:', dbError);
           throw new TRPCError({
             code: 'NOT_FOUND',
-            message: 'Failed to find user profile after login.', // More specific message
+            message: 'Failed to find user profile after login.',
             cause: dbError,
           });
         }
 
-        if (!dbUser) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'User profile not found.',
-          });
-        }
-
         const permissions =
-          ROLE_PERMISSIONS[dbUser.role as keyof typeof ROLE_PERMISSIONS] || [];
+          ROLE_PERMISSIONS[dbEmployee.role as keyof typeof ROLE_PERMISSIONS] || [];
 
         return {
           user: {
-            id: dbUser.id,
-            email: dbUser.email,
-            fullName: dbUser.full_name,
-            role: dbUser.role,
-            tenantId: dbUser.tenant_id,
+            id: authData.user.id,
+            employeeId: dbEmployee.employee_id,
+            email: authData.user.email || input.email,
+            fullName: authData.user.user_metadata?.full_name || '',
+            role: dbEmployee.role,
+            tenantId: dbEmployee.tenant_id,
             permissions,
           },
-          tenant: dbUser.tenants,
+          tenant: dbEmployee.tenants,
+          business: dbEmployee.tenants?.businesses,
           accessToken: authData.session.access_token,
           refreshToken: authData.session.refresh_token,
         };
@@ -344,39 +469,44 @@ export const authRouter = createTRPCRouter({
         });
       }
     }),
-  
-  // ... the rest of your file (me, updateUserRole, etc.) remains unchanged ...
+
   // Get current user info (requires auth)
   me: protectedProcedure.query(async ({ ctx }) => {
-    // The 'isAuthed' middleware has already fetched the user and tenant.
-    // We can just return it directly from the context.
     if (!ctx.user || !ctx.tenant) {
-      // This should ideally never happen if middleware is correct
-      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Context not populated correctly.' });
+      throw new TRPCError({ 
+        code: 'INTERNAL_SERVER_ERROR', 
+        message: 'Context not populated correctly.' 
+      });
     }
 
-    // Get permissions based on the role from the context
     const permissions =
       ROLE_PERMISSIONS[ctx.user.role as keyof typeof ROLE_PERMISSIONS] || [];
 
-    // You will need to fetch the full profile here one last time if you need more fields than what's in ctx.user
-    // Or, even better, add more fields to ctx.user in the middleware
-    const { data: dbUser } = await ctx.supabase
-      .from('users')
-      .select('*')
-      .eq('id', ctx.user.id)
+    // Fetch full employee data with tenant and business
+    const { data: dbEmployee } = await ctx.supabase
+      .from('employees')
+      .select(`
+        *,
+        tenants (
+          *,
+          businesses (*)
+        )
+      `)
+      .eq('user_id', ctx.user.id)
       .single();
 
     return {
       user: {
         id: ctx.user.id,
-        email: dbUser?.email, // get from the fresh fetch
-        fullName: dbUser?.full_name, // get from the fresh fetch
+        employeeId: dbEmployee?.employee_id,
+        email: ctx.user.email,
+        fullName: ctx.user.user_metadata?.full_name || '',
         role: ctx.user.role,
-        tenantId: ctx.tenant.id,
+        tenantId: ctx.tenant.tenant_id,
         permissions,
       },
-      tenant: ctx.tenant,
+      tenant: dbEmployee?.tenants,
+      business: dbEmployee?.tenants?.businesses,
     };
   }),
 
@@ -384,12 +514,11 @@ export const authRouter = createTRPCRouter({
   updateUserRole: protectedProcedure
     .input(
       z.object({
-        userId: z.string().uuid(),
+        employeeId: z.string().uuid(),
         role: z.enum(['owner', 'admin', 'manager', 'user', 'guest']),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Check if current user is admin or owner
       if (!['admin', 'owner'].includes(ctx.user.role)) {
         throw new TRPCError({
           code: 'FORBIDDEN',
@@ -398,15 +527,14 @@ export const authRouter = createTRPCRouter({
       }
 
       try {
-        // Update user role
-        const { data: updatedUser, error } = await ctx.supabase
-          .from('users')
+        const { data: updatedEmployee, error } = await ctx.supabase
+          .from('employees')
           .update({
             role: input.role,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', input.userId)
-          .eq('tenant_id', ctx.tenant!.id) // Ensure same tenant
+          .eq('employee_id', input.employeeId)
+          .eq('tenant_id', ctx.tenant!.tenant_id)
           .select()
           .single();
 
@@ -417,19 +545,7 @@ export const authRouter = createTRPCRouter({
           });
         }
 
-        // Update permissions
-        const permissions =
-          ROLE_PERMISSIONS[input.role] || ROLE_PERMISSIONS.user;
-        // TODO: Re-enable after database migration
-        // await ctx.supabaseAdmin
-        //   .from('user_permissions')
-        //   .upsert({
-        //     user_id: input.userId,
-        //     permissions: permissions,
-        //     updated_at: new Date().toISOString()
-        //   });
-
-        return updatedUser;
+        return updatedEmployee;
       } catch (error) {
         console.error('Update role error:', error);
         if (error instanceof TRPCError) throw error;
@@ -450,7 +566,6 @@ export const authRouter = createTRPCRouter({
       })
     )
     .query(async ({ ctx, input }) => {
-      // Check if current user is admin or owner
       if (!['admin', 'owner'].includes(ctx.user.role)) {
         throw new TRPCError({
           code: 'FORBIDDEN',
@@ -459,10 +574,10 @@ export const authRouter = createTRPCRouter({
       }
 
       try {
-        const { data: users, error } = await ctx.supabase
-          .from('users')
+        const { data: employees, error } = await ctx.supabase
+          .from('employees')
           .select('*')
-          .eq('tenant_id', ctx.tenant!.id)
+          .eq('tenant_id', ctx.tenant!.tenant_id)
           .order('created_at', { ascending: false })
           .range(input.offset, input.offset + input.limit - 1);
 
@@ -473,7 +588,7 @@ export const authRouter = createTRPCRouter({
           });
         }
 
-        return users || [];
+        return employees || [];
       } catch (error) {
         console.error('List users error:', error);
         if (error instanceof TRPCError) throw error;
@@ -495,7 +610,6 @@ export const authRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Check if current user is admin or owner
       if (!['admin', 'owner'].includes(ctx.user.role)) {
         throw new TRPCError({
           code: 'FORBIDDEN',
@@ -505,17 +619,20 @@ export const authRouter = createTRPCRouter({
 
       try {
         // Check if user already exists in this tenant
-        const { data: existingUser } = await ctx.supabase
-          .from('users')
-          .select('email')
-          .eq('email', input.email)
-          .eq('tenant_id', ctx.tenant!.id)
+        const { data: existingEmployee } = await ctx.supabase
+          .from('employees')
+          .select('user_id')
+          .eq('tenant_id', ctx.tenant!.tenant_id)
           .single();
 
-        if (existingUser) {
+        // Also check auth users by email
+        const { data: authUsers } = await ctx.supabaseAdmin.auth.admin.listUsers();
+        const existingAuthUser = authUsers?.users.find(u => u.email === input.email);
+
+        if (existingAuthUser && existingEmployee) {
           throw new TRPCError({
             code: 'CONFLICT',
-            message: 'User already exists in this tenant',
+            message: 'User already exists in this store',
           });
         }
 
@@ -530,7 +647,7 @@ export const authRouter = createTRPCRouter({
             email_confirm: true,
             user_metadata: {
               full_name: input.fullName,
-              tenant_id: ctx.tenant!.id,
+              tenant_id: ctx.tenant!.tenant_id,
               role: input.role,
               invited_by: ctx.user.id,
               requires_password_reset: true,
@@ -544,15 +661,14 @@ export const authRouter = createTRPCRouter({
           });
         }
 
-        // Create user record in our database
-        const { data: dbUser, error: dbError } = await ctx.supabaseAdmin
-          .from('users')
+        // Create employee record
+        const { data: dbEmployee, error: dbError } = await ctx.supabaseAdmin
+          .from('employees')
           .insert({
-            id: authUser.user.id,
-            email: input.email,
-            full_name: input.fullName,
-            tenant_id: ctx.tenant!.id,
+            user_id: authUser.user.id,
+            tenant_id: ctx.tenant!.tenant_id,
             role: input.role,
+            active: 'active', // Using 'active' instead of 'true'
           })
           .select()
           .single();
@@ -566,28 +682,9 @@ export const authRouter = createTRPCRouter({
           });
         }
 
-        // Create user permissions
-        const permissions =
-          ROLE_PERMISSIONS[input.role] || ROLE_PERMISSIONS.user;
-        // TODO: Re-enable after database migration
-        // try {
-        //   await ctx.supabaseAdmin
-        //     .from('user_permissions')
-        //     .insert({
-        //       user_id: authUser.user.id,
-        //       permissions: permissions
-        //     });
-        // } catch (permError) {
-        //   console.error('Failed to create user permissions:', permError);
-        //   // Don't fail the invite, just log the error
-        // }
-
-        // TODO: Send invitation email with temporary password
-        // This would integrate with your email service
-
         return {
-          user: dbUser,
-          temporaryPassword: tempPassword, // Return for now - in production, send via email
+          employee: dbEmployee,
+          temporaryPassword: tempPassword,
         };
       } catch (error) {
         console.error('Invite user error:', error);
