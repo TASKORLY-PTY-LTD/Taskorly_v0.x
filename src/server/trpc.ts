@@ -56,12 +56,11 @@ export const createTRPCContext = async (opts: { req: NextRequest }) => {
   }
   
   const { data: dbEmployee, error: dbError } = await userSupabase
-    .from('employees')  // ← CHANGED from 'users'
+    .from('employees')
     .select(`
       *,
-      tenants (
+      tenants!inner (
         tenant_id,
-        name,
         slug,
         location,
         business_id,
@@ -72,7 +71,7 @@ export const createTRPCContext = async (opts: { req: NextRequest }) => {
         )
       )
     `)
-    .eq('user_id', authUser.id)  // ← CHANGED from 'id'
+    .eq('user_id', authUser.id)
     .single();
 
   if (dbError || !dbEmployee) {

@@ -44,7 +44,7 @@ const DEFAULT_CONFIG: VectorProcessingConfig = {
     batchSize: 100,
   },
   pinecone: {
-    namespace: 'default',
+    namespace: 'tenant',
   },
 };
 
@@ -65,7 +65,7 @@ export async function processDocumentVectors(
   tenantId: string,
   userId: string,
   config: Partial<VectorProcessingConfig> = {
-    pinecone: { namespace: `default-${tenantId}` },
+    pinecone: { namespace: `tenant-${tenantId}` },
   }
 ): Promise<VectorProcessingResult> {
   // Create logger for this operation
@@ -91,10 +91,11 @@ export async function processDocumentVectors(
     );
 
     // Prepare chunks for embedding generation
+    // Generate simple, consistent vector IDs: tenantId-documentId-chunk-index
     const chunksForEmbedding = chunks.map((chunk, index) => ({
       content: chunk.content,
       chunkIndex: chunk.chunkIndex,
-      chunkId: `${tenantId}-${documentId}-chunk-${chunk.chunkIndex}`,
+      chunkId: `${documentId}-chunk-${chunk.chunkIndex}`,
     }));
 
     // ===== STEP 1: GENERATE EMBEDDINGS =====
@@ -288,7 +289,7 @@ export async function processSingleChunkVectors(
   userId: string,
   tenantId: string,
   config: Partial<VectorProcessingConfig> = {
-    pinecone: { namespace: `default-${tenantId}` },
+    pinecone: { namespace: `tenant-${tenantId}` },
   }
 ): Promise<VectorProcessingResult> {
   // Convert single chunk to array format
@@ -315,7 +316,7 @@ export async function deleteDocumentVectors(
   userId: string,
   chunkCount: number,
   config: Partial<VectorProcessingConfig> = {
-    pinecone: { namespace: `default-${tenantId}` },
+    pinecone: { namespace: `tenant-${tenantId}` },
   }
 ): Promise<{ success: boolean; deletedCount: number; errors: string[] }> {
   // Create logger for this operation
@@ -325,7 +326,7 @@ export async function deleteDocumentVectors(
     const vectorIds = Array.from(
       { length: chunkCount },
       (_, index) =>
-        `${tenantId}-${documentId}-${tenantId}-${documentId}-chunk-${index}`
+        `${tenantId}-${documentId}-chunk-${index}`
     );
 
     // Import deleteVectors function

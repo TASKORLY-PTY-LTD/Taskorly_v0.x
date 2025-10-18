@@ -52,12 +52,18 @@ export const chatRouter = createTRPCRouter({
         if (input.includeContext) {
           console.log('Generating embedding for query:', input.message);
 
+          if (!ctx.user.tenant_id) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: 'Tenant ID is required for RAG operations',
+          });}
+
           const queryEmbedding = await generateSingleEmbedding(input.message, {
             model: 'text-embedding-004',
           });
 
           console.log(
-            `Searching Pinecone for relevant documents... default-${ctx.user.tenant_id}`
+            `Searching Pinecone for relevant documents... tenant-${ctx.user.tenant_id}`
           );
 
           const searchResults = await searchSimilarVectors(
@@ -67,7 +73,7 @@ export const chatRouter = createTRPCRouter({
             {
               topK: 5,
               includeMetadata: true,
-              config: { namespace: `default-${ctx.user.tenant_id}` },
+              config: { namespace: `tenant-${ctx.user.tenant_id}` },
             }
           );
 
@@ -128,7 +134,7 @@ export const chatRouter = createTRPCRouter({
             api_key: process.env.PINECONE_API_KEY,
             environment: process.env.PINECONE_ENVIRONMENT,
             index_name: process.env.PINECONE_INDEX_NAME,
-            namespace: `default-${ctx.user.tenant_id}`,
+            namespace: `tenant-${ctx.user.tenant_id}`,
           },
           tenant_id: ctx.user.tenant_id || 'public-tenant',
         };
