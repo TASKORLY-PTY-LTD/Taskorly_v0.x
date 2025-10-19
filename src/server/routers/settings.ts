@@ -104,8 +104,8 @@ export const settingsRouter = createTRPCRouter({
   save: tenantProcedure
     .input(
       z.object({
-        Description: z.string().optional(),
-        Industry: z.string().optional(),
+        Description: z.string().nullish(),
+        Industry: z.string().nullish(),
       })
     )
     .mutation(async ({ input, ctx }) => {
