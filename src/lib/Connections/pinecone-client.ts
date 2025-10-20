@@ -6,8 +6,8 @@
 
 import { Pinecone } from '@pinecone-database/pinecone';
 import { env } from './env';
-import { createLogger } from './logger';
-import type { EmbeddingResult } from './vector-embedder';
+import { createLogger } from '../logger';
+import type { EmbeddingResult } from '../PipelineLogic/vector-embedder';
 import _ from 'lodash';
 import { id } from 'zod/v4/locales';
 
@@ -97,7 +97,7 @@ export async function storeEmbeddings(
   embeddings: EmbeddingResult[],
   tenantId: string,
   userId: string,
-  config: Partial<PineconeConfig> = { namespace: `default-${tenantId}` }
+  config: Partial<PineconeConfig> = { namespace: `tenant-${tenantId}` }
 ): Promise<VectorUpsertResult> {
   // Create logger for this operation
   const logger = createLogger(tenantId, userId);
@@ -120,8 +120,9 @@ export async function storeEmbeddings(
     );
 
     // Prepare vectors for upsert
+    // Use consistent ID format: tenantId-documentId-chunk-index
     const vectors = embeddings.map((embedding, index) => ({
-      id: `${tenantId}-${embedding.metadata.documentId}-${embedding.metadata.chunkId}`,
+      id: `${tenantId}-${embedding.metadata.chunkId}`,
       values: embedding.embedding,
       metadata: {
         chunkId: embedding.metadata.chunkId,
@@ -318,7 +319,7 @@ export async function deleteVectors(
   ids: string[],
   tenantId: string,
   userId: string,
-  config: Partial<PineconeConfig> = { namespace: `default-${tenantId}` }
+  config: Partial<PineconeConfig> = { namespace: `tenant-${tenantId}` }
 ): Promise<{ success: boolean; deletedCount: number; errors: string[] }> {
   const logger = createLogger(tenantId, userId);
 
@@ -391,7 +392,7 @@ export async function deleteVectors(
  */
 export async function getVectorStats(
   tenantId: string,
-  config: Partial<PineconeConfig> = { namespace: `default-${tenantId}` }
+  config: Partial<PineconeConfig> = { namespace: `tenant-${tenantId}` }
 ): Promise<{
   totalVectors: number;
   namespace: string;

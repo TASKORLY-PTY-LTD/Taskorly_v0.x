@@ -1,4 +1,4 @@
-import { supabaseAdmin } from './supabase';
+import { supabaseAdmin } from './Connections/supabase';
 
 /**
  * Log levels for structured logging
@@ -87,12 +87,12 @@ export class Logger {
       // Store in Supabase for centralized log management
       // This allows us to review logs across different environments
       if (this.tenantId) {
-        const { data, error } = await supabaseAdmin.from('usage_logs').insert({
+        const { error } = await supabaseAdmin.from('usage_logs').insert({
           tenant_id: this.tenantId,
-          user_id: this.userId,
-          operation: `log_${level}`, // Use actual DB column name
+          employee_id: this.userId || null,
+          operation: `log_${level}`,
           tokens_used: 0,
-          cost_usd: 0, // Use actual DB column name
+          cost_usd: 0,
           metadata: {
             level,
             message,

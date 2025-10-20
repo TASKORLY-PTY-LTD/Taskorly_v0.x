@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { User, Bot, FileText, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useEffect, useRef } from 'react';
 import { marked } from 'marked';
 
 interface Source {
@@ -46,13 +46,30 @@ const MessageBubble = memo(function ChatMessages({
 }: DemoMessageBubbleProps) {
   const isUser = message.role === 'user';
   const isAssistant = message.role === 'assistant';
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const FormattedMessage = useMemo(() => {
     const content = cleanContent(message.content);
     const html = marked.parse(content);
-    // const styledHTML = postprocessHTML(html);
     return typeof html == 'string' ? html : '';
   }, [message]);
+
+  // Fix code blocks after rendering
+  useEffect(() => {
+    if (isUser && contentRef.current) {
+      const codeElements = contentRef.current.querySelectorAll('code');
+      codeElements.forEach((code) => {
+        code.style.backgroundColor = 'rgba(30, 64, 175, 0.5)'; // blue-700 with opacity
+        code.style.color = 'white';
+      });
+      
+      const preElements = contentRef.current.querySelectorAll('pre');
+      preElements.forEach((pre) => {
+        pre.style.backgroundColor = 'rgba(30, 64, 175, 0.5)';
+        pre.style.color = 'white';
+      });
+    }
+  }, [FormattedMessage, isUser]);
 
   return (
     <div
@@ -77,39 +94,48 @@ const MessageBubble = memo(function ChatMessages({
               ? 'bg-blue-500 text-white border-blue-500'
               : 'bg-white border-gray-200'
           )}
+          data-message-type={isUser ? 'user' : 'assistant'}
         >
           <div className='space-y-3'>
             {/* Message content */}
             <div
+              ref={contentRef}
               className={cn(
                 'whitespace-pre-wrap leading-tight',
                 'prose max-w-none leading-tight',
-
                 // Custom prose styling
                 'prose-headings:font-semibold prose-headings:mt-1 prose-headings:mb-1 leading-tight',
                 'prose-p:mt-1 prose-p:mb-1 prose-p:leading-tight',
                 'prose-strong:font-semibold prose-em:italic',
-                'prose-code:bg-gray-100 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm prose-code:leading-tight',
-                'prose-code:text-black',
-                'prose-pre:bg-gray-100 prose-pre:p-3 prose-pre:rounded-md leading-tight',
                 'prose-ul:list-disc prose-ul:leading-tight prose-ul:mt-1 prose-ul:mb-1',
                 'prose-ol:list-decimal prose-ol:leading-tight prose-ol:mt-1 prose-ol:mb-1',
                 'prose-li:my-1 prose-li:leading-tight prose-li:mt-1 prose-li:mb-1',
-                'prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline leading-tight',
                 'prose-blockquote:border-l-4 prose-blockquote:border-gray-300 prose-blockquote:pl-4 prose-blockquote:italic leading-tight',
-
-                // Handle user messages (white text)
-                isUser && [
-                  'prose-invert', // Inverts colors for dark backgrounds
-                  'prose-headings:text-white prose-p:text-white prose-strong:text-white leading-tight',
-                  'prose-code:bg-blue-600 prose-code:text-white leading-tight',
-                  'prose-a:text-blue-200 hover:prose-a:text-white leading-tight',
+                // Assistant message styling
+                !isUser && [
+                  'prose-code:bg-gray-100 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm prose-code:leading-tight prose-code:text-black',
+                  'prose-pre:bg-gray-100 prose-pre:p-3 prose-pre:rounded-md leading-tight prose-pre:text-black',
+                  'prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline leading-tight',
                 ],
-
+                // User message styling (white text on blue background)
+                isUser && [
+                  'prose-headings:!text-white prose-p:!text-white prose-strong:!text-white prose-em:!text-white leading-tight',
+                  'prose-code:!bg-blue-700 prose-code:!text-white prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm prose-code:leading-tight prose-code:font-medium',
+                  'prose-pre:!bg-blue-700 prose-pre:!text-white prose-pre:p-3 prose-pre:rounded-md leading-tight',
+                  'prose-a:!text-blue-100 prose-a:no-underline hover:prose-a:underline hover:prose-a:!text-white leading-tight',
+                  'prose-li:!text-white',
+                  'prose-ul:!text-white prose-ol:!text-white',
+                  '[&_code]:!bg-blue-700 [&_code]:!text-white',
+                  '[&_pre]:!bg-blue-700 [&_pre]:!text-white',
+                  '[&_pre_code]:!bg-transparent',
+                ],
                 isStreaming && 'animate-pulse'
               )}
             >
-              <div dangerouslySetInnerHTML={{ __html: FormattedMessage }} />
+              <div
+                className={isUser ? '[&_code]:!text-white [&_pre]:!text-white' : ''}
+                dangerouslySetInnerHTML={{ __html: FormattedMessage }}
+              />
             </div>
 
             {/* Metadata */}

@@ -4,8 +4,8 @@ import { TRPCError } from '@trpc/server';
 import {
   chunkDocumentWithGemini,
   type DocumentChunk,
-} from '@/lib/gemini-chunker';
-import { processDocumentVectors } from '@/lib/vector-processor';
+} from '@/lib/PipelineLogic/gemini-chunker';
+import { processDocumentVectors } from '@/lib/PipelineLogic/vector-processor';
 import { createLogger } from '@/lib/logger';
 
 export const documentsRouter = createTRPCRouter({
@@ -23,7 +23,7 @@ export const documentsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const logger = createLogger(ctx.tenant?.id, ctx.user.id);
+      const logger = createLogger(ctx.tenant.tenant_id, ctx.user.employee_id);
 
       try {
         // ===== STEP 1: CONVERT BASE64 TO BINARY PDF DATA =====
@@ -125,7 +125,7 @@ export const documentsRouter = createTRPCRouter({
         const { data: document, error: docError } = await ctx.supabaseAdmin
           .from('documents')
           .insert({
-            tenant_id: ctx.tenant?.id!,
+            tenant_id: ctx.user.tenant_id,
             title: input.title,
             content: content,
             content_type: 'application/pdf',
@@ -146,8 +146,8 @@ export const documentsRouter = createTRPCRouter({
 
         // Log the PDF upload event
         await ctx.supabaseAdmin.from('usage_logs').insert({
-          tenant_id: ctx.tenant?.id!,
-          user_id: ctx.user.id,
+          tenant_id: ctx.user.tenant_id,
+          employee_id: ctx.user.employee_id,
           operation: 'pdf_upload',
           tokens_used: 0,
           cost_usd: 0,
@@ -222,9 +222,10 @@ export const documentsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const logger = createLogger(ctx.tenant?.id, ctx.user.id);
+      const logger = createLogger(ctx.tenant.tenant_id, ctx.user.employee_id);
+
       const namespace =
-        input.vectorOptions.namespace || `default-${ctx.tenant?.id}`;
+        input.vectorOptions.namespace || `tenant-${ctx.tenant.tenant_id}`;
 
       try {
         // Validate that either documentId or documentName is provided
@@ -239,7 +240,7 @@ export const documentsRouter = createTRPCRouter({
         let query = ctx.supabaseAdmin
           .from('documents')
           .select('*')
-          .eq('tenant_id', ctx.tenant?.id!); // Ensure tenant isolation
+          .eq('tenant_id', ctx.user.tenant_id); // Ensure tenant isolation
 
         if (input.documentId) {
           query = query.eq('id', input.documentId);
@@ -348,8 +349,8 @@ export const documentsRouter = createTRPCRouter({
             vectorProcessingResult = await processDocumentVectors(
               chunks,
               document.id,
-              ctx.tenant?.id!,
-              ctx.user.id,
+              ctx.tenant.tenant_id,
+              ctx.user.employee_id,
               {
                 embedding: {
                   model: input.vectorOptions.embeddingModel,
@@ -442,8 +443,8 @@ export const documentsRouter = createTRPCRouter({
           }
 
           await ctx.supabaseAdmin.from('usage_logs').insert({
-            tenant_id: ctx.tenant?.id!,
-            user_id: ctx.user.id,
+            tenant_id: ctx.user.tenant_id,
+            employee_id: ctx.user.employee_id,
             operation: eventType,
             tokens_used: totalTokens,
             cost_usd: Math.ceil(totalTokens * 0.0001),
@@ -500,8 +501,8 @@ export const documentsRouter = createTRPCRouter({
             ? 'pdf_processing_failed'
             : 'document_processing_failed';
           await ctx.supabaseAdmin.from('usage_logs').insert({
-            tenant_id: ctx.tenant?.id!,
-            user_id: ctx.user.id,
+            tenant_id: ctx.user.tenant_id,
+            employee_id: ctx.user.employee_id,
             operation: failedEventType,
             tokens_used: 0,
             cost_usd: 0,
@@ -557,7 +558,7 @@ export const documentsRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       // Create logger with tenant and user context for better traceability
-      const logger = createLogger(ctx.tenant?.id, ctx.user.id);
+      const logger = createLogger(ctx.tenant.tenant_id, ctx.user.employee_id);
 
       try {
         const results = [];
@@ -569,7 +570,7 @@ export const documentsRouter = createTRPCRouter({
           `Starting bulk upload of ${input.documents.length} documents`,
           {
             documentCount: input.documents.length,
-            tenantId: ctx.tenant?.id,
+            tenantId: ctx.tenant.tenant_id,
           }
         );
 
@@ -579,7 +580,7 @@ export const documentsRouter = createTRPCRouter({
             const { data: document, error: docError } = await ctx.supabaseAdmin
               .from('documents')
               .insert({
-                tenant_id: ctx.tenant?.id!,
+                tenant_id: ctx.user.tenant_id,
                 title: doc.title,
                 content: doc.content,
                 content_type: doc.contentType,
@@ -651,15 +652,15 @@ export const documentsRouter = createTRPCRouter({
                 vectorProcessingResult = await processDocumentVectors(
                   chunks,
                   document.id,
-                  ctx.tenant?.id!,
-                  ctx.user.id,
+                  ctx.tenant.tenant_id,
+                  ctx.user.employee_id,
                   {
                     embedding: {
                       model: 'text-embedding-004',
                       batchSize: 100,
                     },
                     pinecone: {
-                      namespace: 'default',
+                      namespace: `tenant-${ctx.tenant.tenant_id}`,
                     },
                   }
                 );
@@ -828,8 +829,8 @@ export const documentsRouter = createTRPCRouter({
           );
 
           await ctx.supabaseAdmin.from('usage_logs').insert({
-            tenant_id: ctx.tenant?.id!,
-            user_id: ctx.user.id,
+            tenant_id: ctx.user.tenant_id,
+            employee_id: ctx.user.employee_id,
             operation: 'bulk_document_upload_with_chunking_and_vectors',
             tokens_used: totalTokens,
             cost_usd: Math.ceil(totalTokens * 0.0001),
@@ -911,7 +912,7 @@ export const documentsRouter = createTRPCRouter({
       let query = ctx.supabaseAdmin
         .from('documents')
         .select('*')
-        .eq('tenant_id', ctx.tenant.id)
+        .eq('tenant_id', ctx.user.tenant_id)
         .order('created_at', { ascending: false })
         .range(input.offset, input.offset + input.limit - 1);
 
@@ -957,7 +958,7 @@ export const documentsRouter = createTRPCRouter({
         `
         )
         .eq('id', input.documentId)
-        .eq('tenant_id', ctx.tenant.id)
+        .eq('tenant_id', ctx.user.tenant_id)
         .single();
 
       if (error || !document) {
@@ -1004,7 +1005,7 @@ export const documentsRouter = createTRPCRouter({
         .from('documents')
         .update(updateData)
         .eq('id', input.documentId)
-        .eq('tenant_id', ctx.tenant.id)
+        .eq('tenant_id', ctx.user.tenant_id)
         .select()
         .single();
 
@@ -1028,7 +1029,7 @@ export const documentsRouter = createTRPCRouter({
           .from('documents')
           .select('*')
           .eq('id', input.documentId)
-          .eq('tenant_id', ctx.tenant.id)
+          .eq('tenant_id', ctx.user.tenant_id)
           .single();
 
         if (!document) {
@@ -1042,14 +1043,14 @@ export const documentsRouter = createTRPCRouter({
         // Delete all vector embeddings associated with this document from Pinecone
         try {
           const { deleteDocumentVectors } = await import(
-            '@/lib/vector-processor'
+            '@/lib/PipelineLogic/vector-processor'
           );
-          const logger = createLogger(ctx.tenant.id, ctx.user.id);
+          const logger = createLogger(ctx.tenant.tenant_id, ctx.user.employee_id);
 
           await deleteDocumentVectors(
             input.documentId,
-            ctx.tenant.id,
-            ctx.user.id,
+            ctx.tenant.tenant_id,
+            ctx.user.employee_id,
             document.chunk_count || 0
           );
 
@@ -1063,7 +1064,7 @@ export const documentsRouter = createTRPCRouter({
           );
         } catch (vectorCleanupError) {
           // Log vector cleanup error but don't fail the document deletion
-          const logger = createLogger(ctx.tenant.id, ctx.user.id);
+          const logger = createLogger(ctx.tenant.tenant_id, ctx.user.employee_id);
           await logger.warn(
             `Vector cleanup failed for document: ${input.documentId}`,
             {
@@ -1082,7 +1083,7 @@ export const documentsRouter = createTRPCRouter({
           .from('documents')
           .delete()
           .eq('id', input.documentId)
-          .eq('tenant_id', ctx.tenant.id);
+          .eq('tenant_id', ctx.user.tenant_id);
 
         if (deleteError) {
           throw new TRPCError({

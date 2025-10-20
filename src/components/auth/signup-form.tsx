@@ -12,21 +12,14 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Eye, EyeOff, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, Eye, EyeOff, CheckCircle, XCircle, Building2, MapPin } from 'lucide-react';
 import { trpc } from '@/utils/trpc';
 import Link from 'next/link';
 
 interface SignupFormProps {
-  onSignupSuccess?: (data: { user: any; tenant: any }) => void;
+  onSignupSuccess?: (data: { user: any; business: any; tenant: any }) => void;
   onSwitchToLogin?: () => void;
   className?: string;
 }
@@ -41,8 +34,12 @@ export function SignupForm({
     password: '',
     confirmPassword: '',
     fullName: '',
-    tenantName: '',
-    role: 'owner' as const,
+    businessName: '',
+    storeName: '',
+    location: '',
+    industry: '',
+    phone: '',
+    website: '',
     agreeToTerms: false,
   });
 
@@ -111,8 +108,16 @@ export function SignupForm({
       newErrors.fullName = 'Full name is required';
     }
 
-    if (formData.role === 'owner' && !formData.tenantName.trim()) {
-      newErrors.tenantName = 'Company/Organization name is required for owners';
+    if (!formData.businessName.trim()) {
+      newErrors.businessName = 'Business name is required';
+    }
+
+    if (!formData.storeName.trim()) {
+      newErrors.storeName = 'Store/Location name is required';
+    }
+
+    if (!formData.location.trim()) {
+      newErrors.location = 'Location address is required';
     }
 
     if (!formData.agreeToTerms) {
@@ -132,197 +137,287 @@ export function SignupForm({
       email: formData.email,
       password: formData.password,
       fullName: formData.fullName,
-      tenantName: formData.role === 'owner' ? formData.tenantName : undefined,
-      role: formData.role,
+      businessName: formData.businessName,
+      storeName: formData.storeName,
+      location: formData.location,
+      industry: formData.industry || undefined,
+      phone: formData.phone || undefined,
+      website: formData.website || undefined,
+      role: 'owner',
     });
   };
 
   return (
-    <Card className={`w-full max-w-md mx-auto ${className}`}>
+    <Card className={`w-full max-w-2xl mx-auto ${className}`}>
       <CardHeader className='space-y-1'>
         <CardTitle className='text-2xl font-bold text-center'>
-          Create Account
+          Create Your Account
         </CardTitle>
         <CardDescription className='text-center'>
-          Get started with Taskorly
+          Set up your business and first location
         </CardDescription>
       </CardHeader>
 
       <CardContent>
-        <form onSubmit={handleSubmit} className='space-y-4'>
-          {/* Email */}
-          <div className='space-y-2'>
-            <Label htmlFor='email'>Email</Label>
-            <Input
-              id='email'
-              type='email'
-              placeholder='Enter your email'
-              value={formData.email}
-              onChange={e => handleInputChange('email', e.target.value)}
-              className={errors.email ? 'border-red-500' : ''}
-              disabled={signupMutation.isPending}
-            />
-            {errors.email && (
-              <p className='text-sm text-red-500'>{errors.email}</p>
-            )}
-          </div>
-
-          {/* Full Name */}
-          <div className='space-y-2'>
-            <Label htmlFor='fullName'>Full Name</Label>
-            <Input
-              id='fullName'
-              type='text'
-              placeholder='Enter your full name'
-              value={formData.fullName}
-              onChange={e => handleInputChange('fullName', e.target.value)}
-              className={errors.fullName ? 'border-red-500' : ''}
-              disabled={signupMutation.isPending}
-            />
-            {errors.fullName && (
-              <p className='text-sm text-red-500'>{errors.fullName}</p>
-            )}
-          </div>
-
-          {/* Role Selection */}
-          <div className='space-y-2'>
-            <Label htmlFor='role'>Account Type</Label>
-            <Select
-              value={formData.role}
-              onValueChange={(value: 'owner' | 'admin' | 'manager' | 'user') =>
-                handleInputChange('role', value)
-              }
-              disabled={signupMutation.isPending}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value='owner'>
-                  Business Owner - Create new organization
-                </SelectItem>
-                <SelectItem value='user' disabled>
-                  Team Member - Join existing organization
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <p className='text-xs text-gray-600'>
-              Team members must be invited by an administrator
-            </p>
-          </div>
-
-          {/* Company/Organization Name (for owners) */}
-          {formData.role === 'owner' && (
-            <div className='space-y-2'>
-              <Label htmlFor='tenantName'>Company/Organization Name</Label>
-              <Input
-                id='tenantName'
-                type='text'
-                placeholder='Enter your company name'
-                value={formData.tenantName}
-                onChange={e => handleInputChange('tenantName', e.target.value)}
-                className={errors.tenantName ? 'border-red-500' : ''}
-                disabled={signupMutation.isPending}
-              />
-              {errors.tenantName && (
-                <p className='text-sm text-red-500'>{errors.tenantName}</p>
-              )}
-            </div>
-          )}
-
-          {/* Password */}
-          <div className='space-y-2'>
-            <Label htmlFor='password'>Password</Label>
-            <div className='relative'>
-              <Input
-                id='password'
-                type={showPassword ? 'text' : 'password'}
-                placeholder='Create a password'
-                value={formData.password}
-                onChange={e => handleInputChange('password', e.target.value)}
-                className={`pr-10 ${errors.password ? 'border-red-500' : isPasswordValid ? 'border-green-500' : ''}`}
-                disabled={signupMutation.isPending}
-              />
-              <Button
-                type='button'
-                variant='ghost'
-                size='sm'
-                className='absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent'
-                onClick={() => setShowPassword(!showPassword)}
-                disabled={signupMutation.isPending}
-              >
-                {showPassword ? (
-                  <EyeOff className='h-4 w-4' />
-                ) : (
-                  <Eye className='h-4 w-4' />
+        <form onSubmit={handleSubmit} className='space-y-6'>
+          {/* Personal Information Section */}
+          <div className='space-y-4'>
+            <h3 className='text-lg font-semibold flex items-center gap-2'>
+              Personal Information
+            </h3>
+            
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+              {/* Full Name */}
+              <div className='space-y-2'>
+                <Label htmlFor='fullName'>Full Name</Label>
+                <Input
+                  id='fullName'
+                  type='text'
+                  placeholder='John Smith'
+                  value={formData.fullName}
+                  onChange={e => handleInputChange('fullName', e.target.value)}
+                  className={errors.fullName ? 'border-red-500' : ''}
+                  disabled={signupMutation.isPending}
+                />
+                {errors.fullName && (
+                  <p className='text-sm text-red-500'>{errors.fullName}</p>
                 )}
-              </Button>
-            </div>
+              </div>
 
-            {/* Password Requirements */}
-            {formData.password && (
-              <div className='text-xs space-y-1'>
-                {passwordValidation.map((req, index) => (
-                  <div
-                    key={index}
-                    className='flex items-center gap-2 text-red-500'
+              {/* Email */}
+              <div className='space-y-2'>
+                <Label htmlFor='email'>Email</Label>
+                <Input
+                  id='email'
+                  type='email'
+                  placeholder='john@elitesupplements.com'
+                  value={formData.email}
+                  onChange={e => handleInputChange('email', e.target.value)}
+                  className={errors.email ? 'border-red-500' : ''}
+                  disabled={signupMutation.isPending}
+                />
+                {errors.email && (
+                  <p className='text-sm text-red-500'>{errors.email}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Business Information Section */}
+          <div className='space-y-4'>
+            <h3 className='text-lg font-semibold flex items-center gap-2'>
+              <Building2 className='h-5 w-5' />
+              Business Information
+            </h3>
+            
+            <div className='grid grid-cols-1 gap-4'>
+              {/* Business Name */}
+              <div className='space-y-2'>
+                <Label htmlFor='businessName'>Business Name</Label>
+                <Input
+                  id='businessName'
+                  type='text'
+                  placeholder='Elite Supplements'
+                  value={formData.businessName}
+                  onChange={e => handleInputChange('businessName', e.target.value)}
+                  className={errors.businessName ? 'border-red-500' : ''}
+                  disabled={signupMutation.isPending}
+                />
+                {errors.businessName && (
+                  <p className='text-sm text-red-500'>{errors.businessName}</p>
+                )}
+              </div>
+
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                {/* Industry (Optional) */}
+                <div className='space-y-2'>
+                  <Label htmlFor='industry'>Industry (Optional)</Label>
+                  <Input
+                    id='industry'
+                    type='text'
+                    placeholder='Retail, Health & Fitness'
+                    value={formData.industry}
+                    onChange={e => handleInputChange('industry', e.target.value)}
+                    disabled={signupMutation.isPending}
+                  />
+                </div>
+
+                {/* Phone (Optional) */}
+                <div className='space-y-2'>
+                  <Label htmlFor='phone'>Phone (Optional)</Label>
+                  <Input
+                    id='phone'
+                    type='tel'
+                    placeholder='+61 2 1234 5678'
+                    value={formData.phone}
+                    onChange={e => handleInputChange('phone', e.target.value)}
+                    disabled={signupMutation.isPending}
+                  />
+                </div>
+              </div>
+
+              {/* Website (Optional) */}
+              <div className='space-y-2'>
+                <Label htmlFor='website'>Website (Optional)</Label>
+                <Input
+                  id='website'
+                  type='url'
+                  placeholder='https://elitesupplements.com.au'
+                  value={formData.website}
+                  onChange={e => handleInputChange('website', e.target.value)}
+                  disabled={signupMutation.isPending}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Store/Location Information Section */}
+          <div className='space-y-4'>
+            <h3 className='text-lg font-semibold flex items-center gap-2'>
+              <MapPin className='h-5 w-5' />
+              First Store Location
+            </h3>
+            
+            <div className='grid grid-cols-1 gap-4'>
+              {/* Store Name */}
+              <div className='space-y-2'>
+                <Label htmlFor='storeName'>Store/Location Name</Label>
+                <Input
+                  id='storeName'
+                  type='text'
+                  placeholder='Chatswood'
+                  value={formData.storeName}
+                  onChange={e => handleInputChange('storeName', e.target.value)}
+                  className={errors.storeName ? 'border-red-500' : ''}
+                  disabled={signupMutation.isPending}
+                />
+                {errors.storeName && (
+                  <p className='text-sm text-red-500'>{errors.storeName}</p>
+                )}
+                <p className='text-xs text-gray-600'>
+                  e.g., &ldquo;Chatswood&rdquo;, &ldquo;Sydney CBD&rdquo;, &ldquo;Melbourne Central&rdquo;
+                </p>
+              </div>
+
+              {/* Location */}
+              <div className='space-y-2'>
+                <Label htmlFor='location'>Store Address</Label>
+                <Input
+                  id='location'
+                  type='text'
+                  placeholder='123 Victoria Ave, Chatswood NSW 2067'
+                  value={formData.location}
+                  onChange={e => handleInputChange('location', e.target.value)}
+                  className={errors.location ? 'border-red-500' : ''}
+                  disabled={signupMutation.isPending}
+                />
+                {errors.location && (
+                  <p className='text-sm text-red-500'>{errors.location}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Password Section */}
+          <div className='space-y-4'>
+            <h3 className='text-lg font-semibold'>Create Password</h3>
+            
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+              {/* Password */}
+              <div className='space-y-2'>
+                <Label htmlFor='password'>Password</Label>
+                <div className='relative'>
+                  <Input
+                    id='password'
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder='Create a password'
+                    value={formData.password}
+                    onChange={e => handleInputChange('password', e.target.value)}
+                    className={`pr-10 ${errors.password ? 'border-red-500' : isPasswordValid ? 'border-green-500' : ''}`}
+                    disabled={signupMutation.isPending}
+                  />
+                  <Button
+                    type='button'
+                    variant='ghost'
+                    size='sm'
+                    className='absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent'
+                    onClick={() => setShowPassword(!showPassword)}
+                    disabled={signupMutation.isPending}
                   >
-                    <XCircle className='h-3 w-3' />
-                    {req}
-                  </div>
-                ))}
-                {isPasswordValid && (
-                  <div className='flex items-center gap-2 text-green-500'>
-                    <CheckCircle className='h-3 w-3' />
-                    Password meets all requirements
-                  </div>
-                )}
-              </div>
-            )}
-            {errors.password && (
-              <p className='text-sm text-red-500'>{errors.password}</p>
-            )}
-          </div>
+                    {showPassword ? (
+                      <EyeOff className='h-4 w-4' />
+                    ) : (
+                      <Eye className='h-4 w-4' />
+                    )}
+                  </Button>
+                </div>
 
-          {/* Confirm Password */}
-          <div className='space-y-2'>
-            <Label htmlFor='confirmPassword'>Confirm Password</Label>
-            <div className='relative'>
-              <Input
-                id='confirmPassword'
-                type={showConfirmPassword ? 'text' : 'password'}
-                placeholder='Confirm your password'
-                value={formData.confirmPassword}
-                onChange={e =>
-                  handleInputChange('confirmPassword', e.target.value)
-                }
-                className={`pr-10 ${errors.confirmPassword ? 'border-red-500' : passwordsMatch ? 'border-green-500' : ''}`}
-                disabled={signupMutation.isPending}
-              />
-              <Button
-                type='button'
-                variant='ghost'
-                size='sm'
-                className='absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent'
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                disabled={signupMutation.isPending}
-              >
-                {showConfirmPassword ? (
-                  <EyeOff className='h-4 w-4' />
-                ) : (
-                  <Eye className='h-4 w-4' />
+                {/* Password Requirements */}
+                {formData.password && (
+                  <div className='text-xs space-y-1'>
+                    {passwordValidation.map((req, index) => (
+                      <div
+                        key={index}
+                        className='flex items-center gap-2 text-red-500'
+                      >
+                        <XCircle className='h-3 w-3' />
+                        {req}
+                      </div>
+                    ))}
+                    {isPasswordValid && (
+                      <div className='flex items-center gap-2 text-green-500'>
+                        <CheckCircle className='h-3 w-3' />
+                        Password meets all requirements
+                      </div>
+                    )}
+                  </div>
                 )}
-              </Button>
-            </div>
-            {formData.confirmPassword && passwordsMatch && (
-              <div className='flex items-center gap-2 text-green-500 text-xs'>
-                <CheckCircle className='h-3 w-3' />
-                Passwords match
+                {errors.password && (
+                  <p className='text-sm text-red-500'>{errors.password}</p>
+                )}
               </div>
-            )}
-            {errors.confirmPassword && (
-              <p className='text-sm text-red-500'>{errors.confirmPassword}</p>
-            )}
+
+              {/* Confirm Password */}
+              <div className='space-y-2'>
+                <Label htmlFor='confirmPassword'>Confirm Password</Label>
+                <div className='relative'>
+                  <Input
+                    id='confirmPassword'
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    placeholder='Confirm your password'
+                    value={formData.confirmPassword}
+                    onChange={e =>
+                      handleInputChange('confirmPassword', e.target.value)
+                    }
+                    className={`pr-10 ${errors.confirmPassword ? 'border-red-500' : passwordsMatch ? 'border-green-500' : ''}`}
+                    disabled={signupMutation.isPending}
+                  />
+                  <Button
+                    type='button'
+                    variant='ghost'
+                    size='sm'
+                    className='absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent'
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    disabled={signupMutation.isPending}
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className='h-4 w-4' />
+                    ) : (
+                      <Eye className='h-4 w-4' />
+                    )}
+                  </Button>
+                </div>
+                {formData.confirmPassword && passwordsMatch && (
+                  <div className='flex items-center gap-2 text-green-500 text-xs'>
+                    <CheckCircle className='h-3 w-3' />
+                    Passwords match
+                  </div>
+                )}
+                {errors.confirmPassword && (
+                  <p className='text-sm text-red-500'>{errors.confirmPassword}</p>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Terms and Conditions */}
@@ -365,7 +460,7 @@ export function SignupForm({
             {signupMutation.isPending ? (
               <>
                 <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                Creating Account...
+                Creating Your Account...
               </>
             ) : (
               'Create Account'

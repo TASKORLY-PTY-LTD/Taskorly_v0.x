@@ -38,7 +38,7 @@ import {
   getUnsupportedFileMessage,
   preparePDFForServer,
   processPDFFile,
-} from '@/lib/file-processor';
+} from '@/lib/PipelineLogic/file-processor';
 
 // Helper function to get file type from extension (copied from file-processor.ts)
 function getFileTypeFromExtension(fileName: string): string {

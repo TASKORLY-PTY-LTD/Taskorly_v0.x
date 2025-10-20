@@ -1,14 +1,13 @@
-import { supabaseAdmin } from '../../lib/supabase';
+import { supabaseAdmin } from '../../lib/Connections/supabase';
 import { z } from 'zod';
 import { createTRPCRouter, tenantProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
 
-export interface Settings {
+export interface settings {
   Description: string | null;
   Industry: string | null;
   Setting_id: number;
   Tenant_Id: string | null;
-  UserId: string | null;
 }
 
 const DEFAULT_SETTINGS = {
@@ -16,7 +15,7 @@ const DEFAULT_SETTINGS = {
   Industry: '',
 };
 
-export function buildSystemPrompt(settings: Settings): string {
+export function buildSystemPrompt(settings: settings): string {
   const basePrompt = `You are a helpful AI assistant specialized in business and POS (Point of Sale) systems.`;
 
   const industryPart = settings.Industry
@@ -46,10 +45,9 @@ export const settingsRouter = createTRPCRouter({
 
     try {
       const { data, error } = await ctx.supabaseAdmin
-        .from('Settings')
+        .from('settings')
         .select('*')
-        .eq('UserId', ctx.user.id)
-        .eq('Tenant_Id', ctx.user.tenant_id)
+        .eq('tenant_id', ctx.user.tenant_id)
         .maybeSingle();
 
       if (error) {
@@ -63,12 +61,11 @@ export const settingsRouter = createTRPCRouter({
       // If no settings exist, create default settings
       if (!data) {
         const { data: newSettings, error: createError } = await supabaseAdmin
-          .from('Settings')
+          .from('settings')
           .insert({
-            UserId: ctx.user.id,
-            Tenant_Id: ctx.user.tenant_id,
-            Description: DEFAULT_SETTINGS.Description,
-            Industry: DEFAULT_SETTINGS.Industry,
+            tenant_id: ctx.user.tenant_id,
+            description: DEFAULT_SETTINGS.Description,
+            industry: DEFAULT_SETTINGS.Industry,
           })
           .select()
           .single();
@@ -81,10 +78,20 @@ export const settingsRouter = createTRPCRouter({
           });
         }
 
-        return newSettings as Settings;
+        return {
+          Description: newSettings.description,
+          Industry: newSettings.industry,
+          Setting_id: Number(newSettings.setting_id),
+          Tenant_Id: newSettings.tenant_id,
+        };
       }
 
-      return data as Settings;
+      return {
+        Description: data.description,
+        Industry: data.industry,
+        Setting_id: Number(data.setting_id),
+        Tenant_Id: data.tenant_id,
+      };
     } catch (error: any) {
       console.error('Error fetching settings:', error);
       throw new TRPCError({
@@ -97,8 +104,8 @@ export const settingsRouter = createTRPCRouter({
   save: tenantProcedure
     .input(
       z.object({
-        Description: z.string().optional(),
-        Industry: z.string().optional(),
+        Description: z.string().nullish(),
+        Industry: z.string().nullish(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -111,21 +118,20 @@ export const settingsRouter = createTRPCRouter({
         }
         // Use update instead of upsert to avoid duplicates
         const { data: existing } = await supabaseAdmin
-          .from('Settings')
-          .select('Setting_id')
-          .eq('UserId', ctx.user.id)
-          .eq('Tenant_Id', ctx.user.tenant_id)
+          .from('settings')
+          .select('setting_id')
+          .eq('tenant_id', ctx.user.tenant_id)
           .single();
 
         if (existing) {
           // Update existing settings
           const { error } = await supabaseAdmin
-            .from('Settings')
+            .from('settings')
             .update({
-              Description: input.Description,
-              Industry: input.Industry,
+              description: input.Description,
+              industry: input.Industry,
             })
-            .eq('Setting_id', existing.Setting_id);
+            .eq('setting_id', existing.setting_id);
 
           if (error) {
             console.error('Error updating settings:', error);
@@ -136,11 +142,10 @@ export const settingsRouter = createTRPCRouter({
           }
         } else {
           // Create new settings if they don't exist
-          const { error } = await supabaseAdmin.from('Settings').insert({
-            UserId: ctx.user.id,
-            Tenant_Id: ctx.user.tenant_id,
-            Description: input.Description,
-            Industry: input.Industry,
+          const { error } = await supabaseAdmin.from('settings').insert({
+            tenant_id: ctx.user.tenant_id,
+            description: input.Description,
+            industry: input.Industry,
           });
 
           if (error) {
@@ -162,39 +167,3 @@ export const settingsRouter = createTRPCRouter({
       }
     }),
 });
-
-// export async function fetchSettings(userId: string): Promise<Settings | null> {
-//   try {
-//     const { data, error } = await supabaseAdmin
-//       .from("Settings")
-//       .select("*")
-//       .eq("user_id", userId)
-//       .maybeSingle();
-
-//     if (error) {
-//       console.error("Error fetching settings:", error);
-//       return null;
-//     }
-//     return data as Settings;
-//   } catch (error) {
-//     console.error("Error fetching settings:", error);
-//     return null;
-//   }
-// }
-
-// export async function setSettings(userId: string, settings: Partial<Settings>): Promise<boolean> {
-//   try {
-//     const { error } = await supabaseAdmin
-//       .from("Settings")
-//       .upsert({ user_id: userId, ...settings }, { onConflict: "user_id" });
-
-//     if (error) {
-//       console.error("Error setting settings:", error);
-//       return false;
-//     }
-//     return true;
-//   } catch (error) {
-//     console.error("Error setting settings:", error);
-//     return false;
-//   }
-// }

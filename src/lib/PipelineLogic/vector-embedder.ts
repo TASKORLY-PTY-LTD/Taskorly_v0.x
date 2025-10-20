@@ -5,8 +5,8 @@
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { env } from './env';
-import { createLogger } from './logger';
+import { env } from '../Connections/env';
+import { createLogger } from '../logger';
 
 // Interface for embedding configuration
 export interface EmbeddingConfig {

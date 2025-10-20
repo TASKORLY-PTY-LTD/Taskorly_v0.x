@@ -2,7 +2,9 @@ import { initTRPC, TRPCError } from '@trpc/server';
 import { type NextRequest } from 'next/server';
 import superjson from 'superjson';
 import { ZodError } from 'zod';
-import { supabase, supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/Connections/supabase'; // Keep admin for admin tasks
+import { createClient } from '@supabase/supabase-js'; // We need this to create user-specific clients
+import { rateLimit } from '@/lib/rate-limter';
 
 // Create context for tRPC
 export const createTRPCContext = async (opts: { req: NextRequest }) => {
@@ -12,64 +14,79 @@ export const createTRPCContext = async (opts: { req: NextRequest }) => {
   const authHeader = req.headers.get('authorization');
   const token = authHeader?.replace('Bearer ', '');
 
-  let user = null;
-  let tenant = null;
-
-  if (token) {
-    try {
-      // console.log('=== AUTH DEBUG ===');
-      // console.log('Token found, verifying...');
-
-      // Verify the JWT token
-      const {
-        data: { user: authUser },
-        error,
-      } = await supabase.auth.getUser(token);
-
-      if (authUser && !error) {
-        // console log user here
-        // console.log('Auth user found:', authUser.id);
-
-        // Get user from our database
-        const { data: dbUser, error: dbError } = await supabaseAdmin
-          .from('users')
-          .select('*, tenants!inner(*)')
-          .eq('id', authUser.id)
-          .single();
-
-        if (dbError) {
-          console.error('Database user lookup error:', dbError);
-        }
-
-        if (dbUser) {
-          // console.log('Database user found:', dbUser.id);
-          // console.log('User tenant:', dbUser.tenant_id);
-          // console.log('Tenants data:', dbUser.tenants);
-
-          user = dbUser;
-          // Get the first tenant for now - in the future we might want to handle multiple tenants
-          tenant = Array.isArray(dbUser.tenants)
-            ? dbUser.tenants[0]
-            : dbUser.tenants;
-          // console.log('Selected tenant:', tenant);
-        } else {
-          console.log('No database user found for auth user:', authUser.id);
-        }
-      } else {
-        console.log('Auth verification failed:', error);
-      }
-    } catch (error) {
-      console.error('Auth error:', error);
-    }
-  } else {
-    console.log('No auth token found');
+  // If there's no token, return a basic context
+  if (!token) {
+    return {
+      req,
+      user: null,
+      tenant: null,
+      supabase: createClient( // Return a basic, unauthenticated client
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      ),
+      supabaseAdmin,
+    };
   }
+
+  // --- START: THE FIX ---
+  // Create a new Supabase client INSTANCE, authenticated as the user
+  const userSupabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    }
+  );
+
+  // Now, use this user-specific client to get both the auth user and the db user
+  const { data: { user: authUser } } = await userSupabase.auth.getUser();
+
+  if (!authUser) {
+    // If the token is invalid, return a null context
+    return {
+      req,
+      user: null,
+      tenant: null,
+      supabase: userSupabase, // Still return the (failed) user client
+      supabaseAdmin,
+    };
+  }
+  
+  const { data: dbEmployee , error: dbError } = await userSupabase
+  .from('employees')  // ← FIX: was 'users'
+  .select('*, tenants(*)')
+  .eq('user_id', authUser.id)  // ← FIX: was 'id'
+  .single();
+
+  if (dbError || !dbEmployee) {
+    console.error('Could not find employee for auth user:', authUser.id, dbError);
+    return {
+      req,
+      user: null,
+      tenant: null,
+      supabase: userSupabase,
+      supabaseAdmin,
+    };
+  }
+
+  const tenant = dbEmployee.tenants;
 
   return {
     req,
-    user,
-    tenant,
-    supabase,
+    user: {
+      id: authUser.id,
+      email: authUser.email || '',
+      role: dbEmployee.role,
+      employee_id: dbEmployee.employee_id,
+      tenant_id: dbEmployee.tenant_id,
+      user_metadata: authUser.user_metadata,
+    },
+    tenant: tenant,
+    supabase: userSupabase,
     supabaseAdmin,
   };
 };
@@ -99,14 +116,24 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
   return next({
     ctx: {
       ...ctx,
-      user: ctx.user,
+      // The user object is already the full user profile from the DB
+      user: ctx.user, 
       tenant: ctx.tenant,
     },
   });
 });
 
+// ... the rest of your procedures (tenantProcedure, adminProcedure) are correct and remain the same
 // Tenant procedure that requires both user and tenant
-export const tenantProcedure = protectedProcedure.use(({ ctx, next }) => {
+export const rateLimitedProcedure = protectedProcedure.use(async ({ ctx, next }) => {
+  const result = rateLimit(`user:${ctx.user.id}`, { maxRequests: 100, windowMs: 60000 });
+  if (!result.success) {
+    throw new TRPCError({ code: 'TOO_MANY_REQUESTS' });
+  }
+  return next({ ctx });
+});
+
+export const tenantProcedure = rateLimitedProcedure.use(({ ctx, next }) => {
   if (!ctx.tenant) {
     throw new TRPCError({
       code: 'FORBIDDEN',
