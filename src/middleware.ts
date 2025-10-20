@@ -30,24 +30,17 @@ export async function middleware(req: NextRequest) {
     data: { session }
   } = await supabase.auth.getSession();
 
-
   if (session) {
     // This is a great place to decode the JWT and check for your custom claims
     console.log('User Access Token:', session.access_token);
   }
 
+  // Routes that require admin/owner role
+  // Note: We're not enforcing authentication at middleware level
+  // The AuthProvider in MainLayout handles showing login form for unauthenticated users
+  const adminOnlyRoutes = ['/customer', '/documents', '/settings', '/chat', '/chat-v2', '/servers'];
 
-  // Protected routes that require authentication
-  // const protectedRoutes = [
-  //   // '/api/trpc',
-  //   // '/dashboard',
-  //   // '/customer', // focus on this route
-  //   // '/documents', // focus on this route
-  //   // '/settings',
-  // ];
-  const protectedRoutes: string[] = [];
-  
-  const isProtectedRoute = protectedRoutes.some(route =>
+  const isAdminRoute = adminOnlyRoutes.some(route =>
     req.nextUrl.pathname.startsWith(route)
   );
 
@@ -62,12 +55,33 @@ export async function middleware(req: NextRequest) {
     return res;
   }
 
-  // Redirect to login if accessing protected route without session
-  if (isProtectedRoute && !session) {
-    const redirectUrl = req.nextUrl.clone();
-    redirectUrl.pathname = '/login';
-    redirectUrl.searchParams.set('redirectTo', req.nextUrl.pathname);
-    return NextResponse.redirect(redirectUrl);
+  // Allow unauthenticated users to proceed - the layout will show LoginForm
+  // The AuthProvider in the layout handles redirecting unauthenticated users to the login form
+  // So we don't need to redirect here - just check roles for authenticated users
+
+  // if ((isProtectedRoute || isAdminRoute) && !session) {
+  //   // Don't redirect - let the layout handle showing the login form
+  //   // The MainLayout component will show <LoginForm /> if !isAuthenticated
+  // }
+
+  // Check role for admin-only routes
+  if (isAdminRoute && session) {
+    // Get employee role from database
+    const { data: employee } = await supabase
+      .from('employees')
+      .select('role')
+      .eq('user_id', session.user.id)
+      .single();
+
+    const isAdminOrOwner = employee?.role === 'admin' || employee?.role === 'owner';
+
+    if (!isAdminOrOwner) {
+      // Redirect to home page with error parameter
+      const redirectUrl = new URL('/', req.url);
+      redirectUrl.searchParams.set('error', 'unauthorized');
+      redirectUrl.searchParams.set('required', 'admin');
+      return NextResponse.redirect(redirectUrl);
+    }
   }
 
   // Add security headers

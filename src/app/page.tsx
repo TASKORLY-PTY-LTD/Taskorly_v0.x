@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import {
   Card,
   CardContent,
@@ -18,6 +19,7 @@ import {
   XCircle,
   Clock,
   Settings,
+  AlertTriangle,
 } from 'lucide-react';
 import { trpc } from '@/utils/trpc';
 
@@ -43,6 +45,20 @@ const QuickActionItems = [
 ];
 
 export default function DashboardPage() {
+  const [showUnauthorizedError, setShowUnauthorizedError] = React.useState(false);
+
+  React.useEffect(() => {
+    // Check for unauthorized error in URL
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('error') === 'unauthorized') {
+      setShowUnauthorizedError(true);
+      // Clean up URL
+      window.history.replaceState({}, '', '/');
+      // Hide error after 5 seconds
+      setTimeout(() => setShowUnauthorizedError(false), 5000);
+    }
+  }, []);
+
   const { data: documents = [] } = trpc.documents.list.useQuery({
     limit: 50,
     offset: 0,
@@ -71,6 +87,25 @@ export default function DashboardPage() {
 
   return (
     <div className='flex-1 space-y-4 p-4 md:p-6 pt-6'>
+      {/* Unauthorized Error Banner */}
+      {showUnauthorizedError && (
+        <div className='bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3'>
+          <AlertTriangle className='h-5 w-5 text-red-600 mt-0.5' />
+          <div className='flex-1'>
+            <h3 className='font-semibold text-red-900'>Access Denied</h3>
+            <p className='text-sm text-red-700 mt-1'>
+              You don&apos;t have permission to access that page. Admin or owner role required.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowUnauthorizedError(false)}
+            className='text-red-600 hover:text-red-800'
+          >
+            <XCircle className='h-5 w-5' />
+          </button>
+        </div>
+      )}
+
       <div>
         <h1 className='text-3xl font-bold tracking-tight'>Dashboard</h1>
         <p className='text-muted-foreground'>

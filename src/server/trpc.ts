@@ -4,6 +4,7 @@ import superjson from 'superjson';
 import { ZodError } from 'zod';
 import { supabaseAdmin } from '@/lib/Connections/supabase'; // Keep admin for admin tasks
 import { createClient } from '@supabase/supabase-js'; // We need this to create user-specific clients
+import { rateLimit } from '@/lib/rate-limter';
 
 // Create context for tRPC
 export const createTRPCContext = async (opts: { req: NextRequest }) => {
@@ -55,24 +56,11 @@ export const createTRPCContext = async (opts: { req: NextRequest }) => {
     };
   }
   
-  const { data: dbEmployee, error: dbError } = await userSupabase
-    .from('employees')
-    .select(`
-      *,
-      tenants!inner (
-        tenant_id,
-        slug,
-        location,
-        business_id,
-        businesses (
-          business_id,
-          business_name,
-          industry
-        )
-      )
-    `)
-    .eq('user_id', authUser.id)
-    .single();
+  const { data: dbEmployee , error: dbError } = await userSupabase
+  .from('employees')  // ← FIX: was 'users'
+  .select('*, tenants(*)')
+  .eq('user_id', authUser.id)  // ← FIX: was 'id'
+  .single();
 
   if (dbError || !dbEmployee) {
     console.error('Could not find employee for auth user:', authUser.id, dbError);
@@ -137,7 +125,15 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
 
 // ... the rest of your procedures (tenantProcedure, adminProcedure) are correct and remain the same
 // Tenant procedure that requires both user and tenant
-export const tenantProcedure = protectedProcedure.use(({ ctx, next }) => {
+export const rateLimitedProcedure = protectedProcedure.use(async ({ ctx, next }) => {
+  const result = rateLimit(`user:${ctx.user.id}`, { maxRequests: 100, windowMs: 60000 });
+  if (!result.success) {
+    throw new TRPCError({ code: 'TOO_MANY_REQUESTS' });
+  }
+  return next({ ctx });
+});
+
+export const tenantProcedure = rateLimitedProcedure.use(({ ctx, next }) => {
   if (!ctx.tenant) {
     throw new TRPCError({
       code: 'FORBIDDEN',
