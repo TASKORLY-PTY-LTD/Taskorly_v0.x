@@ -295,7 +295,7 @@ export function SignupForm({
                   <p className='text-sm text-red-500'>{errors.storeName}</p>
                 )}
                 <p className='text-xs text-gray-600'>
-                  e.g., "Chatswood", "Sydney CBD", "Melbourne Central"
+                  e.g., &ldquo;Chatswood&rdquo;, &ldquo;Sydney CBD&rdquo;, &ldquo;Melbourne Central&rdquo;
                 </p>
               </div>
 
