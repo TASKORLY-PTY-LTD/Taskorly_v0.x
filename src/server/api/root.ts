@@ -2,7 +2,7 @@ import { createTRPCRouter } from '../trpc';
 import { authRouter } from '../routers/auth';
 import { chatRouter } from '../routers/chat';
 import { documentsRouter } from '../routers/documents';
-import { mcpRouter } from '../routers/mcp';
+// import { mcpRouter } from '../routers/mcp';
 // import { configRouter } from '../routers/config';
 import { settingsRouter } from '../routers/settings';
 
@@ -15,7 +15,7 @@ export const appRouter = createTRPCRouter({
   auth: authRouter,
   chat: chatRouter,
   documents: documentsRouter,
-  mcp: mcpRouter,
+  // mcp: mcpRouter,
   // config: configRouter,
   settings: settingsRouter,
 });

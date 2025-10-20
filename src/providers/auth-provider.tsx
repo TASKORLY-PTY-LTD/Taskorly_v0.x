@@ -51,7 +51,13 @@ interface AuthContextType {
     email: string;
     password: string;
     fullName: string;
-    tenantName?: string;
+    businessName: string;
+    storeName: string;
+    location: string;
+    industry?: string;
+    businessType?: string;
+    phone?: string;
+    website?: string;
     role?: 'owner' | 'admin' | 'manager' | 'user';
   }) => Promise<void>;
   logout: () => void;
@@ -155,6 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (meQuery.error && !isRefreshing) {
       handleAuthError();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meQuery.error, isRefreshing]); // Add isRefreshing to dependencies
   // --- END: THE FIX ---
 
@@ -181,7 +188,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string;
     password: string;
     fullName: string;
-    tenantName?: string;
+    businessName: string;
+    storeName: string;
+    location: string;
+    industry?: string;
+    businessType?: string;
+    phone?: string;
+    website?: string;
     role?: 'owner' | 'admin' | 'manager' | 'user';
   }): Promise<void> => {
     try {
