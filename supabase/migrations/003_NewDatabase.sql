@@ -209,3 +209,464 @@ CREATE TRIGGER update_conversations_updated_at BEFORE UPDATE ON conversations
 
 CREATE TRIGGER update_api_keys_updated_at BEFORE UPDATE ON api_keys
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================================
+-- ROW LEVEL SECURITY (RLS) POLICIES
+-- ============================================================================
+-- These policies ensure multi-tenant isolation at the database level
+-- Users can only access data within their assigned tenant workspace
+
+-- Enable RLS on all tables
+ALTER TABLE public.businesses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tenants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.mcp_servers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.document_chunks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.usage_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.api_keys ENABLE ROW LEVEL SECURITY;
+
+-- Helper function to get current user's tenant_id
+CREATE OR REPLACE FUNCTION public.get_user_tenant_id()
+RETURNS UUID AS $$
+BEGIN
+  RETURN (
+    SELECT tenant_id
+    FROM public.employees
+    WHERE user_id = auth.uid()
+    LIMIT 1
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Helper function to check if user is admin or owner
+CREATE OR REPLACE FUNCTION public.is_user_admin()
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1
+    FROM public.employees
+    WHERE user_id = auth.uid()
+    AND role IN ('admin', 'owner')
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Helper function to check if user belongs to tenant
+CREATE OR REPLACE FUNCTION public.user_belongs_to_tenant(tenant_uuid UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1
+    FROM public.employees
+    WHERE user_id = auth.uid()
+    AND tenant_id = tenant_uuid
+    AND active = 'active'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================================================
+-- BUSINESSES TABLE POLICIES
+-- ============================================================================
+
+-- Users can view their business information
+CREATE POLICY "Users can view their own business"
+  ON public.businesses FOR SELECT
+  USING (
+    business_id IN (
+      SELECT b.business_id
+      FROM public.businesses b
+      JOIN public.tenants t ON t.business_id = b.business_id
+      JOIN public.employees e ON e.tenant_id = t.tenant_id
+      WHERE e.user_id = auth.uid()
+    )
+  );
+
+-- Only admins/owners can update business information
+CREATE POLICY "Admins can update business info"
+  ON public.businesses FOR UPDATE
+  USING (
+    is_user_admin()
+    AND business_id IN (
+      SELECT b.business_id
+      FROM public.businesses b
+      JOIN public.tenants t ON t.business_id = b.business_id
+      JOIN public.employees e ON e.tenant_id = t.tenant_id
+      WHERE e.user_id = auth.uid()
+    )
+  );
+
+-- Only owners can delete businesses
+CREATE POLICY "Owners can delete business"
+  ON public.businesses FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.businesses b
+      JOIN public.tenants t ON t.business_id = b.business_id
+      JOIN public.employees e ON e.tenant_id = t.tenant_id
+      WHERE e.user_id = auth.uid()
+      AND e.role = 'owner'
+      AND b.business_id = businesses.business_id
+    )
+  );
+
+-- ============================================================================
+-- TENANTS TABLE POLICIES
+-- ============================================================================
+
+-- Users can view their tenant information
+CREATE POLICY "Users can view their tenant"
+  ON public.tenants FOR SELECT
+  USING (
+    tenant_id IN (
+      SELECT tenant_id
+      FROM public.employees
+      WHERE user_id = auth.uid()
+    )
+  );
+
+-- Only admins can update tenant information
+CREATE POLICY "Admins can update tenant info"
+  ON public.tenants FOR UPDATE
+  USING (
+    is_user_admin()
+    AND user_belongs_to_tenant(tenant_id)
+  );
+
+-- Only owners can delete tenants
+CREATE POLICY "Owners can delete tenant"
+  ON public.tenants FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.employees
+      WHERE user_id = auth.uid()
+      AND tenant_id = tenants.tenant_id
+      AND role = 'owner'
+    )
+  );
+
+-- ============================================================================
+-- EMPLOYEES TABLE POLICIES
+-- ============================================================================
+
+-- Users can view employees in their tenant
+CREATE POLICY "Users can view tenant employees"
+  ON public.employees FOR SELECT
+  USING (user_belongs_to_tenant(tenant_id));
+
+-- Users can view their own employee record
+CREATE POLICY "Users can view own employee record"
+  ON public.employees FOR SELECT
+  USING (user_id = auth.uid());
+
+-- Admins can insert new employees in their tenant
+CREATE POLICY "Admins can add employees"
+  ON public.employees FOR INSERT
+  WITH CHECK (
+    is_user_admin()
+    AND user_belongs_to_tenant(tenant_id)
+  );
+
+-- Admins can update employees in their tenant
+CREATE POLICY "Admins can update employees"
+  ON public.employees FOR UPDATE
+  USING (
+    is_user_admin()
+    AND user_belongs_to_tenant(tenant_id)
+  );
+
+-- Users can update their own profile
+CREATE POLICY "Users can update own profile"
+  ON public.employees FOR UPDATE
+  USING (user_id = auth.uid());
+
+-- Only owners can delete employees
+CREATE POLICY "Owners can delete employees"
+  ON public.employees FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.employees e
+      WHERE e.user_id = auth.uid()
+      AND e.tenant_id = employees.tenant_id
+      AND e.role = 'owner'
+    )
+  );
+
+-- ============================================================================
+-- SETTINGS TABLE POLICIES
+-- ============================================================================
+
+-- Users can view their tenant settings
+CREATE POLICY "Users can view tenant settings"
+  ON public.settings FOR SELECT
+  USING (user_belongs_to_tenant(tenant_id));
+
+-- Admins can manage tenant settings
+CREATE POLICY "Admins can manage settings"
+  ON public.settings FOR ALL
+  USING (
+    is_user_admin()
+    AND user_belongs_to_tenant(tenant_id)
+  );
+
+-- ============================================================================
+-- MCP SERVERS TABLE POLICIES
+-- ============================================================================
+
+-- Users can view MCP servers in their tenant
+CREATE POLICY "Users can view tenant MCP servers"
+  ON public.mcp_servers FOR SELECT
+  USING (user_belongs_to_tenant(tenant_id));
+
+-- Admins can manage MCP servers
+CREATE POLICY "Admins can manage MCP servers"
+  ON public.mcp_servers FOR ALL
+  USING (
+    is_user_admin()
+    AND user_belongs_to_tenant(tenant_id)
+  );
+
+-- ============================================================================
+-- DOCUMENTS TABLE POLICIES
+-- ============================================================================
+
+-- Users can view documents in their tenant
+CREATE POLICY "Users can view tenant documents"
+  ON public.documents FOR SELECT
+  USING (user_belongs_to_tenant(tenant_id));
+
+-- Users can insert documents in their tenant
+CREATE POLICY "Users can create documents"
+  ON public.documents FOR INSERT
+  WITH CHECK (user_belongs_to_tenant(tenant_id));
+
+-- Users can update documents in their tenant
+CREATE POLICY "Users can update documents"
+  ON public.documents FOR UPDATE
+  USING (user_belongs_to_tenant(tenant_id));
+
+-- Admins can delete documents
+CREATE POLICY "Admins can delete documents"
+  ON public.documents FOR DELETE
+  USING (
+    is_user_admin()
+    AND user_belongs_to_tenant(tenant_id)
+  );
+
+-- ============================================================================
+-- DOCUMENT CHUNKS TABLE POLICIES
+-- ============================================================================
+
+-- Users can view document chunks if they can view the parent document
+CREATE POLICY "Users can view tenant document chunks"
+  ON public.document_chunks FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.documents d
+      WHERE d.id = document_chunks.document_id
+      AND user_belongs_to_tenant(d.tenant_id)
+    )
+  );
+
+-- System can insert chunks (via service role)
+CREATE POLICY "Service role can manage chunks"
+  ON public.document_chunks FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.documents d
+      WHERE d.id = document_chunks.document_id
+      AND user_belongs_to_tenant(d.tenant_id)
+    )
+  );
+
+-- ============================================================================
+-- CONVERSATIONS TABLE POLICIES
+-- ============================================================================
+
+-- Users can view conversations in their tenant
+CREATE POLICY "Users can view tenant conversations"
+  ON public.conversations FOR SELECT
+  USING (user_belongs_to_tenant(tenant_id));
+
+-- Users can create conversations in their tenant
+CREATE POLICY "Users can create conversations"
+  ON public.conversations FOR INSERT
+  WITH CHECK (
+    user_belongs_to_tenant(tenant_id)
+    AND employee_id IN (
+      SELECT employee_id
+      FROM public.employees
+      WHERE user_id = auth.uid()
+    )
+  );
+
+-- Users can update their own conversations
+CREATE POLICY "Users can update own conversations"
+  ON public.conversations FOR UPDATE
+  USING (
+    employee_id IN (
+      SELECT employee_id
+      FROM public.employees
+      WHERE user_id = auth.uid()
+    )
+  );
+
+-- Users can delete their own conversations
+CREATE POLICY "Users can delete own conversations"
+  ON public.conversations FOR DELETE
+  USING (
+    employee_id IN (
+      SELECT employee_id
+      FROM public.employees
+      WHERE user_id = auth.uid()
+    )
+  );
+
+-- ============================================================================
+-- MESSAGES TABLE POLICIES
+-- ============================================================================
+
+-- Users can view messages in conversations they have access to
+CREATE POLICY "Users can view conversation messages"
+  ON public.messages FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.conversations c
+      WHERE c.conversation_id = messages.conversation_id
+      AND user_belongs_to_tenant(c.tenant_id)
+    )
+  );
+
+-- Users can create messages in their conversations
+CREATE POLICY "Users can create messages"
+  ON public.messages FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.conversations c
+      JOIN public.employees e ON e.employee_id = c.employee_id
+      WHERE c.conversation_id = messages.conversation_id
+      AND e.user_id = auth.uid()
+    )
+  );
+
+-- System/service role can insert assistant messages
+CREATE POLICY "Service can create assistant messages"
+  ON public.messages FOR INSERT
+  WITH CHECK (
+    role IN ('assistant', 'system')
+    AND EXISTS (
+      SELECT 1
+      FROM public.conversations c
+      WHERE c.conversation_id = messages.conversation_id
+      AND user_belongs_to_tenant(c.tenant_id)
+    )
+  );
+
+-- ============================================================================
+-- USAGE LOGS TABLE POLICIES
+-- ============================================================================
+
+-- Admins can view usage logs for their tenant
+CREATE POLICY "Admins can view usage logs"
+  ON public.usage_logs FOR SELECT
+  USING (
+    is_user_admin()
+    AND user_belongs_to_tenant(tenant_id)
+  );
+
+-- Users can view their own usage logs
+CREATE POLICY "Users can view own usage logs"
+  ON public.usage_logs FOR SELECT
+  USING (
+    employee_id IN (
+      SELECT employee_id
+      FROM public.employees
+      WHERE user_id = auth.uid()
+    )
+  );
+
+-- System can insert usage logs
+CREATE POLICY "Service can create usage logs"
+  ON public.usage_logs FOR INSERT
+  WITH CHECK (user_belongs_to_tenant(tenant_id));
+
+-- ============================================================================
+-- API KEYS TABLE POLICIES
+-- ============================================================================
+
+-- Users can view their own API keys
+CREATE POLICY "Users can view own API keys"
+  ON public.api_keys FOR SELECT
+  USING (
+    employee_id IN (
+      SELECT employee_id
+      FROM public.employees
+      WHERE user_id = auth.uid()
+    )
+  );
+
+-- Admins can view all tenant API keys
+CREATE POLICY "Admins can view tenant API keys"
+  ON public.api_keys FOR SELECT
+  USING (
+    is_user_admin()
+    AND employee_id IN (
+      SELECT e.employee_id
+      FROM public.employees e
+      WHERE user_belongs_to_tenant(e.tenant_id)
+    )
+  );
+
+-- Users can create their own API keys
+CREATE POLICY "Users can create own API keys"
+  ON public.api_keys FOR INSERT
+  WITH CHECK (
+    employee_id IN (
+      SELECT employee_id
+      FROM public.employees
+      WHERE user_id = auth.uid()
+    )
+  );
+
+-- Users can update their own API keys
+CREATE POLICY "Users can update own API keys"
+  ON public.api_keys FOR UPDATE
+  USING (
+    employee_id IN (
+      SELECT employee_id
+      FROM public.employees
+      WHERE user_id = auth.uid()
+    )
+  );
+
+-- Users can delete their own API keys
+CREATE POLICY "Users can delete own API keys"
+  ON public.api_keys FOR DELETE
+  USING (
+    employee_id IN (
+      SELECT employee_id
+      FROM public.employees
+      WHERE user_id = auth.uid()
+    )
+  );
+
+-- ============================================================================
+-- GRANT PERMISSIONS
+-- ============================================================================
+-- Grant authenticated users access to tables (RLS policies will restrict access)
+
+GRANT USAGE ON SCHEMA public TO authenticated;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO authenticated;
