@@ -277,12 +277,12 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE POLICY "Users can view their own business"
   ON public.businesses FOR SELECT
   USING (
-    business_id IN (
-      SELECT b.business_id
-      FROM public.businesses b
-      JOIN public.tenants t ON t.business_id = b.business_id
+    EXISTS (
+      SELECT 1
+      FROM public.tenants t
       JOIN public.employees e ON e.tenant_id = t.tenant_id
-      WHERE e.user_id = auth.uid()
+      WHERE t.business_id = businesses.business_id
+      AND e.user_id = auth.uid()
     )
   );
 
@@ -291,12 +291,12 @@ CREATE POLICY "Admins can update business info"
   ON public.businesses FOR UPDATE
   USING (
     is_user_admin()
-    AND business_id IN (
-      SELECT b.business_id
-      FROM public.businesses b
-      JOIN public.tenants t ON t.business_id = b.business_id
+    AND EXISTS (
+      SELECT 1
+      FROM public.tenants t
       JOIN public.employees e ON e.tenant_id = t.tenant_id
-      WHERE e.user_id = auth.uid()
+      WHERE t.business_id = businesses.business_id
+      AND e.user_id = auth.uid()
     )
   );
 
@@ -306,12 +306,11 @@ CREATE POLICY "Owners can delete business"
   USING (
     EXISTS (
       SELECT 1
-      FROM public.businesses b
-      JOIN public.tenants t ON t.business_id = b.business_id
+      FROM public.tenants t
       JOIN public.employees e ON e.tenant_id = t.tenant_id
-      WHERE e.user_id = auth.uid()
+      WHERE t.business_id = businesses.business_id
+      AND e.user_id = auth.uid()
       AND e.role = 'owner'
-      AND b.business_id = businesses.business_id
     )
   );
 
